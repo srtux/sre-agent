@@ -18,6 +18,7 @@ const getAgentColor = (node: { id: string }) => agentColors[node.id] || '#6366F1
 
 interface TrajectorySankeyProps {
   data: SankeyResponse
+  errorsOnly?: boolean
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
 }
@@ -79,7 +80,7 @@ const CustomLabelsLayer = (props: any) => {
   );
 };
 
-export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: TrajectorySankeyProps) {
+export default function TrajectorySankey({ data, errorsOnly, onNodeClick, onEdgeClick }: TrajectorySankeyProps) {
   // Build a Set of node IDs involved in detected loops
   const loopNodeIds = new Set<string>()
   const loopEdges = new Set<string>()
@@ -104,6 +105,15 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
 
   // Dynamic dimensions based on node count to prevent squishing
   const numNodes = safeData.nodes.length
+
+  if (numNodes === 0) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0F172A', color: '#94A3B8' }}>
+        No trajectory data available for this time range.
+      </div>
+    )
+  }
+
   const dynamicHeight = Math.max(800, numNodes * 60)
   const dynamicWidth = Math.max(1200, numNodes * 80)
 
@@ -135,7 +145,7 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
                 <ResponsiveSankey
                   data={safeData}
                   margin={{ top: 40, right: 180, bottom: 40, left: 50 }}
-                  align="justify"
+                  align="center"
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   layers={['links', 'nodes', CustomLabelsLayer as any, 'legends']}
                   colors={(node) => loopNodeIds.has(node.id) ? '#FF6D00' : getAgentColor(node)}
@@ -149,8 +159,11 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
                   linkHoverOthersOpacity={0.05}
                   linkContract={2}
                   linkBlendMode="screen"
-                  enableLinkGradient={true}
                   nodeHoverOthersOpacity={0.2}
+                  // @ts-expect-error Nivo types for Sankey links are occasionally outdated
+                  enableLinkLabels={errorsOnly}
+                  linkLabel={(link: any) => `${link.value} error${link.value !== 1 ? 's' : ''}`}
+                  linkLabelsTextColor="#FF5252"
                   animate={true}
                   onClick={(datum) => {
                     if ('source' in datum && 'target' in datum) {

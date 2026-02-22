@@ -3,12 +3,13 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { ArrowUp, ArrowDown, ArrowUpDown, Search } from 'lucide-react'
 
 // --- Styles ---
 
@@ -24,6 +25,33 @@ const styles = {
 
   scrollContainer: {
     overflow: 'auto',
+    flex: 1,
+  } satisfies React.CSSProperties,
+
+  toolbar: {
+    display: 'flex',
+    padding: '12px 16px',
+    borderBottom: '1px solid #334155',
+    background: '#1E293B',
+    alignItems: 'center',
+    gap: '8px',
+  } satisfies React.CSSProperties,
+
+  searchInput: {
+    background: '#0F172A',
+    border: '1px solid #334155',
+    borderRadius: '6px',
+    padding: '6px 12px 6px 32px',
+    color: '#F0F4F8',
+    fontSize: '13px',
+    width: '250px',
+    outline: 'none',
+  } satisfies React.CSSProperties,
+
+  searchIcon: {
+    position: 'absolute',
+    left: '28px',
+    color: '#78909C',
   } satisfies React.CSSProperties,
 
   table: {
@@ -137,6 +165,7 @@ if (typeof document !== 'undefined' && !document.getElementById(HOVER_ID)) {
   el.id = HOVER_ID
   el.textContent = `
     [data-vdt-row]:hover { background: rgba(6, 182, 212, 0.06) !important; }
+    [data-vdt-row-clickable="true"] { cursor: pointer; }
   `
   document.head.appendChild(el)
 }
@@ -170,6 +199,14 @@ export interface VirtualizedDataTableProps<TData> {
   sortable?: boolean
   /** Additional inline styles on the outer wrapper. */
   style?: React.CSSProperties
+  /** Optional row click handler. */
+  onRowClick?: (row: TData) => void
+  /** Enable global text search filter. @default false */
+  enableSearch?: boolean
+  /** Placeholder for text search input. */
+  searchPlaceholder?: string
+  /** Make the table fill its parent container height. @default false */
+  fullHeight?: boolean
 }
 
 export default function VirtualizedDataTable<TData>({
@@ -182,17 +219,24 @@ export default function VirtualizedDataTable<TData>({
   showFooter = true,
   sortable = true,
   style: styleProp,
+  onRowClick,
+  enableSearch = false,
+  searchPlaceholder = 'Search...',
+  fullHeight = false,
 }: VirtualizedDataTableProps<TData>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [sorting, setSorting] = useState<SortingState>([])
+  const [globalFilter, setGlobalFilter] = useState('')
 
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, globalFilter },
     onSortingChange: sortable ? setSorting : undefined,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: sortable ? getSortedRowModel() : undefined,
+    getFilteredRowModel: getFilteredRowModel(),
   })
 
   const { rows } = table.getRowModel()
@@ -210,11 +254,35 @@ export default function VirtualizedDataTable<TData>({
   const headerGroups = useMemo(() => table.getHeaderGroups(), [table])
 
   return (
-    <div style={{ ...styles.wrapper, position: 'relative', ...styleProp }}>
+    <div style={{
+      ...styles.wrapper,
+      height: fullHeight ? '100%' : undefined,
+      maxHeight: fullHeight ? undefined : `${maxHeight}px`,
+      minHeight: fullHeight ? 0 : undefined,
+      flex: fullHeight ? 1 : undefined,
+      position: 'relative',
+      ...styleProp
+    }}>
+      {enableSearch && (
+        <div style={styles.toolbar}>
+          <Search size={16} style={styles.searchIcon} />
+          <input
+            type="text"
+            value={globalFilter ?? ''}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder={searchPlaceholder}
+            style={styles.searchInput}
+          />
+        </div>
+      )}
+
       {/* Scrollable viewport */}
       <div
         ref={scrollRef}
-        style={{ ...styles.scrollContainer, maxHeight: `${maxHeight}px` }}
+        style={{
+          ...styles.scrollContainer,
+          maxHeight: fullHeight ? '100%' : `${maxHeight}px`
+        }}
       >
         <table style={styles.table}>
           {/* Sticky header */}
@@ -280,9 +348,11 @@ export default function VirtualizedDataTable<TData>({
                     <tr
                       key={row.id}
                       data-vdt-row=""
+                      data-vdt-row-clickable={!!onRowClick}
                       data-index={virtualRow.index}
                       ref={virtualizer.measureElement}
                       style={isOdd ? styles.rowOdd : styles.rowEven}
+                      onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td key={cell.id} style={styles.td}>

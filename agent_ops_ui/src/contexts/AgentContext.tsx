@@ -15,7 +15,9 @@ interface AgentContextType {
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 export function AgentProvider({ children, projectId }: { children: ReactNode, projectId: string }) {
-  const [serviceName, setServiceName] = useState<string>(localStorage.getItem('agent_graph_service_name') || 'sre-agent');
+  const [serviceName, setServiceName] = useState<string>(
+    localStorage.getItem('agent_graph_service_name') ?? ''
+  );
   const [availableAgents, setAvailableAgents] = useState<RegistryAgent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState<boolean>(true);
   const [errorAgents, setErrorAgents] = useState<string | null>(null);
@@ -43,14 +45,11 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
       setAvailableAgents(uniqueAgents);
 
       setServiceName(prevServiceName => {
+        if (prevServiceName === '') return ''; // "All Agents" is always valid
+
         const currentExists = uniqueAgents.some(a => a.serviceName === prevServiceName);
         if (!currentExists) {
-          const highestVolumeAgent = uniqueAgents.reduce((prev, current) =>
-            (prev.totalSessions > current.totalSessions) ? prev : current
-          );
-          const defaultName = highestVolumeAgent.serviceName;
-          localStorage.setItem('agent_graph_service_name', defaultName);
-          return defaultName;
+          return ''; // If the previously selected service doesn't exist anymore, default to All Agents
         }
         return prevServiceName;
       });

@@ -282,12 +282,13 @@ export default function GraphToolbar({
                 style={{ ...styles.select, fontFamily: "'JetBrains Mono', monospace" }}
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
-                disabled={loadingAgents || availableAgents.length === 0}
+                disabled={loadingAgents}
               >
+                <option value="">All Agents</option>
                 {loadingAgents ? (
-                  <option value={serviceName}>Loading agents...</option>
+                  <option disabled value={serviceName}>Loading agents...</option>
                 ) : availableAgents.length === 0 ? (
-                  <option value={serviceName}>{serviceName}</option>
+                    <option disabled value={serviceName}>No agents available</option>
                 ) : (
                   availableAgents.map((a) => (
                     <option key={a.serviceName} value={a.serviceName}>

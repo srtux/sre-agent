@@ -108,6 +108,9 @@ class SreToolbar extends StatelessWidget {
   }
 
   Widget _buildItemCount() {
+    if (dashboardState.activeTab == DashboardDataType.agentGraph) {
+      return const SizedBox.shrink();
+    }
     final count = dashboardState.items.length;
     if (count == 0) return const SizedBox.shrink();
     return Container(

@@ -1462,6 +1462,7 @@ class TestRegistryEndpoints:
         mock_row.error_rate = 0.04
         mock_row.p50_duration_ms = 150.0
         mock_row.p95_duration_ms = 500.0
+        mock_row.description = "A test agent description"
         mock_client.query_and_wait.return_value = [mock_row]
 
         response = client.get(
@@ -1479,6 +1480,7 @@ class TestRegistryEndpoints:
         assert agent["totalSessions"] == 10
         assert agent["errorRate"] == 0.04
         assert agent["p95DurationMs"] == 500.0
+        assert agent["description"] == "A test agent description"
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_get_tool_registry_success(self, mock_get_client, client):
@@ -1493,6 +1495,7 @@ class TestRegistryEndpoints:
         mock_row.error_rate = 0.05
         mock_row.avg_duration_ms = 200.0
         mock_row.p95_duration_ms = 600.0
+        mock_row.description = "A test tool description"
         mock_client.query_and_wait.return_value = [mock_row]
 
         response = client.get(
@@ -1510,6 +1513,7 @@ class TestRegistryEndpoints:
         assert tool["executionCount"] == 100
         assert tool["errorRate"] == 0.05
         assert tool["p95DurationMs"] == 600.0
+        assert tool["description"] == "A test tool description"
 
 
 class TestDashboardKpis:

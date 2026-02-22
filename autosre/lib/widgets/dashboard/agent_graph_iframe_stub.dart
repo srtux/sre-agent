@@ -5,8 +5,6 @@ class AgentGraphIframePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('AgentOps Iframe Placeholder (Non-Web)'),
-    );
+    return const Center(child: Text('AgentOps Iframe Placeholder (Non-Web)'));
   }
 }

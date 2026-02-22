@@ -99,10 +99,12 @@ async function fetchDashboardTables(
 
 // --- Hook ---
 
-export function useDashboardTables(hours: number) {
+export function useDashboardTables(hours: number, explicitServiceName?: string) {
   const { selectedAgents } = useDashboardFilters()
   const { projectId } = useAgentContext()
-  const serviceName = selectedAgents.length > 0 ? selectedAgents[0] : ''
+  const serviceName = explicitServiceName !== undefined
+    ? explicitServiceName
+    : (selectedAgents.length > 0 ? selectedAgents[0] : '')
 
   return useQuery({
     queryKey: ['dashboard-tables', projectId, serviceName, hours],

@@ -331,22 +331,13 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           Tools
         </button>
         <button
-          style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
-          onClick={() => {
-            setActiveTab('dashboard')
-            setFilters(prev => ({ ...prev, hours: 24 }))
-          }}
-        >
-          Dashboard
-        </button>
-        <button
           style={activeTab === 'traces' ? styles.tabActive : styles.tab}
           onClick={() => {
             setActiveTab('traces')
             setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
-          Agent Traces
+          Traces
         </button>
         <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
@@ -356,7 +347,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
             setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
-          Agent Graph
+          Graph
         </button>
         <button
           style={activeTab === 'trajectory' ? styles.tabActive : styles.tab}
@@ -366,7 +357,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
             setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
-          Trajectory Flow
+          Trajectory
         </button>
       </div>
 
@@ -454,8 +445,8 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                 {sankeyData ? (
                       <TrajectorySankey
                         data={sankeyData}
+                        errorsOnly={filters.errorsOnly}
                         onNodeClick={(nodeId) => setSelected({ kind: 'node', id: nodeId })}
-                        onEdgeClick={(sourceId, targetId) => setSelected({ kind: 'edge', sourceId, targetId })}
                       />
                 ) : (
                   <div style={styles.placeholder}>

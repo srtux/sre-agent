@@ -9,13 +9,20 @@ import type { SankeyResponse } from '../types'
  * @returns A new object with cyclic edges removed for safe rendering.
  */
 export function removeCyclicLinks(data: SankeyResponse): SankeyResponse {
+  // 1. Validate nodes exist for all links
+  const validNodeIds = new Set(data.nodes.map((n) => n.id))
+  // Filter out any links whose source or target refers to a non-existent node
+  const validLinks = data.links.filter(
+    (l) => validNodeIds.has(l.source) && validNodeIds.has(l.target),
+  )
+
   const safeLinks: SankeyResponse['links'] = []
   const visited = new Set<string>()
   const recStack = new Set<string>()
 
   const adj = new Map<string, { target: string; link: SankeyResponse['links'][0] }[]>()
   data.nodes.forEach((n) => adj.set(n.id, []))
-  data.links.forEach((l) => {
+  validLinks.forEach((l) => {
     if (!adj.has(l.source)) adj.set(l.source, [])
     if (!adj.has(l.target)) adj.set(l.target, [])
     adj.get(l.source)!.push({ target: l.target, link: l })
@@ -24,7 +31,7 @@ export function removeCyclicLinks(data: SankeyResponse): SankeyResponse {
   // Calculate in-degree for a heuristic start order (roots first)
   const inDegree = new Map<string, number>()
   data.nodes.forEach((n) => inDegree.set(n.id, 0))
-  data.links.forEach((l) => {
+  validLinks.forEach((l) => {
     inDegree.set(l.target, (inDegree.get(l.target) ?? 0) + 1)
   })
 
@@ -58,5 +65,16 @@ export function removeCyclicLinks(data: SankeyResponse): SankeyResponse {
     }
   }
 
-  return { nodes: data.nodes, links: safeLinks }
+  // 2. Aggregate parallel edges. d3-sankey often crashes if multiple identical edges exist.
+  const aggregatedLinks = new Map<string, SankeyResponse['links'][0]>()
+  for (const link of safeLinks) {
+    const simpleKey = `${link.source}->${link.target}`
+    if (aggregatedLinks.has(simpleKey)) {
+      aggregatedLinks.get(simpleKey)!.value += link.value
+    } else {
+      aggregatedLinks.set(simpleKey, { ...link })
+    }
+  }
+
+  return { ...data, nodes: data.nodes, links: Array.from(aggregatedLinks.values()) }
 }

@@ -55,6 +55,7 @@ The following features have been implemented since the original IMPROVEMENTS doc
 | Agent Evaluations Framework | Quality | `eval/` (trajectory, rubrics, hallucination, safety) | 2026-02 |
 | Memory Subsystem | Learning | `sre_agent/memory/` (factory, local, callbacks, manager) | 2026-02 |
 | Global Tool Error Learning | Resilience | `sre_agent/memory/` (persists tool errors for future avoidance) | 2026-02 |
+| AgentOps UI Observability | UX | `agent_ops_ui/` & BQ setup (agent descriptions, fit-view defaults, telemetry traces) | 2026-02 |
 
 ---
 

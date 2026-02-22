@@ -149,28 +149,28 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
           onTap: _closeDropdown,
           child: Material(
             color: Colors.transparent,
-          child: Stack(
-            children: [
-              Positioned(
-                left: offset.dx,
-                top: offset.dy + size.height + 8,
-                width: 360,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      alignment: Alignment.topLeft,
-                      child: _buildDropdownContent(),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: offset.dx,
+                  top: offset.dy + size.height + 8,
+                  width: 360,
+                  child: GestureDetector(
+                    onTap: () {},
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ScaleTransition(
+                        scale: _scaleAnimation,
+                        alignment: Alignment.topLeft,
+                        child: _buildDropdownContent(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

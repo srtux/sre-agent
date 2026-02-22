@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
@@ -19,7 +19,9 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Check
 } from 'lucide-react'
 SyntaxHighlighter.registerLanguage('sql', sql)
 
@@ -81,7 +83,6 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 50,
     display: 'flex',
     flexDirection: 'column',
-    transition: 'transform 0.25s ease-in-out',
     overflow: 'hidden',
   },
   header: {
@@ -244,6 +245,50 @@ export default function SidePanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [panelWidth, setPanelWidth] = useState(360)
+  const [isResizing, setIsResizing] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (nodeDetail && nodeDetail.errorCount > 0 && panelWidth < 600) {
+      setPanelWidth(600)
+    }
+  }, [nodeDetail, panelWidth])
+
+  // Resize Handlers
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true)
+    e.preventDefault()
+  }, [])
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false)
+  }, [])
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing && panelRef.current) {
+      const newWidth = window.innerWidth - e.clientX
+      // Set min and max bounds
+      if (newWidth >= 300 && newWidth <= Math.min(1200, window.innerWidth - 50)) {
+        setPanelWidth(newWidth)
+      }
+    }
+  }, [isResizing])
+
+  useEffect(() => {
+    if (isResizing) {
+      document.body.style.cursor = 'ew-resize'
+      window.addEventListener('mousemove', resize)
+      window.addEventListener('mouseup', stopResizing)
+    } else {
+      document.body.style.cursor = ''
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize)
+      window.removeEventListener('mouseup', stopResizing)
+    }
+  }, [isResizing, resize, stopResizing])
+
   useEffect(() => {
     if (!selected) {
       setNodeDetail(null)
@@ -286,9 +331,12 @@ export default function SidePanel({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Failed to load details',
-          )
+          if (axios.isAxiosError(err) && err.response?.data?.detail) {
+            const detail = err.response.data.detail
+            setError(typeof detail === 'string' ? detail : JSON.stringify(detail))
+          } else {
+            setError(err instanceof Error ? err.message : 'Failed to load details')
+          }
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -305,12 +353,31 @@ export default function SidePanel({
 
   return (
     <div
+      ref={panelRef}
       style={{
         ...styles.overlay,
-        transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+        width: `${panelWidth}px`,
+        transform: isOpen ? 'translateX(0)' : `translateX(${panelWidth}px)`,
         pointerEvents: isOpen ? 'auto' : 'none',
+        transition: isResizing ? 'none' : 'transform 0.25s ease-in-out',
       }}
     >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '5px',
+          cursor: 'ew-resize',
+          zIndex: 60,
+          background: isResizing ? '#06B6D4' : 'transparent',
+          transition: 'background 0.2s',
+        }}
+        onMouseDown={startResizing}
+        onMouseEnter={(e) => { if (!isResizing) e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)' }}
+        onMouseLeave={(e) => { if (!isResizing) e.currentTarget.style.background = 'transparent' }}
+      />
       <div style={styles.header}>
         <span style={styles.headerTitle}>
           {selected?.kind === 'node' && nodeDetail && (
@@ -374,6 +441,11 @@ function NodeDetailView({
   sparklineData?: TimeSeriesData | null
     filters?: GraphFilters
 }) {
+  const [computedErrors, setComputedErrors] = useState<Array<{ message: string, count: number }>>([])
+
+  // Only use computed errors if they exist, otherwise fallback to generic DB Top Errors
+  const displayErrors = computedErrors.length > 0 ? computedErrors.slice(0, 3) : detail.topErrors
+
   const errColor = errorRateColor(detail.errorRate)
   const maxLatency = detail.latency.p99 || 1
 
@@ -488,37 +560,43 @@ function NodeDetailView({
         </div>
       </div>
 
-      {hasSparkline && (
-        <div style={{ ...styles.cardBlock, paddingBottom: '16px' }}>
-          <div style={styles.sectionTitle}><Clock size={14} /> {sparkLabel(viewMode)} Trend</div>
-          <Sparkline
-            data={extractSparkSeries(nodePoints, viewMode)}
-            color={sparkColor(viewMode)}
-            width={320}
-            height={40}
-          />
-        </div>
-      )}
+      {(hasSparkline || displayErrors.length > 0) && (
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+          {hasSparkline && (
+            <div style={{ ...styles.cardBlock, flex: 1, marginBottom: 0, paddingBottom: '16px' }}>
+              <div style={styles.sectionTitle}><Clock size={14} /> {sparkLabel(viewMode)} Trend</div>
+              <Sparkline
+                data={extractSparkSeries(nodePoints, viewMode)}
+                color={sparkColor(viewMode)}
+                width={140}
+                height={40}
+              />
+            </div>
+          )}
 
-      {detail.topErrors.length > 0 && (
-        <div style={styles.cardBlock}>
-          <div style={{ ...styles.sectionTitle, color: '#FF5252' }}><AlertCircle size={14} /> Top Errors</div>
-          {detail.topErrors.map((err, idx) => (
-            <div key={idx} style={styles.errorItem}>
-              <div style={styles.errorMessage}>{err.message}</div>
-              <div style={styles.errorCount}>
-                {err.count.toLocaleString()} occurrence{err.count !== 1 ? 's' : ''}
+          {displayErrors.length > 0 && (
+            <div style={{ ...styles.cardBlock, flex: 2, marginBottom: 0 }}>
+              <div style={{ ...styles.sectionTitle, color: '#FF5252' }}><AlertCircle size={14} /> Top Errors</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {displayErrors.map((err, idx) => (
+                  <div key={idx} style={{ ...styles.errorItem, padding: '4px 8px', marginBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ ...styles.errorMessage, fontSize: '11px', marginBottom: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{err.message}</div>
+                    <div style={{ ...styles.errorCount, marginLeft: '8px', flexShrink: 0 }}>
+                      {err.count.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Raw Payloads */}
       <PayloadAccordion
         payloads={detail.recentPayloads ?? []}
         projectId={projectId}
         filters={filters}
+        onComputedErrors={setComputedErrors}
       />
     </>
   )
@@ -614,78 +692,125 @@ function PayloadAccordion({
   payloads,
   projectId,
   filters,
+  onComputedErrors,
 }: {
   payloads: PayloadEntry[]
   projectId: string
   filters?: GraphFilters
+    onComputedErrors?: (errors: Array<{ message: string, count: number }>) => void
 }) {
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
   const [spanDetailsCache, setSpanDetailsCache] = useState<Record<string, SpanDetails>>({})
   const [traceLogsCache, setTraceLogsCache] = useState<Record<string, TraceLogsData>>({})
   const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set())
 
+  // Pre-fetch all span details on load
+  useEffect(() => {
+    if (!payloads.length) return
+
+    let isMounted = true
+
+    const prefix = async () => {
+      const newLoadingIds = new Set<number>()
+      const needsFetch: { p: PayloadEntry, idx: number }[] = []
+
+      payloads.forEach((p, idx) => {
+        if (p.traceId && p.spanId && !spanDetailsCache[p.spanId]) {
+          newLoadingIds.add(idx)
+          needsFetch.push({ p, idx })
+        }
+      })
+
+      if (needsFetch.length > 0) {
+        setLoadingIds(prev => new Set([...prev, ...newLoadingIds]))
+
+        const newlyFetchedDetails: Record<string, SpanDetails> = {}
+        const newlyFetchedLogs: Record<string, TraceLogsData> = {}
+        const errorCounts: Record<string, number> = {}
+
+        await Promise.all(needsFetch.map(async ({ p }) => {
+          try {
+            const spanRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/span/${p.spanId}/details`, {
+              params: {
+                project_id: projectId,
+                trace_dataset: filters?.traceDataset,
+              }
+            })
+            newlyFetchedDetails[p.spanId!] = spanRes.data
+
+            // Build error occurrences map
+            if (spanRes.data.exceptions && spanRes.data.exceptions.length > 0) {
+              spanRes.data.exceptions.forEach((exc: SpanDetailsException) => {
+                const msg = `${exc.type}: ${exc.message}`.substring(0, 100)
+                errorCounts[msg] = (errorCounts[msg] || 0) + 1
+              })
+            }
+          } catch (e) {
+            console.error("Failed to fetch span details", e)
+          }
+
+          try {
+            if (!traceLogsCache[p.traceId!]) {
+              const logsRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/logs`, {
+                params: {
+                  project_id: projectId,
+                  trace_dataset: filters?.traceDataset,
+                }
+              })
+              newlyFetchedLogs[p.traceId!] = logsRes.data
+            }
+          } catch (e) {
+            console.error("Failed to fetch trace logs", e)
+          }
+        }))
+
+        if (isMounted) {
+          setSpanDetailsCache(prev => ({ ...prev, ...newlyFetchedDetails }))
+          setTraceLogsCache(prev => ({ ...prev, ...newlyFetchedLogs }))
+          setLoadingIds(prev => {
+            const next = new Set(prev)
+            needsFetch.forEach(({ idx }) => next.delete(idx))
+            return next
+          })
+
+          if (Object.keys(errorCounts).length > 0 && onComputedErrors) {
+            const errArray = Object.entries(errorCounts)
+              .map(([message, count]) => ({ message, count }))
+              .sort((a, b) => b.count - a.count)
+            onComputedErrors(errArray)
+          }
+        }
+      }
+    }
+
+    prefix()
+    return () => { isMounted = false }
+  }, [payloads, projectId, filters])
+
+
   if (payloads.length === 0) {
     return (
       <div style={styles.cardBlock}>
-        <div style={styles.sectionTitle}>Raw Payloads</div>
+        <div style={styles.sectionTitle}>Error Details</div>
         <div style={{ fontSize: '13px', color: '#484f58', paddingLeft: '20px' }}>No recent payloads available.</div>
       </div>
     )
   }
 
-  const handleToggle = async (p: PayloadEntry, idx: number) => {
-    if (expandedIdx === idx) {
-      setExpandedIdx(null)
-      return
-    }
-    setExpandedIdx(idx)
-
-    if (p.traceId && p.spanId && !spanDetailsCache[p.spanId] && !loadingIds.has(idx)) {
-      setLoadingIds(prev => {
-        const next = new Set(prev)
-        next.add(idx)
-        return next
-      })
-
-      try {
-        const spanRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/span/${p.spanId}/details`, {
-          params: {
-            project_id: projectId,
-            trace_dataset: filters?.traceDataset,
-          }
-        })
-        setSpanDetailsCache(prev => ({ ...prev, [p.spanId]: spanRes.data }))
-      } catch (e) {
-        console.error("Failed to fetch span details", e)
-      }
-
-      try {
-        if (!traceLogsCache[p.traceId]) {
-          const logsRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/logs`, {
-            params: {
-              project_id: projectId,
-              trace_dataset: filters?.traceDataset,
-            }
-          })
-          setTraceLogsCache(prev => ({ ...prev, [p.traceId!]: logsRes.data }))
-        }
-      } catch (e) {
-        console.error("Failed to fetch trace logs", e)
-      }
-
-      setLoadingIds(prev => {
-        const next = new Set(prev)
-        next.delete(idx)
-        return next
-      })
-    }
+  const handleToggle = (idx: number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
   }
 
   return (
     <div style={styles.cardBlock}>
-      <div style={styles.sectionTitle}><FileDigit size={14} /> Raw Payloads ({payloads.length})</div>
+      <div style={styles.sectionTitle}><FileDigit size={14} /> Error Details ({payloads.length})</div>
       {payloads.map((p, idx) => {
-        const isExpanded = expandedIdx === idx
+        const isExpanded = expandedIds.has(idx)
         const timestamp = p.timestamp
           ? new Date(p.timestamp).toLocaleString()
           : 'Unknown time'
@@ -706,7 +831,7 @@ function PayloadAccordion({
         return (
           <div key={p.spanId || idx} style={{ marginBottom: '6px' }}>
             <button
-              onClick={() => handleToggle(p, idx)}
+              onClick={() => handleToggle(idx)}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -759,8 +884,11 @@ function PayloadAccordion({
                       EXCEPTIONS
                     </div>
                     {exceptions.map((exc: SpanDetailsException, i: number) => (
-                      <div key={i} style={{ background: 'rgba(255, 82, 82, 0.08)', border: '1px solid rgba(255, 82, 82, 0.3)', borderRadius: '4px', padding: '8px', marginBottom: '8px' }}>
-                        <div style={{ color: '#FF5252', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>{exc.type}: {exc.message}</div>
+                      <div key={i} style={{ background: 'rgba(255, 82, 82, 0.08)', border: '1px solid rgba(255, 82, 82, 0.3)', borderRadius: '4px', padding: '8px', marginBottom: '8px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '8px', right: '8px' }}>
+                          <CopyButton text={exc.stacktrace || exc.message} />
+                        </div>
+                        <div style={{ color: '#FF5252', fontSize: '12px', fontWeight: 600, marginBottom: '4px', paddingRight: '24px' }}>{exc.type}: {exc.message}</div>
                         {exc.stacktrace && (
                           <SyntaxHighlighter
                             language="python"
@@ -817,7 +945,11 @@ function PayloadAccordion({
                       }}>
                         {f.label}
                       </div>
-                      <SyntaxHighlighter
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10 }}>
+                          <CopyButton text={tryFormatJson(f.value)} />
+                        </div>
+                        <SyntaxHighlighter
                         language={f.lang}
                         style={atomOneDark}
                         customStyle={{
@@ -831,6 +963,7 @@ function PayloadAccordion({
                       >
                         {tryFormatJson(f.value)}
                       </SyntaxHighlighter>
+                    </div>
                     </div>
                   ))
                 )}
@@ -850,4 +983,38 @@ function tryFormatJson(value: string): string {
   } catch {
     return value
   }
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy to clipboard"
+      style={{
+        background: 'rgba(255, 255, 255, 0.1)',
+        border: 'none',
+        borderRadius: '4px',
+        color: copied ? '#34D399' : '#78909C',
+        padding: '5px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'color 0.2s, background 0.2s',
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  )
 }

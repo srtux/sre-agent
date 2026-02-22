@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from 'react'
+import { useAgentContext } from '../../contexts/AgentContext'
 import { useDashboardTables, type AgentLogRow, type AgentSessionRow, type AgentTraceRow } from '../../hooks/useDashboardTables'
 import VirtualizedDataTable from '../tables/VirtualizedDataTable'
 
@@ -81,11 +82,19 @@ const styles: Record<string, React.CSSProperties> = {
 type TraceTab = 'sessions' | 'traces' | 'spans'
 
 export default function AgentTracesPage({ hours }: { hours: number }) {
+  const { serviceName } = useAgentContext()
   const [activeTab, setActiveTab] = useState<TraceTab>('sessions')
-  const { data, isLoading, isError } = useDashboardTables(hours)
+  const [sessionFilter, setSessionFilter] = useState<string | null>(null)
+  const { data, isLoading, isError } = useDashboardTables(hours, serviceName)
 
   const sessionData = useMemo(() => data?.agentSessions ?? [], [data?.agentSessions])
-  const traceData = useMemo(() => data?.agentTraces ?? [], [data?.agentTraces])
+  const traceData = useMemo(() => {
+    const allTraces = data?.agentTraces ?? []
+    if (sessionFilter) {
+      return allTraces.filter(t => t.sessionId === sessionFilter)
+    }
+    return allTraces
+  }, [data?.agentTraces, sessionFilter])
   const spanData = useMemo(() => data?.agentLogs ?? [], [data?.agentLogs])
 
   const handleOpenTrace = (traceId: string) => {
@@ -95,12 +104,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
     )
   }
 
-  const handleOpenSession = (sessionId: string) => {
-    window.parent.postMessage(
-      JSON.stringify({ type: 'OPEN_SESSION', sessionId }),
-      '*',
-    )
-  }
+
 
 
 
@@ -134,7 +138,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const session = row.original as AgentSessionRow
           return (
             <span
-              onClick={() => handleOpenSession(session.sessionId)}
+              onClick={() => {
+                setSessionFilter(session.sessionId)
+                setActiveTab('traces')
+              }}
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: '12px',
@@ -160,7 +167,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         size: 120,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
-          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val.toFixed(0)}ms</span>
+          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? `${val.toFixed(0)}ms` : '-'}</span>
         }
       },
       {
@@ -169,7 +176,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         size: 120,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
-          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val}</span>
+          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? val : '-'}</span>
         }
       },
       {
@@ -180,7 +187,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const errs = getValue() as number
           return (
             <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
-              {errs}
+              {errs != null ? errs : '-'}
             </span>
           )
         },
@@ -217,6 +224,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         size: 180,
         cell: ({ getValue }: any) => {
           const traceId = getValue() as string
+          if (!traceId) return '-'
           return (
             <span
               onClick={() => handleOpenTrace(traceId)}
@@ -248,7 +256,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         size: 120,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
-          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val.toFixed(0)}ms</span>
+          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? `${val.toFixed(0)}ms` : '-'}</span>
         }
       },
       {
@@ -257,7 +265,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         size: 120,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
-          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val}</span>
+          return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? val : '-'}</span>
         }
       },
       {
@@ -268,7 +276,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const errs = getValue() as number
           return (
             <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
-              {errs}
+              {errs != null ? errs : '-'}
             </span>
           )
         },
@@ -419,9 +427,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.headerRow}>
-        <h2 style={styles.title}>Agent Traces</h2>
-
+      <div style={{ ...styles.headerRow, justifyContent: 'flex-start', gap: '16px' }}>
         <div style={styles.tabsContainer}>
           <button
             style={{ ...styles.tabButton, ...(activeTab === 'sessions' ? styles.tabActive : styles.tabInactive) }}
@@ -431,7 +437,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           </button>
           <button
             style={{ ...styles.tabButton, ...(activeTab === 'traces' ? styles.tabActive : styles.tabInactive) }}
-            onClick={() => setActiveTab('traces')}
+            onClick={() => {
+              setSessionFilter(null)
+              setActiveTab('traces')
+            }}
           >
             Traces
           </button>
@@ -442,6 +451,26 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             Spans
           </button>
         </div>
+        {activeTab === 'traces' && sessionFilter && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#94A3B8' }}>
+            <span>Filtered by Session:</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F0F4F8' }}>{sessionFilter}</span>
+            <button
+              onClick={() => setSessionFilter(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#06B6D4',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '2px 6px',
+                textDecoration: 'underline'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={styles.tableWrapper}>
@@ -452,6 +481,9 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             estimatedRowHeight={36}
             loading={isLoading}
             emptyMessage="No sessions found."
+            fullHeight
+            enableSearch
+            searchPlaceholder="Search sessions..."
           />
         )}
 
@@ -462,6 +494,9 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             estimatedRowHeight={36}
             loading={isLoading}
             emptyMessage="No traces found."
+            fullHeight
+            enableSearch
+            searchPlaceholder="Search traces..."
           />
         )}
 
@@ -472,6 +507,14 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             estimatedRowHeight={36}
             loading={isLoading}
             emptyMessage="No individual spans found."
+            fullHeight
+            enableSearch
+            searchPlaceholder="Search spans..."
+            onRowClick={(row) => {
+              if (row.traceId) {
+                handleOpenTrace(row.traceId)
+              }
+            }}
           />
         )}
       </div>

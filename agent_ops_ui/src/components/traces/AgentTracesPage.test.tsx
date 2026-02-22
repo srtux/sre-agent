@@ -3,9 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AgentTracesPage from './AgentTracesPage'
 import { useDashboardTables } from '../../hooks/useDashboardTables'
+import { useAgentContext } from '../../contexts/AgentContext'
 
 vi.mock('../../hooks/useDashboardTables', () => ({
   useDashboardTables: vi.fn(),
+}))
+
+vi.mock('../../contexts/AgentContext', () => ({
+  useAgentContext: vi.fn(),
 }))
 
 vi.mock('../tables/VirtualizedDataTable', () => ({
@@ -36,6 +41,9 @@ describe('AgentTracesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     window.parent.postMessage = mockPostMessage
+      ; (useAgentContext as any).mockReturnValue({
+        serviceName: '',
+      })
       ; (useDashboardTables as any).mockReturnValue({
         data: {
           agentSessions: [
@@ -75,7 +83,6 @@ describe('AgentTracesPage', () => {
 
   it('renders tabs and defaults to sessions', () => {
     render(<AgentTracesPage hours={24} />)
-    expect(screen.getByText('Agent Traces')).toBeInTheDocument()
     expect(screen.getByText('Sessions')).toBeInTheDocument()
     expect(screen.getByText('Traces')).toBeInTheDocument()
     expect(screen.getByText('Spans')).toBeInTheDocument()
@@ -87,16 +94,11 @@ describe('AgentTracesPage', () => {
   it('switches to traces tab and handles deep link', () => {
     render(<AgentTracesPage hours={24} />)
 
-    // Check session click
+    // Check session click filters traces
     fireEvent.click(screen.getByText('session-123'))
-    expect(mockPostMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'OPEN_SESSION', sessionId: 'session-123' }),
-      '*'
-    )
 
-    // Switch to Traces
-    const tracesTab = screen.getByText('Traces')
-    fireEvent.click(tracesTab)
+    expect(screen.getByText('Filtered by Session:')).toBeInTheDocument()
+    expect(screen.getAllByText('session-123').length).toBeGreaterThan(0)
 
     const traceLink = screen.getByText('trace-456...')
     expect(traceLink).toBeInTheDocument()

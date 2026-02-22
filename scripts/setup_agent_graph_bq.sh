@@ -122,6 +122,10 @@ SELECT
   JSON_VALUE(attributes, '\$.\"gen_ai.request.model\"') AS request_model,
   JSON_VALUE(attributes, '\$.\"gen_ai.response.finish_reasons\"') AS finish_reasons,
   JSON_VALUE(attributes, '\$.\"gen_ai.system\"') AS system,
+  COALESCE(
+    JSON_VALUE(attributes, '\$.\"gen_ai.agent.description\"'),
+    JSON_VALUE(attributes, '\$.\"gen_ai.tool.description\"')
+  ) AS node_description,
   -- Node Classification
   CASE
     WHEN JSON_VALUE(attributes, '\$.\"gen_ai.operation.name\"') = 'invoke_agent' THEN 'Agent'
@@ -683,6 +687,7 @@ WITH ParsedAgents AS (
     output_tokens,
     status_code,
     node_label,
+    node_description,
     node_type
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
   WHERE node_type = 'Agent'
@@ -692,6 +697,7 @@ SELECT
   service_name,
   logical_node_id AS agent_id,
   ANY_VALUE(node_label) AS agent_name,
+  ANY_VALUE(node_description) AS description,
   APPROX_COUNT_DISTINCT(session_id) AS total_sessions,
   COUNT(*) AS total_turns,
   SUM(input_tokens) AS total_input_tokens,
@@ -722,6 +728,7 @@ WITH ParsedTools AS (
     duration_ms,
     status_code,
     node_label,
+    node_description,
     node_type
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
   WHERE node_type = 'Tool'
@@ -731,6 +738,7 @@ SELECT
   service_name,
   logical_node_id AS tool_id,
   ANY_VALUE(node_label) AS tool_name,
+  ANY_VALUE(node_description) AS description,
   COUNT(*) AS execution_count,
   COUNTIF(status_code = 'ERROR') AS error_count,
   SAFE_DIVIDE(COUNTIF(status_code = 'ERROR'), COUNT(*)) AS error_rate,

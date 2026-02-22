@@ -175,6 +175,7 @@ export interface RegistryAgent {
   serviceName: string
   agentId: string
   agentName: string
+  description?: string
   totalSessions: number
   totalTurns: number
   inputTokens: number
@@ -193,6 +194,7 @@ export interface RegistryTool {
   serviceName: string
   toolId: string
   toolName: string
+  description?: string
   executionCount: number
   errorCount: number
   errorRate: number

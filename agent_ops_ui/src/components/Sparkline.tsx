@@ -56,11 +56,11 @@ export function extractSparkSeries(
 export function sparkLabel(viewMode: ViewMode): string {
   switch (viewMode) {
     case 'topology':
-      return 'Error Rate Trend'
+      return 'Error Rate'
     case 'cost':
-      return 'Token Usage Trend'
+      return 'Token Usage'
     case 'latency':
-      return 'Latency Trend'
+      return 'Latency'
   }
 }
 

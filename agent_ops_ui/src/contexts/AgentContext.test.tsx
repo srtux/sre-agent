@@ -37,7 +37,7 @@ describe('AgentContext', () => {
     })
   })
 
-  it('fetches agents and auto-selects the highest volume agent', async () => {
+  it('fetches agents and defaults to All Agents (empty string)', async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: mockAgents })
 
     render(
@@ -56,12 +56,12 @@ describe('AgentContext', () => {
       expect(screen.getByTestId('loading').textContent).toBe('false')
     })
 
-    // Should have auto-selected agent-B since it has 100 total sessions
-    expect(screen.getByTestId('serviceName').textContent).toBe('agent-B')
+    // Should have defaulted to ''
+    expect(screen.getByTestId('serviceName').textContent).toBe('')
     expect(screen.getByTestId('count').textContent).toBe('3')
 
     // Should have saved to localStorage
-    expect(localStorage.getItem('agent_graph_service_name')).toBe('agent-B')
+    expect(localStorage.getItem('agent_graph_service_name')).toBe('')
   })
 
   it('keeps existing selected agent if it exists in fetched agents', async () => {
