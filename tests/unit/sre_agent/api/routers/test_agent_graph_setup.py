@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
@@ -41,8 +41,8 @@ async def test_check_observability_bucket(client: AsyncClient):
                 }
             ]
         }
-        # Explicitly mock raise_for_status as a sync mock to avoid AsyncMock auto-creation
-        mock_response.raise_for_status = MagicMock()
+        # Explicitly mock raise_for_status as a sync mock
+        mock_response.raise_for_status = Mock()
 
         mock_instance.get = AsyncMock(return_value=mock_response)
 
@@ -69,7 +69,7 @@ async def test_check_observability_bucket_not_found(client: AsyncClient):
         mock_response.status_code = 404
         mock_response.text = "Not Found"
         # Simulate HTTTPX HTTPStatusError for 404
-        mock_response.raise_for_status = MagicMock()
+        mock_response.raise_for_status = Mock()
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Not Found", request=MagicMock(), response=mock_response
         )
@@ -112,7 +112,7 @@ async def test_link_dataset(client: AsyncClient):
             "metadata": {"state": "RUNNING"},
         }
         # Explicitly mock raise_for_status as sync
-        mock_response.raise_for_status = MagicMock()
+        mock_response.raise_for_status = Mock()
 
         mock_instance.post = AsyncMock(return_value=mock_response)
 
@@ -120,7 +120,7 @@ async def test_link_dataset(client: AsyncClient):
         mock_get_response = MagicMock(spec=httpx.Response)
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {"observabilityLinks": []}
-        mock_get_response.raise_for_status = MagicMock()
+        mock_get_response.raise_for_status = Mock()
         mock_instance.get = AsyncMock(return_value=mock_get_response)
 
         response = await client.post(
@@ -156,7 +156,7 @@ async def test_link_dataset_already_exists(client: AsyncClient):
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 409  # Already exists
         mock_response.text = "Conflict"
-        mock_response.raise_for_status = MagicMock()
+        mock_response.raise_for_status = Mock()
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Conflict", request=MagicMock(), response=mock_response
         )
@@ -166,7 +166,7 @@ async def test_link_dataset_already_exists(client: AsyncClient):
         mock_get_response = MagicMock(spec=httpx.Response)
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {"observabilityLinks": []}
-        mock_get_response.raise_for_status = MagicMock()
+        mock_get_response.raise_for_status = Mock()
         mock_instance.get = AsyncMock(return_value=mock_get_response)
 
         response = await client.post(
@@ -197,7 +197,7 @@ async def test_lro_status(client: AsyncClient):
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {"done": True, "response": {}}
-        mock_response.raise_for_status = MagicMock()
+        mock_response.raise_for_status = Mock()
         mock_instance.get = AsyncMock(return_value=mock_response)
 
         response = await client.get(

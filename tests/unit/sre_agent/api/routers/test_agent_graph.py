@@ -105,7 +105,7 @@ class TestTopologyEndpoint:
 
     def test_returns_200_with_hourly_path(self, client: TestClient) -> None:
         """Topology endpoint should return 200 for hours >= 1."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -143,7 +143,7 @@ class TestTopologyEndpoint:
 
     def test_node_format_react_flow(self, client: TestClient) -> None:
         """Each node should have id, type, data, and position keys."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -174,7 +174,7 @@ class TestTopologyEndpoint:
 
     def test_edge_format_react_flow(self, client: TestClient) -> None:
         """Each edge should have id, source, target, and data keys."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -205,7 +205,7 @@ class TestTopologyEndpoint:
 
     def test_sub_hour_uses_live_views(self, client: TestClient) -> None:
         """Hours < 1 should query agent_topology_nodes/edges views."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.side_effect = [
@@ -225,7 +225,7 @@ class TestTopologyEndpoint:
 
     def test_bq_error_returns_500(self, client: TestClient) -> None:
         """BigQuery errors should return HTTP 500."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             # We must mock the instance returned by the class
             mock_instance = MagicMock()
             mock_client_cls.return_value = mock_instance
@@ -257,7 +257,7 @@ class TestTrajectoriesEndpoint:
 
     def test_returns_200_with_sankey_format(self, client: TestClient) -> None:
         """Trajectories endpoint should return nodes and links."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -281,7 +281,7 @@ class TestTrajectoriesEndpoint:
 
     def test_nodes_have_colors(self, client: TestClient) -> None:
         """Sankey nodes should include nodeColor from the type mapping."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -305,7 +305,7 @@ class TestTrajectoriesEndpoint:
 
     def test_link_value_is_trace_count(self, client: TestClient) -> None:
         """Link value should be the trace_count."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -327,7 +327,7 @@ class TestTrajectoriesEndpoint:
 
     def test_empty_result_returns_empty_lists(self, client: TestClient) -> None:
         """Empty BigQuery result should return empty nodes and links."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.return_value = _mock_query_result([])
@@ -342,7 +342,7 @@ class TestTrajectoriesEndpoint:
 
     def test_bq_error_returns_500(self, client: TestClient) -> None:
         """BigQuery errors should return HTTP 500."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             mock_instance = MagicMock()
             mock_client_cls.return_value = mock_instance
             mock_instance.query.side_effect = Exception("Quota exceeded")
@@ -480,7 +480,7 @@ class TestTopologyFiltering:
 
     def test_errors_only_adds_having_clause(self, client: TestClient) -> None:
         """errors_only=true should add HAVING clause to SQL."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.side_effect = [
@@ -499,7 +499,7 @@ class TestTopologyFiltering:
 
     def test_start_time_param_accepted(self, client: TestClient) -> None:
         """start_time parameter should be used in the time filter."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.side_effect = [
@@ -529,7 +529,7 @@ class TestTopologyFiltering:
 
     def test_error_edges_have_animated_and_style(self, client: TestClient) -> None:
         """Edges with errors should have animated=true and red stroke style."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -557,7 +557,7 @@ class TestTopologyFiltering:
 
     def test_non_error_edges_no_animated(self, client: TestClient) -> None:
         """Edges without errors should not have animated or style keys."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -585,7 +585,7 @@ class TestTopologyFiltering:
 
     def test_node_data_includes_avg_duration_ms(self, client: TestClient) -> None:
         """Node data should include avgDurationMs field."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -615,7 +615,7 @@ class TestNodeDetailEndpoint:
 
     def test_returns_200_with_metrics(self, client: TestClient) -> None:
         """Node detail should return 200 with metrics for a valid node."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -664,7 +664,7 @@ class TestNodeDetailEndpoint:
 
     def test_returns_404_when_no_data(self, client: TestClient) -> None:
         """Node detail should return 404 when no invocations found."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -692,7 +692,7 @@ class TestNodeDetailEndpoint:
 
     def test_uses_parameterized_query(self, client: TestClient) -> None:
         """Node detail should use parameterized BQ query (not string interpolation)."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -726,7 +726,7 @@ class TestNodeDetailEndpoint:
 
     def test_bq_error_returns_500(self, client: TestClient) -> None:
         """BigQuery failure should return 500."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             mock_instance = MagicMock()
             mock_client_cls.return_value = mock_instance
             mock_instance.query.side_effect = Exception("BQ timeout")
@@ -744,7 +744,7 @@ class TestEdgeDetailEndpoint:
 
     def test_returns_200_with_metrics(self, client: TestClient) -> None:
         """Edge detail should return 200 with metrics."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -781,7 +781,7 @@ class TestEdgeDetailEndpoint:
 
     def test_returns_404_when_no_data(self, client: TestClient) -> None:
         """Edge detail should return 404 when no matching edge data found."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -796,7 +796,7 @@ class TestEdgeDetailEndpoint:
 
     def test_returns_404_when_zero_calls(self, client: TestClient) -> None:
         """Edge detail should return 404 when call_count is zero."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -832,7 +832,7 @@ class TestEdgeDetailEndpoint:
 
     def test_uses_parameterized_query(self, client: TestClient) -> None:
         """Edge detail should use parameterized BQ query."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -863,7 +863,7 @@ class TestEdgeDetailEndpoint:
 
     def test_bq_error_returns_500(self, client: TestClient) -> None:
         """BigQuery failure should return 500."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             mock_instance = MagicMock()
             mock_client_cls.return_value = mock_instance
             mock_instance.query.side_effect = Exception("Network error")
@@ -963,7 +963,7 @@ class TestNodeDetailPayloads:
 
     def test_returns_recent_payloads(self, client: TestClient) -> None:
         """Node detail should include recentPayloads array."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1010,7 +1010,7 @@ class TestNodeDetailPayloads:
 
     def test_payload_query_uses_trace_dataset(self, client: TestClient) -> None:
         """Payload query should reference the trace_dataset parameter."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1049,7 +1049,7 @@ class TestTrajectoriesLoopDetection:
 
     def test_response_includes_loop_traces(self, client: TestClient) -> None:
         """Trajectories response should include loopTraces key."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1083,7 +1083,7 @@ class TestTrajectoriesLoopDetection:
 
     def test_no_loops_returns_empty_list(self, client: TestClient) -> None:
         """No loops should return empty loopTraces."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1110,7 +1110,7 @@ class TestTimeSeriesEndpoint:
 
     def test_returns_200_with_series_dict(self, client: TestClient) -> None:
         """Timeseries endpoint should return 200 with a series dict."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1136,7 +1136,7 @@ class TestTimeSeriesEndpoint:
 
     def test_series_point_has_required_fields(self, client: TestClient) -> None:
         """Each series point should have all required metric fields."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1166,7 +1166,7 @@ class TestTimeSeriesEndpoint:
 
     def test_multiple_nodes_returned_as_separate_keys(self, client: TestClient) -> None:
         """Different node_ids should appear as separate keys in series."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1200,7 +1200,7 @@ class TestTimeSeriesEndpoint:
 
     def test_multiple_buckets_per_node_are_ordered(self, client: TestClient) -> None:
         """Multiple buckets for the same node should preserve order."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
 
@@ -1236,7 +1236,7 @@ class TestTimeSeriesEndpoint:
 
     def test_empty_result_returns_empty_series(self, client: TestClient) -> None:
         """Empty BigQuery result should return empty series dict."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.return_value = _mock_query_result([])
@@ -1250,7 +1250,7 @@ class TestTimeSeriesEndpoint:
 
     def test_bq_error_returns_500(self, client: TestClient) -> None:
         """BigQuery errors should return HTTP 500."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             mock_instance = MagicMock()
             mock_client_cls.return_value = mock_instance
             mock_instance.query.side_effect = Exception("Connection refused")
@@ -1292,7 +1292,7 @@ class TestTimeSeriesEndpoint:
 
     def test_start_time_param_accepted(self, client: TestClient) -> None:
         """start_time parameter should be used in the time filter."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.return_value = _mock_query_result([])
@@ -1319,7 +1319,7 @@ class TestTimeSeriesEndpoint:
 
     def test_uses_time_bucket_column_in_query(self, client: TestClient) -> None:
         """SQL should reference time_bucket column."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.return_value = _mock_query_result([])
@@ -1334,7 +1334,7 @@ class TestTimeSeriesEndpoint:
 
     def test_only_one_bq_query_issued(self, client: TestClient) -> None:
         """Timeseries should issue exactly one BigQuery query."""
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_client_cls:
+        with patch("google.cloud.bigquery.Client") as mock_client_cls:
             bq = MagicMock()
             mock_client_cls.return_value = bq
             bq.query.return_value = _mock_query_result([])
@@ -1349,7 +1349,7 @@ class TestTimeSeriesEndpoint:
 
 class TestRegistryEndpoints:
     def test_get_agent_registry_success(self, client):
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_get_client:
+        with patch("google.cloud.bigquery.Client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
 
@@ -1387,7 +1387,7 @@ class TestRegistryEndpoints:
             assert agent["p95DurationMs"] == 500.0
 
     def test_get_tool_registry_success(self, client):
-        with patch("sre_agent.api.routers.agent_graph.bigquery.Client") as mock_get_client:
+        with patch("google.cloud.bigquery.Client") as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
 
