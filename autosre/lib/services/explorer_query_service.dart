@@ -94,7 +94,11 @@ class ExplorerQueryService {
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
-    _dashboardState.setLoading(DashboardDataType.metrics, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.metrics, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.metrics);
+    });
     try {
       final body = jsonEncode({
         'filter': filter,
@@ -106,16 +110,12 @@ class ExplorerQueryService {
       // Decode JSON and map to MetricSeries on a background thread
       final series = await compute(_parseMetrics, response.body);
 
-      _dashboardState.batch(() {
-        _dashboardState.addMetricSeries(
-          series,
-          'manual_query',
-          series.toJson(),
-          source: DataSource.manual,
-        );
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.metrics);
-      });
+      _dashboardState.addMetricSeries(
+        series,
+        'manual_query',
+        series.toJson(),
+        source: DataSource.manual,
+      );
     } catch (e) {
       _dashboardState.setError(DashboardDataType.metrics, e.toString());
       debugPrint('ExplorerQueryService.queryMetrics error: $e');
@@ -145,7 +145,13 @@ class ExplorerQueryService {
     final isCursorPage = cursorTimestamp != null;
     final fetchLimit = limit ?? 50;
 
-    _dashboardState.setLoading(DashboardDataType.logs, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.logs, true);
+      if (!isCursorPage) {
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.logs);
+      }
+    });
     try {
       final payload = <String, dynamic>{
         'filter': filter,
@@ -170,25 +176,21 @@ class ExplorerQueryService {
       // Run background parsing
       final logData = await AppIsolate.run(_parseLogEntries, response.body);
 
-      _dashboardState.batch(() {
-        if (isCursorPage) {
-          _dashboardState.appendLogEntries(
-            logData,
-            'manual_query',
-            logData.toJson(),
-            source: DataSource.manual,
-          );
-        } else {
-          _dashboardState.addLogEntries(
-            logData,
-            'manual_query',
-            logData.toJson(),
-            source: DataSource.manual,
-          );
-        }
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.logs);
-      });
+      if (isCursorPage) {
+        _dashboardState.appendLogEntries(
+          logData,
+          'manual_query',
+          logData.toJson(),
+          source: DataSource.manual,
+        );
+      } else {
+        _dashboardState.addLogEntries(
+          logData,
+          'manual_query',
+          logData.toJson(),
+          source: DataSource.manual,
+        );
+      }
 
       // A full page suggests there may be more entries to load.
       return logData.entries.length >= fetchLimit;
@@ -303,7 +305,11 @@ class ExplorerQueryService {
   }
 
   Future<void> queryTrace({required String traceId, String? projectId}) async {
-    _dashboardState.setLoading(DashboardDataType.traces, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.traces, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.traces);
+    });
     try {
       var url = '$_baseUrl/api/tools/trace/${Uri.encodeComponent(traceId)}';
       if (projectId != null) {
@@ -323,16 +329,12 @@ class ExplorerQueryService {
         final trace = await AppIsolate.run(_parseTrace, response.body);
 
         if (trace.spans.isNotEmpty) {
-          _dashboardState.batch(() {
-            _dashboardState.addTrace(
-              trace,
-              'manual_query',
-              trace.toJson(),
-              source: DataSource.manual,
-            );
-            _dashboardState.openDashboard();
-            _dashboardState.setActiveTab(DashboardDataType.traces);
-          });
+          _dashboardState.addTrace(
+            trace,
+            'manual_query',
+            trace.toJson(),
+            source: DataSource.manual,
+          );
         }
       } finally {
         client.close();
@@ -351,7 +353,11 @@ class ExplorerQueryService {
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
-    _dashboardState.setLoading(DashboardDataType.traces, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.traces, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.traces);
+    });
     try {
       final body = jsonEncode({
         'filter': filter,
@@ -372,8 +378,6 @@ class ExplorerQueryService {
             );
           }
         }
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.traces);
       });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.traces, e.toString());
@@ -389,7 +393,11 @@ class ExplorerQueryService {
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
-    _dashboardState.setLoading(DashboardDataType.metrics, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.metrics, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.metrics);
+    });
     try {
       final body = jsonEncode({
         'query': query,
@@ -400,16 +408,12 @@ class ExplorerQueryService {
 
       final series = await AppIsolate.run(_parseMetrics, response.body);
 
-      _dashboardState.batch(() {
-        _dashboardState.addMetricSeries(
-          series,
-          'manual_query_promql',
-          series.toJson(),
-          source: DataSource.manual,
-        );
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.metrics);
-      });
+      _dashboardState.addMetricSeries(
+        series,
+        'manual_query_promql',
+        series.toJson(),
+        source: DataSource.manual,
+      );
     } catch (e) {
       _dashboardState.setError(DashboardDataType.metrics, e.toString());
       debugPrint('ExplorerQueryService.queryMetricsPromQL error: $e');
@@ -419,7 +423,11 @@ class ExplorerQueryService {
   }
 
   Future<void> queryBigQuery({required String sql, String? projectId}) async {
-    _dashboardState.setLoading(DashboardDataType.analytics, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.analytics, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.analytics);
+    });
     try {
       final body = jsonEncode({'sql': sql, 'project_id': projectId});
       final response = await _post('/api/tools/bigquery/query', body);
@@ -436,17 +444,13 @@ class ExplorerQueryService {
               .toList() ??
           [];
 
-      _dashboardState.batch(() {
-        _dashboardState.addSqlResults(
-          sql,
-          columns,
-          rows,
-          'bigquery_sql_explorer',
-          source: DataSource.manual,
-        );
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.analytics);
-      });
+      _dashboardState.addSqlResults(
+        sql,
+        columns,
+        rows,
+        'bigquery_sql_explorer',
+        source: DataSource.manual,
+      );
     } catch (e) {
       _dashboardState.setError(DashboardDataType.analytics, e.toString());
       debugPrint('ExplorerQueryService.queryBigQuery error: $e');
@@ -461,7 +465,11 @@ class ExplorerQueryService {
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
-    _dashboardState.setLoading(DashboardDataType.alerts, true);
+    _dashboardState.batch(() {
+      _dashboardState.setLoading(DashboardDataType.alerts, true);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.alerts);
+    });
     try {
       final body = jsonEncode({
         'filter': filter,
@@ -472,16 +480,12 @@ class ExplorerQueryService {
 
       final alertData = await AppIsolate.run(_parseAlerts, response.body);
 
-      _dashboardState.batch(() {
-        _dashboardState.addAlerts(
-          alertData,
-          'manual_query',
-          alertData.toJson(),
-          source: DataSource.manual,
-        );
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.alerts);
-      });
+      _dashboardState.addAlerts(
+        alertData,
+        'manual_query',
+        alertData.toJson(),
+        source: DataSource.manual,
+      );
     } catch (e) {
       _dashboardState.setError(DashboardDataType.alerts, e.toString());
       debugPrint('ExplorerQueryService.queryAlerts error: $e');
