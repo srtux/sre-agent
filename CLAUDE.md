@@ -301,7 +301,7 @@ agent_ops_ui/src/
 │   └── RegistryPage.tsx          # Agent/tool registry browser
 ├── utils/                        # Sankey/topology helpers
 ├── types.ts                      # Shared TypeScript types
-├── App.tsx                       # Root app with tab navigation
+├── App.tsx                       # Root app with tab navigation (Agents, Tools, Topology, Trajectory, Dashboard)
 └── main.tsx                      # Entry point
 ```
 
