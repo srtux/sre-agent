@@ -27,16 +27,16 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     _currentProjectId = ProjectService.instance.selectedProjectId ?? '';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
-    final baseUrl = ServiceConfig.agentGraphBaseUrl;
-    final src = _currentProjectId.isNotEmpty
-        ? '$baseUrl/graph/?project_id=$_currentProjectId'
-        : 'about:blank';
-
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
+      final baseUrl = ServiceConfig.agentGraphBaseUrl;
+      final dynamicSrc = _currentProjectId.isNotEmpty
+          ? '$baseUrl/graph/?project_id=$_currentProjectId'
+          : 'about:blank';
+
       _iframeElement = html.IFrameElement()
         ..id = _viewId
-        ..src = src
+        ..src = dynamicSrc
         ..style.border = 'none'
         ..style.height = '100%'
         ..style.width = '100%';

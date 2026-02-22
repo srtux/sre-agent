@@ -222,7 +222,6 @@ class _ConversationPageState extends State<ConversationPage>
           TimeRange.fromPreset(TimeRangePreset.fifteenMinutes),
         );
         _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.logs);
       });
 
       // Auto-load default logs for the selected project
