@@ -182,7 +182,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         await axios.post(`/api/v1/graph/setup/schema/${step.name}`, {
           project_id: projectId,
           trace_dataset: dataset,
-          graph_dataset: 'agent_graph',
+          graph_dataset: 'agentops',
           service_name: serviceName
         });
 

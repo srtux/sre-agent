@@ -268,7 +268,7 @@ class SchemaStepRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project_id: str
     trace_dataset: str = "traces"
-    graph_dataset: str = "agent_graph"
+    graph_dataset: str = "agentops"
     service_name: str = "sre-agent"
 
 

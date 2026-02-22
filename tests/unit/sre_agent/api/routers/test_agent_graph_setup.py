@@ -199,7 +199,7 @@ async def test_execute_schema_step(client: AsyncClient):
             json={
                 "project_id": "test-project",
                 "trace_dataset": "traces",
-                "graph_dataset": "agent_graph",
+                "graph_dataset": "agentops",
                 "service_name": "test-service",
             },
         )

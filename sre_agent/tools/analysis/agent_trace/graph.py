@@ -54,7 +54,7 @@ async def get_agent_graph(
 
     # Resolve dataset - for graph we want the graph dataset, not just OTel
     # Defaulting to 'agent_graph' if not specified, matching the setup script
-    graph_ds = dataset_id or "agent_graph"
+    graph_ds = dataset_id or "agentops"
 
     # 1. Fetch Nodes (enriched with p95, cost, subcall counts)
     nodes_sql = f"""

@@ -232,7 +232,7 @@ def _detect_loops(sequence: list[str], min_repeats: int = 3) -> list[dict[str, A
 @async_ttl_cache(ttl_seconds=300)
 async def get_topology(
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
@@ -490,7 +490,7 @@ async def get_topology(
 @async_ttl_cache(ttl_seconds=300)
 async def get_trajectories(
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     trace_dataset: str = "traces",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
@@ -668,7 +668,7 @@ async def get_trajectories(
 async def get_node_detail(
     logical_node_id: str,
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     trace_dataset: str = "traces",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     errors_only: bool = False,
@@ -916,7 +916,7 @@ async def setup_agent_graph(req: SetupGraphRequest) -> dict[str, str]:
                 script_path,
                 req.project_id,
                 req.trace_dataset,
-                "agent_graph",
+                "agentops",
                 req.service_name,
             ],
             env=env,
@@ -940,7 +940,7 @@ async def get_edge_detail(
     source_id: str,
     target_id: str,
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology edge.
@@ -1050,7 +1050,7 @@ async def get_edge_detail(
 @router.get("/timeseries")
 async def get_timeseries(
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
@@ -1262,7 +1262,7 @@ async def get_span_details(
 @async_ttl_cache(ttl_seconds=300)
 async def get_agent_registry(
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
@@ -1363,7 +1363,7 @@ async def get_agent_registry(
 @async_ttl_cache(ttl_seconds=300)
 async def get_tool_registry(
     project_id: str,
-    dataset: str = "agent_graph",
+    dataset: str = "agentops",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,

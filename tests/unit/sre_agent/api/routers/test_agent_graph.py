@@ -563,10 +563,13 @@ class TestTopologyFiltering:
             error_count=3,
             total_tokens=500,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([edge_row]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "GROUP BY source_id, target_id" in query:
+                return _mock_query_result([edge_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/topology",
@@ -593,10 +596,13 @@ class TestTopologyFiltering:
             error_count=0,
             total_tokens=400,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([edge_row]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "GROUP BY source_id, target_id" in query:
+                return _mock_query_result([edge_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/topology",
@@ -1089,8 +1095,12 @@ class TestNodeDetailPayloads:
         )
 
         # The third query (payloads) should reference the trace dataset
-        payload_call = bq.query_and_wait.call_args_list[2]
-        assert "my_traces._AllSpans" in payload_call[0][0]
+        found = False
+        for call in bq.query_and_wait.call_args_list:
+            if "my_traces._AllSpans" in call[0][0]:
+                found = True
+                break
+        assert found, "Expected to find my_traces._AllSpans in one of the queries"
 
 
 class TestTrajectoriesLoopDetection:
