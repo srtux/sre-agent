@@ -34,6 +34,10 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
           ? '$baseUrl/graph/?project_id=$_currentProjectId'
           : 'about:blank';
 
+      print(
+        '[Flutter Iframe DEBUG] registerViewFactory called! dynamicSrc=$dynamicSrc',
+      );
+
       _iframeElement = html.IFrameElement()
         ..id = _viewId
         ..src = dynamicSrc
@@ -45,12 +49,23 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   }
 
   void _updateIframeSrc(String newProjectId) {
+    print(
+      '[Flutter Iframe DEBUG] _updateIframeSrc called! newProjectId=$newProjectId, old=_currentProjectId',
+    );
     if (newProjectId != _currentProjectId) {
       _currentProjectId = newProjectId;
       if (_iframeElement != null) {
         final baseUrl = ServiceConfig.agentGraphBaseUrl;
-        _iframeElement!.src = '$baseUrl/graph/?project_id=$_currentProjectId';
+        final newSrc = '$baseUrl/graph/?project_id=$_currentProjectId';
+        print('[Flutter Iframe DEBUG] SETTING iframe element src to: $newSrc');
+        _iframeElement!.src = newSrc;
+      } else {
+        print(
+          '[Flutter Iframe DEBUG] ERROR: _iframeElement is null, cannot update src!',
+        );
       }
+    } else {
+      print('[Flutter Iframe DEBUG] Ignored update, project ID is the same.');
     }
   }
 

@@ -453,24 +453,27 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('agents')
-  const [filters, setFilters] = useState<GraphFilters>({
-    projectId: localStorage.getItem('agent_graph_project_id') || '',
-    hours: 24,
-    errorsOnly: false,
-    traceDataset: localStorage.getItem('agent_graph_trace_dataset') || 'traces',
-  })
-
-  // --- URL deep linking: parse on mount ---
-  useEffect(() => {
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
     const params = new URLSearchParams(window.location.search)
-
-    const urlProjectId = params.get('project_id')
-    const urlTimeRange = params.get('time_range')
     const urlTraceId = params.get('trace_id')
     const urlTab = params.get('tab')
 
-    let hours: number | undefined
+    if (urlTraceId) return 'trajectory'
+    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard') {
+      return urlTab as Tab
+    }
+    return 'agents'
+  })
+
+  const [filters, setFilters] = useState<GraphFilters>(() => {
+    const params = new URLSearchParams(window.location.search)
+    console.log('[AgentOps DEBUG] App.tsx initialized! search string:', window.location.search)
+
+    const urlProjectId = params.get('project_id')
+    console.log('[AgentOps DEBUG] Extracted urlProjectId during init:', urlProjectId)
+    const urlTimeRange = params.get('time_range')
+
+    let hours: number = 24
     if (urlTimeRange) {
       const parsed = parseTimeRange(urlTimeRange)
       if (parsed !== null) {
@@ -478,18 +481,13 @@ function App() {
       }
     }
 
-    setFilters((prev) => ({
-      ...prev,
-      ...(urlProjectId && { projectId: urlProjectId }),
-      ...(hours !== undefined && { hours }),
-    }))
-
-    if (urlTraceId) {
-      setActiveTab('trajectory')
-    } else if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard') {
-      setActiveTab(urlTab as Tab)
+    return {
+      projectId: urlProjectId || localStorage.getItem('agent_graph_project_id') || '',
+      hours: hours,
+      errorsOnly: false,
+      traceDataset: localStorage.getItem('agent_graph_trace_dataset') || 'traces',
     }
-  }, [])
+  })
 
   return (
     <QueryClientProvider client={queryClient}>
