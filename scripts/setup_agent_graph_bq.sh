@@ -140,9 +140,9 @@ SELECT
     name
   ) AS node_label,
   -- NEW: Extract service.name for multi-agent filtering
-  JSON_VALUE(resource.attributes, '$."service.name"') AS service_name,
+  JSON_VALUE(resource.attributes, '\$.\"service.name\"') AS service_name,
   -- NEW: Extract resource_id for specific filtering functionality
-  JSON_VALUE(resource.attributes, '$."gcp.resource_id"') AS resource_id,
+  JSON_VALUE(resource.attributes, '\$.\"cloud.resource_id\"') AS resource_id,
   -- NEW: Create a unique logical identifier for the topology
   CONCAT(
     CASE

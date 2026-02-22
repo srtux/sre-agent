@@ -21,7 +21,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: '24px',
     boxSizing: 'border-box',
-    overflowY: 'auto',
+    overflow: 'hidden',
   },
   header: {
     fontSize: '24px',
@@ -336,20 +336,6 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
       size: 250,
     },
     {
-      accessorKey: 'description',
-      header: 'Description',
-      cell: (info) => (
-        <div style={{ maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-            p: ({ node, ...props }) => <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-          }}>
-            {info.getValue() as string || '-'}
-          </ReactMarkdown>
-        </div>
-      ),
-      size: 400,
-    },
-    {
       accessorKey: 'totalSessions',
       header: 'Sessions',
       cell: (info) => formatNumber(info.getValue() as number),
@@ -400,20 +386,6 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
         </div>
       ),
       size: 250,
-    },
-    {
-      accessorKey: 'description',
-      header: 'Description',
-      cell: (info) => (
-        <div style={{ maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-            p: ({ node, ...props }) => <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-          }}>
-            {info.getValue() as string || '-'}
-          </ReactMarkdown>
-        </div>
-      ),
-      size: 400,
     },
     {
       accessorKey: 'executionCount',
@@ -543,65 +515,69 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
               </div>
             </div>
 
-            {agent.description ? (
-              <div
-                className="desc-box"
-                style={styles.cardDescription}
-                title={agent.description}
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                  p: ({ node, ...props }) => <p style={markdownStyles.p} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h1: ({ node, ...props }) => <h1 style={markdownStyles.h1} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h2: ({ node, ...props }) => <h2 style={markdownStyles.h2} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h3: ({ node, ...props }) => <h3 style={markdownStyles.h3} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  ul: ({ node, ...props }) => <ul style={markdownStyles.ul} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  ol: ({ node, ...props }) => <ol style={markdownStyles.ol} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  li: ({ node, ...props }) => <li style={markdownStyles.li} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  code: ({ node, ...props }) => <code style={markdownStyles.code} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  pre: ({ node, ...props }) => <pre style={markdownStyles.pre} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  a: ({ node, ...props }) => <a style={markdownStyles.a} target="_blank" rel="noopener noreferrer" {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                }}>
-                  {agent.description}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div style={{ ...styles.cardDescription, borderLeftColor: 'transparent', background: 'transparent' }} />
+            {expandedId === agent.serviceName && (
+              <>
+                {agent.description ? (
+                  <div
+                    className="desc-box"
+                    style={styles.cardDescription}
+                    title={agent.description}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                      p: ({ node, ...props }) => <p style={markdownStyles.p} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h1: ({ node, ...props }) => <h1 style={markdownStyles.h1} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h2: ({ node, ...props }) => <h2 style={markdownStyles.h2} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h3: ({ node, ...props }) => <h3 style={markdownStyles.h3} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      ul: ({ node, ...props }) => <ul style={markdownStyles.ul} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      ol: ({ node, ...props }) => <ol style={markdownStyles.ol} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      li: ({ node, ...props }) => <li style={markdownStyles.li} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      code: ({ node, ...props }) => <code style={markdownStyles.code} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      pre: ({ node, ...props }) => <pre style={markdownStyles.pre} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      a: ({ node, ...props }) => <a style={markdownStyles.a} target="_blank" rel="noopener noreferrer" {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                    }}>
+                      {agent.description}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div style={{ ...styles.cardDescription, borderLeftColor: 'transparent', background: 'transparent' }} />
+                )}
+
+                <div style={styles.metricGrid}>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <MessageSquare size={12} color="#38BDF8" />
+                      Total Turns
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(agent.totalTurns)}</span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <Cpu size={12} color="#38BDF8" />
+                      Tokens
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(agent.inputTokens + agent.outputTokens)}</span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <AlertCircle size={12} color={agent.errorRate > 0 ? '#F87171' : '#64748B'} />
+                      Error Rate
+                    </div>
+                    <span style={{ ...styles.metricValue, color: agent.errorRate > 0 ? '#F87171' : '#F1F5F9' }}>
+                      {(agent.errorRate * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <Clock size={12} color="#38BDF8" />
+                      P95 Latency
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(agent.p95DurationMs)}ms</span>
+                  </div>
+                </div>
+
+                {renderAgentActions(agent.serviceName)}
+              </>
             )}
-
-            <div style={styles.metricGrid}>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <MessageSquare size={12} color="#38BDF8" />
-                  Total Turns
-                </div>
-                <span style={styles.metricValue}>{formatNumber(agent.totalTurns)}</span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <Cpu size={12} color="#38BDF8" />
-                  Tokens
-                </div>
-                <span style={styles.metricValue}>{formatNumber(agent.inputTokens + agent.outputTokens)}</span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <AlertCircle size={12} color={agent.errorRate > 0 ? '#F87171' : '#64748B'} />
-                  Error Rate
-                </div>
-                <span style={{ ...styles.metricValue, color: agent.errorRate > 0 ? '#F87171' : '#F1F5F9' }}>
-                  {(agent.errorRate * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <Clock size={12} color="#38BDF8" />
-                  P95 Latency
-                </div>
-                <span style={styles.metricValue}>{formatNumber(agent.p95DurationMs)}ms</span>
-              </div>
-            </div>
-
-            {expandedId === agent.serviceName && renderAgentActions(agent.serviceName)}
           </div>
         ))}
       </div>
@@ -688,65 +664,69 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
               </div>
             </div>
 
-            {tool.description ? (
-              <div
-                className="desc-box"
-                style={{ ...styles.cardDescription, borderLeftColor: '#F59E0B' }}
-                title={tool.description}
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                  p: ({ node, ...props }) => <p style={markdownStyles.p} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h1: ({ node, ...props }) => <h1 style={markdownStyles.h1} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h2: ({ node, ...props }) => <h2 style={markdownStyles.h2} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  h3: ({ node, ...props }) => <h3 style={markdownStyles.h3} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  ul: ({ node, ...props }) => <ul style={markdownStyles.ul} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  ol: ({ node, ...props }) => <ol style={markdownStyles.ol} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  li: ({ node, ...props }) => <li style={markdownStyles.li} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  code: ({ node, ...props }) => <code style={markdownStyles.code} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  pre: ({ node, ...props }) => <pre style={markdownStyles.pre} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                  a: ({ node, ...props }) => <a style={markdownStyles.a} target="_blank" rel="noopener noreferrer" {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
-                }}>
-                  {tool.description}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div style={{ ...styles.cardDescription, borderLeftColor: 'transparent', background: 'transparent' }} />
+            {expandedId === tool.serviceName && (
+              <>
+                {tool.description ? (
+                  <div
+                    className="desc-box"
+                    style={{ ...styles.cardDescription, borderLeftColor: '#F59E0B' }}
+                    title={tool.description}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                      p: ({ node, ...props }) => <p style={markdownStyles.p} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h1: ({ node, ...props }) => <h1 style={markdownStyles.h1} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h2: ({ node, ...props }) => <h2 style={markdownStyles.h2} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      h3: ({ node, ...props }) => <h3 style={markdownStyles.h3} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      ul: ({ node, ...props }) => <ul style={markdownStyles.ul} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      ol: ({ node, ...props }) => <ol style={markdownStyles.ol} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      li: ({ node, ...props }) => <li style={markdownStyles.li} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      code: ({ node, ...props }) => <code style={markdownStyles.code} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      pre: ({ node, ...props }) => <pre style={markdownStyles.pre} {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                      a: ({ node, ...props }) => <a style={markdownStyles.a} target="_blank" rel="noopener noreferrer" {...props} />, // eslint-disable-line @typescript-eslint/no-unused-vars
+                    }}>
+                      {tool.description}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div style={{ ...styles.cardDescription, borderLeftColor: 'transparent', background: 'transparent' }} />
+                )}
+
+                <div style={styles.metricGrid}>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <Zap size={12} color="#F59E0B" />
+                      Executions
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(tool.executionCount)}</span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <Clock size={12} color="#F59E0B" />
+                      Avg Latency
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(tool.avgDurationMs)}ms</span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <AlertCircle size={12} color={tool.errorRate > 0 ? '#F87171' : '#64748B'} />
+                      Error Rate
+                    </div>
+                    <span style={{ ...styles.metricValue, color: tool.errorRate > 0 ? '#F87171' : '#F1F5F9' }}>
+                      {(tool.errorRate * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={styles.metric}>
+                    <div style={styles.metricLabel}>
+                      <Clock size={12} color="#F59E0B" />
+                      P95 Latency
+                    </div>
+                    <span style={styles.metricValue}>{formatNumber(tool.p95DurationMs)}ms</span>
+                  </div>
+                </div>
+
+                {renderToolActions(tool.serviceName)}
+              </>
             )}
-
-            <div style={styles.metricGrid}>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <Zap size={12} color="#F59E0B" />
-                  Executions
-                </div>
-                <span style={styles.metricValue}>{formatNumber(tool.executionCount)}</span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <Clock size={12} color="#F59E0B" />
-                  Avg Latency
-                </div>
-                <span style={styles.metricValue}>{formatNumber(tool.avgDurationMs)}ms</span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <AlertCircle size={12} color={tool.errorRate > 0 ? '#F87171' : '#64748B'} />
-                  Error Rate
-                </div>
-                <span style={{ ...styles.metricValue, color: tool.errorRate > 0 ? '#F87171' : '#F1F5F9' }}>
-                  {(tool.errorRate * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div style={styles.metric}>
-                <div style={styles.metricLabel}>
-                  <Clock size={12} color="#F59E0B" />
-                  P95 Latency
-                </div>
-                <span style={styles.metricValue}>{formatNumber(tool.p95DurationMs)}ms</span>
-              </div>
-            </div>
-
-            {expandedId === tool.serviceName && renderToolActions(tool.serviceName)}
           </div>
         ))}
       </div>
@@ -755,7 +735,14 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
 
   return (
     <div style={styles.container}>
-      <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        flex: 1,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: registryViewMode === 'table' ? 'hidden' : 'auto',
+        overflowX: 'hidden'
+      }}>
         {mode === 'agents' ? renderAgentsList() : renderToolsList()}
       </div>
     </div>

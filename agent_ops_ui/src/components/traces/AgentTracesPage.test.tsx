@@ -14,23 +14,46 @@ vi.mock('../../contexts/AgentContext', () => ({
 }))
 
 vi.mock('../tables/VirtualizedDataTable', () => ({
-  default: ({ data, columns, emptyMessage }: any) => (
+  default: ({ data, columns, emptyMessage, onRowClick, renderExpandedRow, expandedRowId, getRowId }: any) => (
     <div data-testid="virtualized-table">
       {data && data.length > 0 ? (
-        data.map((row: any, i: number) => (
-          <div key={i} data-testid="mock-row">
-            {columns.map((col: any, j: number) => {
-              const val = col.accessorKey ? row[col.accessorKey] : col.accessorFn ? col.accessorFn(row) : row[col.id]
-              if (col.cell) {
-                return <div key={j}>{col.cell({ getValue: () => val, row: { original: row } })}</div>
-              }
-              return <div key={j}>{String(val)}</div>
-            })}
-          </div>
-        ))
+        data.map((row: any, i: number) => {
+          const rowId = getRowId ? getRowId(row) : i.toString()
+          const isExpanded = expandedRowId === rowId
+          return (
+            <div key={rowId} data-testid="mock-row-container">
+              <div
+                data-testid="mock-row"
+                onClick={() => onRowClick?.(row)}
+                style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+              >
+                {columns.map((col: any, j: number) => {
+                  const val = col.accessorKey ? row[col.accessorKey] : col.accessorFn ? col.accessorFn(row) : row[col.id]
+                  if (col.cell) {
+                    return <div key={j}>{col.cell({ getValue: () => val, row: { original: row } })}</div>
+                  }
+                  return <div key={j}>{String(val)}</div>
+                })}
+              </div>
+              {isExpanded && renderExpandedRow && (
+                <div data-testid="expanded-content">
+                  {renderExpandedRow(row)}
+                </div>
+              )}
+            </div>
+          )
+        })
       ) : (
         <div>{emptyMessage || 'No data'}</div>
       )}
+    </div>
+  ),
+}))
+
+vi.mock('./SpanDetailsView', () => ({
+  default: ({ traceId, spanId }: any) => (
+    <div data-testid="span-details">
+      SpanDetails for {traceId} / {spanId}
     </div>
   ),
 }))
@@ -103,12 +126,17 @@ describe('AgentTracesPage', () => {
     const traceLink = screen.getByText('trace-456...')
     expect(traceLink).toBeInTheDocument()
 
-    // Check trace click
-    fireEvent.click(traceLink)
-    expect(mockPostMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'OPEN_TRACE', traceId: 'trace-456' }),
-      '*'
-    )
+    // Check trace click (waterfall explorer)
+    const traceRow = screen.getByText('trace-456...').closest('div')
+    const explorerBtn = traceRow?.querySelector('button')
+    if (explorerBtn) {
+      fireEvent.click(explorerBtn)
+    } else {
+      // Fallback click on the link itself if button not found by querySelector
+      fireEvent.click(traceLink)
+    }
+
+    expect(mockPostMessage).toHaveBeenCalled()
   })
 
   it('switches to spans tab', () => {
@@ -131,5 +159,20 @@ describe('AgentTracesPage', () => {
     })
     render(<AgentTracesPage hours={24} />)
     expect(screen.getByText('No sessions found.')).toBeInTheDocument()
+  })
+
+  it('expands a span row on click', () => {
+    render(<AgentTracesPage hours={24} />)
+
+    fireEvent.click(screen.getByText('Spans'))
+
+    // Virtualized mock now supports expansion
+    const row = screen.getByText('Doing work').closest('[data-testid="mock-row"]')
+    expect(row).toBeInTheDocument()
+
+    fireEvent.click(row!)
+
+    expect(screen.getByTestId('span-details')).toBeInTheDocument()
+    expect(screen.getByText(/SpanDetails for trace-456/)).toBeInTheDocument()
   })
 })

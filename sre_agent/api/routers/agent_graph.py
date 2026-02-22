@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import unquote
 
 import anyio
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
@@ -142,6 +143,52 @@ def _build_time_filter(
 
     minutes = int(hours * 60)
     return f"{timestamp_col} >= TIMESTAMP_SUB({end_expr}, INTERVAL {minutes} MINUTE)"
+
+
+def _build_bq_client(project_id: str) -> bigquery.Client:
+    """Return an authenticated BigQuery client."""
+    return bigquery.Client(project=project_id)
+
+
+@async_ttl_cache(ttl_seconds=3600)
+async def _get_default_log_dataset(project_id: str) -> str | None:
+    """Fetch the BigQuery dataset linked to the _Default log bucket.
+
+    Returns the dataset ID (e.g., 'test123') or None if not linked/accessible.
+    Results are cached for 1 hour since link changes are rare.
+    """
+    try:
+        from google.auth import default
+        from google.auth.transport.requests import Request
+        credentials, _ = default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        credentials.refresh(Request())
+        token = credentials.token
+    except Exception as exc:
+        logger.warning(f"Failed to get GCP credentials for log dataset lookup: {exc}")
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-goog-user-project": project_id,
+    }
+    url = f"https://logging.googleapis.com/v2/projects/{project_id}/locations/global/buckets/_Default/links"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers, timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                links = data.get("links", [])
+                if links and "bigqueryDataset" in links[0]:
+                    # e.g. "bigquery.googleapis.com/projects/123/datasets/test123"
+                    dataset_uri = links[0]["bigqueryDataset"].get("datasetId", "")
+                    if dataset_uri:
+                        return dataset_uri.split("/")[-1]
+            return None
+    except Exception as exc:
+        logger.warning(f"Failed to fetch linked log dataset for {project_id}: {exc}")
+        return None
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
@@ -1185,7 +1232,7 @@ async def get_span_details(
     project_id: str,
     trace_dataset: str = "traces",
 ) -> dict[str, Any]:
-    """Fetch rich details (including errors) for a specific span from BigQuery."""
+    """Fetch rich details (including errors and correlated logs) for a specific span."""
     _validate_identifier(project_id, "project_id")
     _validate_identifier(trace_dataset, "trace_dataset")
 
@@ -1239,6 +1286,39 @@ async def get_span_details(
                 }
                 exceptions.append(exc_obj)
 
+        # Async fetch logs if we can
+        logs = []
+        try:
+            log_dataset = await _get_default_log_dataset(project_id)
+            if log_dataset:
+                log_query = f"""
+                    SELECT timestamp, severity, text_payload, TO_JSON_STRING(json_payload) as json_payload_str
+                    FROM `{project_id}.{log_dataset}._AllLogs`
+                    WHERE trace LIKE @trace_id_like AND span_id = @span_id
+                    ORDER BY timestamp ASC
+                    LIMIT 200
+                """
+                log_job = bigquery.QueryJobConfig(
+                    query_parameters=[
+                        bigquery.ScalarQueryParameter("trace_id_like", "STRING", f"%{trace_id}"),
+                        bigquery.ScalarQueryParameter("span_id", "STRING", span_id),
+                    ]
+                )
+
+                log_rows = list(await anyio.to_thread.run_sync(client.query_and_wait, log_query, job_config=log_job))
+                for l_row in log_rows:
+                    payload = l_row.text_payload
+                    if not payload and l_row.json_payload_str:
+                        payload = json.loads(l_row.json_payload_str)
+
+                    logs.append({
+                        "timestamp": l_row.timestamp.isoformat() if l_row.timestamp else None,
+                        "severity": l_row.severity,
+                        "payload": payload,
+                    })
+        except Exception as exc:
+            logger.warning(f"Failed to fetch correlated logs for span {span_id}: {exc}")
+
         return {
             "traceId": trace_id,
             "spanId": span_id,
@@ -1246,6 +1326,7 @@ async def get_span_details(
             "statusMessage": row.status_message,
             "exceptions": exceptions,
             "attributes": attributes,
+            "logs": logs,
         }
     except HTTPException:
         raise
@@ -1944,6 +2025,7 @@ async def get_dashboard_logs(
                 input_tokens,
                 output_tokens,
                 trace_id,
+                span_id,
                 service_name,
                 resource_id
             FROM `{project_id}.{dataset}.agent_spans_raw`
@@ -1996,6 +2078,7 @@ async def get_dashboard_logs(
                     "severity": severity,
                     "message": " | ".join(msg_parts),
                     "traceId": row.trace_id or "",
+                    "spanId": row.span_id or "",
                     "agentName": row.service_name or "unknown",
                     "resourceId": row.resource_id or "",
                 }
@@ -2057,7 +2140,12 @@ async def get_dashboard_sessions(
                 AVG(duration_ms) AS avg_latency_ms,
                 APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_latency_ms,
                 ANY_VALUE(service_name) AS service_name,
-                ANY_VALUE(resource_id) AS resource_id
+                ANY_VALUE(resource_id) AS resource_id,
+                COUNT(*) AS span_count,
+                COUNTIF(node_type = 'LLM') AS llm_call_count,
+                COUNTIF(node_type = 'Tool') AS tool_call_count,
+                COUNTIF(node_type = 'Tool' AND status_code = 'ERROR') AS tool_error_count,
+                COUNTIF(node_type = 'LLM' AND status_code = 'ERROR') AS llm_error_count
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE session_id IS NOT NULL
               AND start_time >= TIMESTAMP_SUB(
@@ -2091,6 +2179,11 @@ async def get_dashboard_sessions(
                     "p95LatencyMs": float(row.p95_latency_ms or 0),
                     "agentName": row.service_name or "unknown",
                     "resourceId": row.resource_id or "",
+                    "spanCount": getattr(row, "span_count", 0),
+                    "llmCallCount": getattr(row, "llm_call_count", 0),
+                    "toolCallCount": getattr(row, "tool_call_count", 0),
+                    "toolErrorCount": getattr(row, "tool_error_count", 0),
+                    "llmErrorCount": getattr(row, "llm_error_count", 0),
                 }
             )
 
@@ -2149,7 +2242,12 @@ async def get_dashboard_traces(
                 COUNTIF(status_code = 'ERROR') AS error_count,
                 MAX(duration_ms) AS latency_ms,
                 ANY_VALUE(service_name) AS service_name,
-                ANY_VALUE(resource_id) AS resource_id
+                ANY_VALUE(resource_id) AS resource_id,
+                COUNT(*) AS span_count,
+                COUNTIF(node_type = 'LLM') AS llm_call_count,
+                COUNTIF(node_type = 'Tool') AS tool_call_count,
+                COUNTIF(node_type = 'Tool' AND status_code = 'ERROR') AS tool_error_count,
+                COUNTIF(node_type = 'LLM' AND status_code = 'ERROR') AS llm_error_count
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE trace_id IS NOT NULL
               AND start_time >= TIMESTAMP_SUB(
@@ -2181,6 +2279,11 @@ async def get_dashboard_traces(
                     "latencyMs": float(row.latency_ms or 0),
                     "agentName": row.service_name or "unknown",
                     "resourceId": row.resource_id or "",
+                    "spanCount": getattr(row, "span_count", 0),
+                    "llmCallCount": getattr(row, "llm_call_count", 0),
+                    "toolCallCount": getattr(row, "tool_call_count", 0),
+                    "toolErrorCount": getattr(row, "tool_error_count", 0),
+                    "llmErrorCount": getattr(row, "llm_error_count", 0),
                 }
             )
 
