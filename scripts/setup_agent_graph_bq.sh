@@ -88,6 +88,7 @@ bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw" > /dev/null 2>&1 || tru
 echo "🔹 Creating Materialized View: agent_spans_raw..."
 MV_SQL="
 CREATE MATERIALIZED VIEW \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+PARTITION BY DATE(start_time)
 CLUSTER BY trace_id, session_id, node_label
 OPTIONS (
   enable_refresh = true,
@@ -112,6 +113,10 @@ SELECT
   status.message AS status_desc,
   SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.usage.input_tokens\"') AS INT64) AS input_tokens,
   SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.usage.output_tokens\"') AS INT64) AS output_tokens,
+  JSON_VALUE(attributes, '\$.\"gen_ai.tool.type\"') AS tool_type,
+  JSON_VALUE(attributes, '\$.\"gen_ai.request.model\"') AS request_model,
+  JSON_VALUE(attributes, '\$.\"gen_ai.response.finish_reasons\"') AS finish_reasons,
+  JSON_VALUE(attributes, '\$.\"gen_ai.system\"') AS system,
   -- Node Classification
   CASE
     WHEN JSON_VALUE(attributes, '\$.\"gen_ai.operation.name\"') = 'invoke_agent' THEN 'Agent'
@@ -217,7 +222,8 @@ WITH RECURSIVE span_tree AS (
     status_code,
     start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
-  WHERE parent_id IS NULL OR parent_id NOT IN (SELECT span_id FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`)
+  WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+    AND (parent_id IS NULL OR parent_id NOT IN (SELECT span_id FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\` WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)))
 
   UNION ALL
 
@@ -239,6 +245,7 @@ WITH RECURSIVE span_tree AS (
     child.start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\` child
   JOIN span_tree parent ON child.parent_id = parent.span_id
+  WHERE child.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
 )
 SELECT
   trace_id,

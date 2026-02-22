@@ -764,6 +764,9 @@ async def get_node_detail(
                 r.span_id,
                 r.start_time,
                 r.node_type,
+                r.tool_type,
+                r.request_model,
+                r.finish_reasons,
                 JSON_VALUE(s.attributes, '$.\"gen_ai.prompt\"') AS prompt,
                 JSON_VALUE(s.attributes, '$.\"gen_ai.completion\"') AS completion,
                 JSON_VALUE(s.attributes, '$.\"tool.input\"') AS tool_input,
@@ -773,6 +776,9 @@ async def get_node_detail(
               ON r.span_id = s.span_id AND r.trace_id = s.trace_id
             WHERE r.logical_node_id = @node_id
               AND r.start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
+              )
+              AND s.start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
               {"AND r.status_code = 'ERROR'" if errors_only else ""}
@@ -815,6 +821,9 @@ async def get_node_detail(
                         row.start_time.isoformat() if row.start_time else None
                     ),
                     "nodeType": row.node_type,
+                    "toolType": row.tool_type,
+                    "requestModel": row.request_model,
+                    "finishReasons": row.finish_reasons,
                     "prompt": row.prompt,
                     "completion": row.completion,
                     "toolInput": row.tool_input,

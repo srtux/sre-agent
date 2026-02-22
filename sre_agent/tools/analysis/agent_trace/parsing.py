@@ -36,6 +36,9 @@ GENAI_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
 GENAI_REQUEST_MODEL = "gen_ai.request.model"
 GENAI_RESPONSE_MODEL = "gen_ai.response.model"
 GENAI_FINISH_REASONS = "gen_ai.response.finish_reasons"
+GENAI_SYSTEM = "gen_ai.system"
+GENAI_TOOL_TYPE = "gen_ai.tool.type"
+GENAI_CONVERSATION_ID = "gen_ai.conversation.id"
 CLOUD_RESOURCE_ID = "cloud.resource_id"
 
 # Mapping from gen_ai.operation.name values to our enums
@@ -196,6 +199,9 @@ def parse_bq_row_to_agent_span(row: dict[str, Any]) -> AgentSpanInfo:
         agent_id=merged_attrs.get(GENAI_AGENT_ID),
         tool_name=merged_attrs.get(GENAI_TOOL_NAME),
         tool_call_id=merged_attrs.get(GENAI_TOOL_CALL_ID),
+        tool_type=merged_attrs.get(GENAI_TOOL_TYPE),
+        system=merged_attrs.get(GENAI_SYSTEM),
+        session_id=merged_attrs.get(GENAI_CONVERSATION_ID),
         model_requested=merged_attrs.get(GENAI_REQUEST_MODEL),
         model_used=merged_attrs.get(GENAI_RESPONSE_MODEL),
         input_tokens=_safe_int(merged_attrs.get(GENAI_INPUT_TOKENS)),
@@ -257,6 +263,9 @@ def parse_cloud_trace_span_to_agent_span(span: dict[str, Any]) -> AgentSpanInfo:
         agent_id=labels.get(GENAI_AGENT_ID),
         tool_name=labels.get(GENAI_TOOL_NAME),
         tool_call_id=labels.get(GENAI_TOOL_CALL_ID),
+        tool_type=labels.get(GENAI_TOOL_TYPE),
+        system=labels.get(GENAI_SYSTEM),
+        session_id=labels.get(GENAI_CONVERSATION_ID),
         model_requested=labels.get(GENAI_REQUEST_MODEL),
         model_used=labels.get(GENAI_RESPONSE_MODEL),
         input_tokens=_safe_int(labels.get(GENAI_INPUT_TOKENS)),

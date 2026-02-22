@@ -351,6 +351,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
         elif step == "agent_spans_raw":
             sql = f"""
             CREATE MATERIALIZED VIEW `{pd}.{gd}.agent_spans_raw`
+            PARTITION BY DATE(start_time)
             CLUSTER BY trace_id, session_id, node_label
             OPTIONS (
               enable_refresh = true, refresh_interval_minutes = 5,
@@ -364,6 +365,10 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
               status.message AS status_desc,
               SAFE_CAST(JSON_VALUE(attributes, '$."gen_ai.usage.input_tokens"') AS INT64) AS input_tokens,
               SAFE_CAST(JSON_VALUE(attributes, '$."gen_ai.usage.output_tokens"') AS INT64) AS output_tokens,
+              JSON_VALUE(attributes, '$."gen_ai.tool.type"') AS tool_type,
+              JSON_VALUE(attributes, '$."gen_ai.request.model"') AS request_model,
+              JSON_VALUE(attributes, '$."gen_ai.response.finish_reasons"') AS finish_reasons,
+              JSON_VALUE(attributes, '$."gen_ai.system"') AS system,
               CASE
                 WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'invoke_agent' THEN 'Agent'
                 WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'execute_tool' THEN 'Tool'
@@ -415,17 +420,19 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
         elif step == "edges":
             sql = f"""
             CREATE OR REPLACE VIEW `{pd}.{gd}.agent_topology_edges` AS
-            WITH RECURSIVE span_tree AS (
+              WITH RECURSIVE span_tree AS (
               SELECT span_id, trace_id, session_id, node_type, logical_node_id, CAST(NULL AS STRING) AS ancestor_logical_id,
-                service_name, duration_ms, input_tokens, output_tokens, status_code, start_time
+                service_name, duration_ms, input_tokens, output_tokens, status_code, start_time, system
               FROM `{pd}.{gd}.agent_spans_raw`
-              WHERE parent_id IS NULL OR parent_id NOT IN (SELECT span_id FROM `{pd}.{gd}.agent_spans_raw`)
+              WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+                AND (parent_id IS NULL OR parent_id NOT IN (SELECT span_id FROM `{pd}.{gd}.agent_spans_raw` WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)))
               UNION ALL
               SELECT child.span_id, child.trace_id, child.session_id, child.node_type, child.logical_node_id,
                 IF(parent.node_type != 'Glue', parent.logical_node_id, parent.ancestor_logical_id),
-                child.service_name, child.duration_ms, child.input_tokens, child.output_tokens, child.status_code, child.start_time
+                child.service_name, child.duration_ms, child.input_tokens, child.output_tokens, child.status_code, child.start_time, child.system
               FROM `{pd}.{gd}.agent_spans_raw` child
               JOIN span_tree parent ON child.parent_id = parent.span_id
+              WHERE child.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
             )
             SELECT trace_id, session_id, ANY_VALUE(service_name) AS service_name,
               ancestor_logical_id AS source_node_id, logical_node_id AS destination_node_id, COUNT(*) as edge_weight,

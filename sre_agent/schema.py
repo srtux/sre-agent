@@ -579,6 +579,9 @@ class AgentSpanInfo(BaseModel):
     agent_id: str | None = Field(default=None, description="gen_ai.agent.id")
     tool_name: str | None = Field(default=None, description="gen_ai.tool.name")
     tool_call_id: str | None = Field(default=None, description="gen_ai.tool.call.id")
+    tool_type: str | None = Field(default=None, description="gen_ai.tool.type")
+    system: str | None = Field(default=None, description="gen_ai.system")
+    session_id: str | None = Field(default=None, description="gen_ai.conversation.id")
     model_requested: str | None = Field(
         default=None, description="gen_ai.request.model"
     )
