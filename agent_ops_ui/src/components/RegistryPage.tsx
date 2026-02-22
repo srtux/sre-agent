@@ -168,7 +168,7 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   const agents: RegistryAgent[] = mode === 'agents' ? data?.agents || [] : []
   const tools: RegistryTool[] = mode === 'tools' ? data?.tools || [] : []
 
-  const errorMessage = error instanceof Error ? error.message : (error as any)?.response?.data?.detail;
+  const errorMessage = error instanceof Error ? error.message : (error as unknown as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
