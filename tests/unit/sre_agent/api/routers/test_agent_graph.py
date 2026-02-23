@@ -2213,7 +2213,7 @@ class TestSpanDetailsEndpoint:
             status_code=2,
             status_message="Error message",
             events_json='[{"name": "exception", "attributes": {"exception.message": "boom", "exception.type": "RuntimeError"}}, {"name": "other_event"}]',
-            attributes_json='{"http.method": "GET"}'
+            attributes_json='{"http.method": "GET"}',
         )
 
         # Mock log data
@@ -2221,7 +2221,7 @@ class TestSpanDetailsEndpoint:
             timestamp=None,
             severity="INFO",
             text_payload="Log message",
-            json_payload_str=None
+            json_payload_str=None,
         )
 
         def mock_query(query, *args, **kwargs):
@@ -2238,13 +2238,13 @@ class TestSpanDetailsEndpoint:
             mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
             resp = client.get(
-                "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
-                params={"project_id": "test-project"}
+                "/api/v1/graph/trace/8f4de13a30f769/span/74e87600bb9ffefc/details",
+                params={"project_id": "test-project"},
             )
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["traceId"] == "8f4de13a30f76906a206f477cc6777a4"
+        assert data["traceId"] == "8f4de13a30f769"  # pragma: allowlist secret
         assert data["statusCode"] == 2
         assert len(data["exceptions"]) == 1
         assert data["exceptions"][0]["message"] == "boom"
@@ -2262,7 +2262,7 @@ class TestSpanDetailsEndpoint:
 
         resp = client.get(
             "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
-            params={"project_id": "test-project"}
+            params={"project_id": "test-project"},
         )
         assert resp.status_code == 404
 
@@ -2284,14 +2284,12 @@ class TestLogDatasetDiscovery:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "links": [
-                {"bigqueryDataset": {"datasetId": "projects/p/datasets/my_logs"}}
-            ]
+            "links": [{"bigqueryDataset": {"datasetId": "projects/p/datasets/my_logs"}}]
         }
         mock_get.return_value = mock_resp
 
         # Cache is bypassed automatically in pytest
-        
+
         dataset = await _get_default_log_dataset("test-project")
         assert dataset == "my_logs"
 
@@ -2300,4 +2298,3 @@ class TestLogDatasetDiscovery:
         assert "locations/global/buckets/_Default/links" in url
 
         # Verify the URL
-

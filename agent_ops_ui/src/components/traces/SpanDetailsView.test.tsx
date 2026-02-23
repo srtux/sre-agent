@@ -10,24 +10,31 @@ vi.mock('../../contexts/AgentContext', () => ({
 }))
 
 describe('SpanDetailsView', () => {
-  const mockTraceId = '8f4de13a30f76906a206f477cc6777a4'
-  const mockSpanId = '74e87600bb9ffefc'
+  const mockTraceId = '8f4de13a30f76906a206f477cc6777a4' // pragma: allowlist secret
+  const mockSpanId = '74e87600bb9ffefc' // pragma: allowlist secret
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(useAgentContext as any).mockReturnValue({
+    vi.mocked(useAgentContext).mockReturnValue({
       projectId: 'test-project',
+      serviceName: '',
+      setServiceName: vi.fn(),
+      availableAgents: [],
+      loadingAgents: false,
+      errorAgents: null,
+      registryViewMode: 'card',
+      setRegistryViewMode: vi.fn(),
     })
   })
 
   it('renders loading state initially', () => {
-    ;(axios.get as any).mockReturnValue(new Promise(() => {}))
+    vi.mocked(axios.get).mockReturnValue(new Promise(() => { }))
     render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
     expect(screen.getByText('Loading span details...')).toBeInTheDocument()
   })
 
   it('renders error state on failure', async () => {
-    ;(axios.get as any).mockRejectedValue({
+    vi.mocked(axios.get).mockRejectedValue({
       response: { data: { detail: 'Server error' } },
     })
     render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
@@ -68,7 +75,7 @@ describe('SpanDetailsView', () => {
       ]
     }
 
-    ;(axios.get as any).mockResolvedValue({ data: mockData })
+    vi.mocked(axios.get).mockResolvedValue({ data: mockData })
     render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
 
     // Wait for content
@@ -92,7 +99,7 @@ describe('SpanDetailsView', () => {
       logs: []
     }
 
-    ;(axios.get as any).mockResolvedValue({ data: mockData })
+    vi.mocked(axios.get).mockResolvedValue({ data: mockData })
     render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
 
     await waitFor(() => {

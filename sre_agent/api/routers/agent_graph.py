@@ -160,8 +160,11 @@ async def _get_default_log_dataset(project_id: str) -> str | None:
     try:
         from google.auth import default
         from google.auth.transport.requests import Request
-        credentials, _ = default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        credentials.refresh(Request())
+
+        credentials, _ = default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        credentials.refresh(Request())  # type: ignore[no-untyped-call]
         token = credentials.token
     except Exception as exc:
         logger.warning(f"Failed to get GCP credentials for log dataset lookup: {exc}")
@@ -183,7 +186,7 @@ async def _get_default_log_dataset(project_id: str) -> str | None:
                 if links and "bigqueryDataset" in links[0]:
                     # e.g. "bigquery.googleapis.com/projects/123/datasets/test123"
                     dataset_uri = links[0]["bigqueryDataset"].get("datasetId", "")
-                    if dataset_uri:
+                    if isinstance(dataset_uri, str) and dataset_uri:
                         return dataset_uri.split("/")[-1]
             return None
     except Exception as exc:
@@ -1300,22 +1303,34 @@ async def get_span_details(
                 """
                 log_job = bigquery.QueryJobConfig(
                     query_parameters=[
-                        bigquery.ScalarQueryParameter("trace_id_like", "STRING", f"%{trace_id}"),
+                        bigquery.ScalarQueryParameter(
+                            "trace_id_like", "STRING", f"%{trace_id}"
+                        ),
                         bigquery.ScalarQueryParameter("span_id", "STRING", span_id),
                     ]
                 )
 
-                log_rows = list(await anyio.to_thread.run_sync(client.query_and_wait, log_query, job_config=log_job))
+                log_rows = list(
+                    await anyio.to_thread.run_sync(
+                        functools.partial(
+                            client.query_and_wait, log_query, job_config=log_job
+                        )
+                    )
+                )
                 for l_row in log_rows:
                     payload = l_row.text_payload
                     if not payload and l_row.json_payload_str:
                         payload = json.loads(l_row.json_payload_str)
 
-                    logs.append({
-                        "timestamp": l_row.timestamp.isoformat() if l_row.timestamp else None,
-                        "severity": l_row.severity,
-                        "payload": payload,
-                    })
+                    logs.append(
+                        {
+                            "timestamp": l_row.timestamp.isoformat()
+                            if l_row.timestamp
+                            else None,
+                            "severity": l_row.severity,
+                            "payload": payload,
+                        }
+                    )
         except Exception as exc:
             logger.warning(f"Failed to fetch correlated logs for span {span_id}: {exc}")
 
