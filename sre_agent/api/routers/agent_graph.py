@@ -755,9 +755,7 @@ async def get_node_detail(
     """
     if is_guest_mode():
         gen = DemoDataGenerator()
-        return gen.get_node_detail(
-            node_id=unquote(logical_node_id), hours=hours
-        )
+        return gen.get_node_detail(node_id=unquote(logical_node_id), hours=hours)
 
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")

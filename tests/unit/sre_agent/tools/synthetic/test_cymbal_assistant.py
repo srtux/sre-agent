@@ -23,7 +23,6 @@ from sre_agent.tools.synthetic.cymbal_assistant import (
     MCPServerDef,
 )
 
-
 # ---------------------------------------------------------------------------
 # Agent Definitions
 # ---------------------------------------------------------------------------
@@ -107,9 +106,7 @@ class TestMCPServers:
 
     def test_server_keys_match_names(self) -> None:
         for key, server in MCP_SERVERS.items():
-            assert key == server.name, (
-                f"Key '{key}' != server name '{server.name}'"
-            )
+            assert key == server.name, f"Key '{key}' != server name '{server.name}'"
 
     def test_all_servers_are_mcpserverdef_instances(self) -> None:
         for key, server in MCP_SERVERS.items():
@@ -186,9 +183,7 @@ class TestJourneyTemplates:
         for journey in JOURNEY_TEMPLATES:
             lo, hi = journey.turns_range
             assert lo > 0, f"{journey.journey_type}: turns_range low must be > 0"
-            assert hi >= lo, (
-                f"{journey.journey_type}: turns_range ({lo}, {hi}) invalid"
-            )
+            assert hi >= lo, f"{journey.journey_type}: turns_range ({lo}, {hi}) invalid"
 
     def test_agents_involved_are_known(self) -> None:
         for journey in JOURNEY_TEMPLATES:
@@ -254,8 +249,16 @@ class TestIncidentTimeline:
         for i in range(1, len(INCIDENT_TIMELINE)):
             prev = INCIDENT_TIMELINE[i - 1]
             curr = INCIDENT_TIMELINE[i]
-            prev_mins = int(str(prev["day"])) * 1440 + int(str(prev["hour"])) * 60 + int(str(prev["minute"]))
-            curr_mins = int(str(curr["day"])) * 1440 + int(str(curr["hour"])) * 60 + int(str(curr["minute"]))
+            prev_mins = (
+                int(str(prev["day"])) * 1440
+                + int(str(prev["hour"])) * 60
+                + int(str(prev["minute"]))
+            )
+            curr_mins = (
+                int(str(curr["day"])) * 1440
+                + int(str(curr["hour"])) * 60
+                + int(str(curr["minute"]))
+            )
             assert curr_mins >= prev_mins, (
                 f"Event '{curr['event_id']}' is before '{prev['event_id']}'"
             )

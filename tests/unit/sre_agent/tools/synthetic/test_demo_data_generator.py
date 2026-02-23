@@ -26,7 +26,9 @@ def generator() -> DemoDataGenerator:
 class TestSessionGeneration:
     """Validate generated session data."""
 
-    def test_generates_expected_session_count(self, generator: DemoDataGenerator) -> None:
+    def test_generates_expected_session_count(
+        self, generator: DemoDataGenerator
+    ) -> None:
         sessions = generator.get_sessions()
         assert 70 <= len(sessions) <= 90
 
@@ -66,11 +68,15 @@ class TestTraceGeneration:
         span = generator.get_all_traces()[0]["spans"][0]
         assert "gen_ai.operation.name" in span.get("attributes", {})
 
-    def test_resource_has_agent_engine_platform(self, generator: DemoDataGenerator) -> None:
+    def test_resource_has_agent_engine_platform(
+        self, generator: DemoDataGenerator
+    ) -> None:
         span = generator.get_all_traces()[0]["spans"][0]
         assert span["resource"]["attributes"]["cloud.platform"] == "gcp.agent_engine"
 
-    def test_degraded_traces_have_more_spans(self, generator: DemoDataGenerator) -> None:
+    def test_degraded_traces_have_more_spans(
+        self, generator: DemoDataGenerator
+    ) -> None:
         traces = generator.get_all_traces()
         normal = [t for t in traces if not t["is_degraded"]]
         degraded = [t for t in traces if t["is_degraded"]]
@@ -104,7 +110,9 @@ class TestTraceGeneration:
         for t in generator.get_all_traces():
             assert t["spans"][0]["parent_span_id"] is None
 
-    def test_spans_have_timestamps_in_window(self, generator: DemoDataGenerator) -> None:
+    def test_spans_have_timestamps_in_window(
+        self, generator: DemoDataGenerator
+    ) -> None:
         """All span timestamps are within the 7-day window."""
         for t in generator.get_all_traces():
             for s in t["spans"]:
@@ -136,7 +144,14 @@ class TestTopologyAggregation:
 
     def test_topology_node_data_fields(self, generator: DemoDataGenerator) -> None:
         node = generator.get_topology(hours=168)["nodes"][0]
-        required_data = {"label", "nodeType", "executionCount", "totalTokens", "errorCount", "avgDurationMs"}
+        required_data = {
+            "label",
+            "nodeType",
+            "executionCount",
+            "totalTokens",
+            "errorCount",
+            "avgDurationMs",
+        }
         assert required_data.issubset(node["data"].keys())
 
     def test_topology_edge_data_fields(self, generator: DemoDataGenerator) -> None:
@@ -188,8 +203,14 @@ class TestDashboardKPIs:
     def test_kpis_have_required_fields(self, generator: DemoDataGenerator) -> None:
         kpis = generator.get_dashboard_kpis(hours=168)["kpis"]
         required = {
-            "totalSessions", "avgTurns", "rootInvocations", "errorRate",
-            "totalSessionsTrend", "avgTurnsTrend", "rootInvocationsTrend", "errorRateTrend",
+            "totalSessions",
+            "avgTurns",
+            "rootInvocations",
+            "errorRate",
+            "totalSessionsTrend",
+            "avgTurnsTrend",
+            "rootInvocationsTrend",
+            "errorRateTrend",
         }
         assert required.issubset(kpis.keys())
 
@@ -246,7 +267,14 @@ class TestDashboardModels:
         result = generator.get_dashboard_models(hours=168)
         assert "modelCalls" in result
         entry = result["modelCalls"][0]
-        required = {"modelName", "totalCalls", "p95Duration", "errorRate", "quotaExits", "tokensUsed"}
+        required = {
+            "modelName",
+            "totalCalls",
+            "p95Duration",
+            "errorRate",
+            "quotaExits",
+            "tokensUsed",
+        }
         assert required.issubset(entry.keys())
 
     def test_model_calls_have_known_models(self, generator: DemoDataGenerator) -> None:
@@ -278,7 +306,16 @@ class TestDashboardLogs:
         result = generator.get_dashboard_logs(hours=168, limit=10)
         assert "agentLogs" in result
         entry = result["agentLogs"][0]
-        required = {"timestamp", "agentId", "severity", "message", "traceId", "spanId", "agentName", "resourceId"}
+        required = {
+            "timestamp",
+            "agentId",
+            "severity",
+            "message",
+            "traceId",
+            "spanId",
+            "agentName",
+            "resourceId",
+        }
         assert required.issubset(entry.keys())
 
     def test_logs_limit(self, generator: DemoDataGenerator) -> None:
@@ -294,9 +331,21 @@ class TestDashboardSessions:
         assert "agentSessions" in result
         entry = result["agentSessions"][0]
         required = {
-            "timestamp", "sessionId", "turns", "latestTraceId", "totalTokens",
-            "errorCount", "avgLatencyMs", "p95LatencyMs", "agentName", "resourceId",
-            "spanCount", "llmCallCount", "toolCallCount", "toolErrorCount", "llmErrorCount",
+            "timestamp",
+            "sessionId",
+            "turns",
+            "latestTraceId",
+            "totalTokens",
+            "errorCount",
+            "avgLatencyMs",
+            "p95LatencyMs",
+            "agentName",
+            "resourceId",
+            "spanCount",
+            "llmCallCount",
+            "toolCallCount",
+            "toolErrorCount",
+            "llmErrorCount",
         }
         assert required.issubset(entry.keys())
 
@@ -309,9 +358,19 @@ class TestDashboardTraces:
         assert "agentTraces" in result
         entry = result["agentTraces"][0]
         required = {
-            "timestamp", "traceId", "sessionId", "totalTokens", "errorCount",
-            "latencyMs", "agentName", "resourceId", "spanCount",
-            "llmCallCount", "toolCallCount", "toolErrorCount", "llmErrorCount",
+            "timestamp",
+            "traceId",
+            "sessionId",
+            "totalTokens",
+            "errorCount",
+            "latencyMs",
+            "agentName",
+            "resourceId",
+            "spanCount",
+            "llmCallCount",
+            "toolCallCount",
+            "toolErrorCount",
+            "llmErrorCount",
         }
         assert required.issubset(entry.keys())
 
@@ -329,9 +388,17 @@ class TestRegistryAgents:
         assert "agents" in result
         entry = result["agents"][0]
         required = {
-            "serviceName", "agentId", "agentName", "totalSessions", "totalTurns",
-            "inputTokens", "outputTokens", "errorCount", "errorRate",
-            "p50DurationMs", "p95DurationMs",
+            "serviceName",
+            "agentId",
+            "agentName",
+            "totalSessions",
+            "totalTurns",
+            "inputTokens",
+            "outputTokens",
+            "errorCount",
+            "errorRate",
+            "p50DurationMs",
+            "p95DurationMs",
         }
         assert required.issubset(entry.keys())
 
@@ -349,8 +416,14 @@ class TestRegistryTools:
         assert "tools" in result
         entry = result["tools"][0]
         required = {
-            "serviceName", "toolId", "toolName", "executionCount",
-            "errorCount", "errorRate", "avgDurationMs", "p95DurationMs",
+            "serviceName",
+            "toolId",
+            "toolName",
+            "executionCount",
+            "errorCount",
+            "errorRate",
+            "avgDurationMs",
+            "p95DurationMs",
         }
         assert required.issubset(entry.keys())
 
@@ -367,7 +440,14 @@ class TestSpanDetails:
         trace = generator.get_all_traces()[0]
         span = trace["spans"][0]
         result = generator.get_span_details(trace["trace_id"], span["span_id"])
-        required = {"traceId", "spanId", "statusCode", "statusMessage", "exceptions", "attributes"}
+        required = {
+            "traceId",
+            "spanId",
+            "statusCode",
+            "statusMessage",
+            "exceptions",
+            "attributes",
+        }
         assert required.issubset(result.keys())
 
     def test_span_details_not_found(self, generator: DemoDataGenerator) -> None:
@@ -403,9 +483,18 @@ class TestNodeDetail:
     def test_node_detail_format(self, generator: DemoDataGenerator) -> None:
         result = generator.get_node_detail("cymbal-assistant", hours=168)
         required = {
-            "nodeId", "nodeType", "label", "totalInvocations", "errorRate",
-            "errorCount", "inputTokens", "outputTokens", "estimatedCost",
-            "latency", "topErrors", "recentPayloads",
+            "nodeId",
+            "nodeType",
+            "label",
+            "totalInvocations",
+            "errorRate",
+            "errorCount",
+            "inputTokens",
+            "outputTokens",
+            "estimatedCost",
+            "latency",
+            "topErrors",
+            "recentPayloads",
         }
         assert required.issubset(result.keys())
         assert "p50" in result["latency"]
@@ -416,7 +505,16 @@ class TestNodeDetail:
         result = generator.get_node_detail("cymbal-assistant", hours=168)
         assert len(result["recentPayloads"]) > 0
         payload = result["recentPayloads"][0]
-        required = {"traceId", "spanId", "timestamp", "nodeType", "prompt", "completion", "toolInput", "toolOutput"}
+        required = {
+            "traceId",
+            "spanId",
+            "timestamp",
+            "nodeType",
+            "prompt",
+            "completion",
+            "toolInput",
+            "toolOutput",
+        }
         assert required.issubset(payload.keys())
 
 
@@ -424,11 +522,21 @@ class TestEdgeDetail:
     """Validate edge detail format."""
 
     def test_edge_detail_format(self, generator: DemoDataGenerator) -> None:
-        result = generator.get_edge_detail("cymbal-assistant", "product-discovery", hours=168)
+        result = generator.get_edge_detail(
+            "cymbal-assistant", "product-discovery", hours=168
+        )
         required = {
-            "sourceId", "targetId", "callCount", "errorCount", "errorRate",
-            "avgDurationMs", "p95DurationMs", "p99DurationMs",
-            "totalTokens", "inputTokens", "outputTokens",
+            "sourceId",
+            "targetId",
+            "callCount",
+            "errorCount",
+            "errorRate",
+            "avgDurationMs",
+            "p95DurationMs",
+            "p99DurationMs",
+            "totalTokens",
+            "inputTokens",
+            "outputTokens",
         }
         assert required.issubset(result.keys())
 

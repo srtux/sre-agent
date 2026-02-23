@@ -1,4 +1,5 @@
 """Tests for guest mode chat endpoint."""
+
 import json
 from unittest.mock import patch
 
@@ -42,7 +43,7 @@ class TestGuestChatStreaming:
             "/api/genui/chat",
             json={"messages": [{"role": "user", "text": "hello"}]},
         )
-        lines = [l for l in resp.text.strip().split("\n") if l.strip()]
+        lines = [line for line in resp.text.strip().split("\n") if line.strip()]
         first = json.loads(lines[0])
         assert first["type"] == "session"
         assert "session_id" in first
@@ -52,7 +53,7 @@ class TestGuestChatStreaming:
             "/api/genui/chat",
             json={"messages": [{"role": "user", "text": "hello"}]},
         )
-        lines = [l for l in resp.text.strip().split("\n") if l.strip()]
+        lines = [line for line in resp.text.strip().split("\n") if line.strip()]
         last = json.loads(lines[-1])
         assert last["type"] == "suggestions"
         assert isinstance(last["suggestions"], list)
@@ -63,8 +64,8 @@ class TestGuestChatStreaming:
             "/api/genui/chat",
             json={"messages": [{"role": "user", "text": "hello"}]},
         )
-        lines = [l for l in resp.text.strip().split("\n") if l.strip()]
-        events = [json.loads(l) for l in lines]
+        lines = [line for line in resp.text.strip().split("\n") if line.strip()]
+        events = [json.loads(line) for line in lines]
         text_events = [e for e in events if e.get("type") == "text"]
         assert len(text_events) > 0
 
@@ -73,8 +74,8 @@ class TestGuestChatStreaming:
             "/api/genui/chat",
             json={"messages": [{"role": "user", "text": "hello"}]},
         )
-        lines = [l for l in resp.text.strip().split("\n") if l.strip()]
-        events = [json.loads(l) for l in lines]
+        lines = [line for line in resp.text.strip().split("\n") if line.strip()]
+        events = [json.loads(line) for line in lines]
         dashboard_events = [e for e in events if e.get("type") == "dashboard"]
         assert len(dashboard_events) > 0
 
@@ -95,8 +96,8 @@ class TestGuestChatStreaming:
             },
         )
         # Different turn indexes should produce different content
-        lines1 = [l for l in resp1.text.strip().split("\n") if l.strip()]
-        lines2 = [l for l in resp2.text.strip().split("\n") if l.strip()]
+        lines1 = [line for line in resp1.text.strip().split("\n") if line.strip()]
+        lines2 = [line for line in resp2.text.strip().split("\n") if line.strip()]
         # At minimum, event count may differ between turns
         # Both should have session + suggestions wrapper events
         assert len(lines1) > 2
@@ -121,7 +122,7 @@ class TestGuestChatSuggestions:
             "/api/genui/chat",
             json={"messages": [{"role": "user", "text": "hello"}]},
         )
-        lines = [l for l in resp.text.strip().split("\n") if l.strip()]
+        lines = [line for line in resp.text.strip().split("\n") if line.strip()]
         last = json.loads(lines[-1])
         for s in last["suggestions"]:
             assert isinstance(s, str)

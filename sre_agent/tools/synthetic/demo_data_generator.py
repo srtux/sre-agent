@@ -7,7 +7,6 @@ what the AgentOps UI expects from the backend API endpoints.
 
 from __future__ import annotations
 
-import hashlib
 import math
 import random
 import statistics
@@ -23,6 +22,7 @@ from sre_agent.tools.synthetic.cymbal_assistant import (
     JOURNEY_TEMPLATES,
     REASONING_ENGINE_ID,
     RESOURCE_ATTRIBUTES,
+    JourneyTemplate,
 )
 
 # ---------------------------------------------------------------------------
@@ -75,7 +75,10 @@ _SANKEY_COLORS: dict[str, str] = {
 # Span-tree templates per journey type
 # ---------------------------------------------------------------------------
 
-def _span_tree_for_journey(journey_type: str, agents_involved: list[str]) -> list[dict[str, Any]]:
+
+def _span_tree_for_journey(
+    journey_type: str, agents_involved: list[str]
+) -> list[dict[str, Any]]:
     """Return a template span tree for a given journey type.
 
     Each node is ``{"name": str, "op": str, "agent": str, "kind": "llm"|"tool"|"agent",
@@ -83,87 +86,411 @@ def _span_tree_for_journey(journey_type: str, agents_involved: list[str]) -> lis
     """
     if journey_type == "search_browse_buy":
         return [
-            {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-            {"name": "product-discovery", "op": "invoke_agent", "agent": "product-discovery", "kind": "agent", "children": [
-                {"name": "plan_search", "op": "generate_content", "agent": "product-discovery", "kind": "llm", "children": []},
-                {"name": "search_products", "op": "execute_tool", "agent": "product-discovery", "kind": "tool", "children": []},
-                {"name": "personalization", "op": "invoke_agent", "agent": "personalization", "kind": "agent", "children": [
-                    {"name": "get_customer_profile", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-                    {"name": "get_personalized_recs", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-                ]},
-                {"name": "get_product_details", "op": "execute_tool", "agent": "product-discovery", "kind": "tool", "children": []},
-            ]},
-            {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+            {
+                "name": "classify_intent",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
+            {
+                "name": "product-discovery",
+                "op": "invoke_agent",
+                "agent": "product-discovery",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_search",
+                        "op": "generate_content",
+                        "agent": "product-discovery",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "search_products",
+                        "op": "execute_tool",
+                        "agent": "product-discovery",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "personalization",
+                        "op": "invoke_agent",
+                        "agent": "personalization",
+                        "kind": "agent",
+                        "children": [
+                            {
+                                "name": "get_customer_profile",
+                                "op": "execute_tool",
+                                "agent": "personalization",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                            {
+                                "name": "get_personalized_recs",
+                                "op": "execute_tool",
+                                "agent": "personalization",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                        ],
+                    },
+                    {
+                        "name": "get_product_details",
+                        "op": "execute_tool",
+                        "agent": "product-discovery",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                ],
+            },
+            {
+                "name": "format_response",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
         ]
     if journey_type == "search_compare":
         return [
-            {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-            {"name": "product-discovery", "op": "invoke_agent", "agent": "product-discovery", "kind": "agent", "children": [
-                {"name": "plan_search", "op": "generate_content", "agent": "product-discovery", "kind": "llm", "children": []},
-                {"name": "search_products", "op": "execute_tool", "agent": "product-discovery", "kind": "tool", "children": []},
-                {"name": "get_reviews", "op": "execute_tool", "agent": "product-discovery", "kind": "tool", "children": []},
-                {"name": "personalization", "op": "invoke_agent", "agent": "personalization", "kind": "agent", "children": [
-                    {"name": "get_customer_profile", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-                    {"name": "get_similar_products", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-                ]},
-            ]},
-            {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+            {
+                "name": "classify_intent",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
+            {
+                "name": "product-discovery",
+                "op": "invoke_agent",
+                "agent": "product-discovery",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_search",
+                        "op": "generate_content",
+                        "agent": "product-discovery",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "search_products",
+                        "op": "execute_tool",
+                        "agent": "product-discovery",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "get_reviews",
+                        "op": "execute_tool",
+                        "agent": "product-discovery",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "personalization",
+                        "op": "invoke_agent",
+                        "agent": "personalization",
+                        "kind": "agent",
+                        "children": [
+                            {
+                                "name": "get_customer_profile",
+                                "op": "execute_tool",
+                                "agent": "personalization",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                            {
+                                "name": "get_similar_products",
+                                "op": "execute_tool",
+                                "agent": "personalization",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                "name": "format_response",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
         ]
     if journey_type == "order_tracking":
         return [
-            {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-            {"name": "order-management", "op": "invoke_agent", "agent": "order-management", "kind": "agent", "children": [
-                {"name": "plan_lookup", "op": "generate_content", "agent": "order-management", "kind": "llm", "children": []},
-                {"name": "get_order_status", "op": "execute_tool", "agent": "order-management", "kind": "tool", "children": []},
-                {"name": "fulfillment", "op": "invoke_agent", "agent": "fulfillment", "kind": "agent", "children": [
-                    {"name": "track_shipment", "op": "execute_tool", "agent": "fulfillment", "kind": "tool", "children": []},
-                    {"name": "get_delivery_estimate", "op": "execute_tool", "agent": "fulfillment", "kind": "tool", "children": []},
-                ]},
-            ]},
-            {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+            {
+                "name": "classify_intent",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
+            {
+                "name": "order-management",
+                "op": "invoke_agent",
+                "agent": "order-management",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_lookup",
+                        "op": "generate_content",
+                        "agent": "order-management",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "get_order_status",
+                        "op": "execute_tool",
+                        "agent": "order-management",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "fulfillment",
+                        "op": "invoke_agent",
+                        "agent": "fulfillment",
+                        "kind": "agent",
+                        "children": [
+                            {
+                                "name": "track_shipment",
+                                "op": "execute_tool",
+                                "agent": "fulfillment",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                            {
+                                "name": "get_delivery_estimate",
+                                "op": "execute_tool",
+                                "agent": "fulfillment",
+                                "kind": "tool",
+                                "children": [],
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                "name": "format_response",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
         ]
     if journey_type == "return_refund":
         return [
-            {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-            {"name": "order-management", "op": "invoke_agent", "agent": "order-management", "kind": "agent", "children": [
-                {"name": "plan_return", "op": "generate_content", "agent": "order-management", "kind": "llm", "children": []},
-                {"name": "get_order_status", "op": "execute_tool", "agent": "order-management", "kind": "tool", "children": []},
-                {"name": "create_return", "op": "execute_tool", "agent": "order-management", "kind": "tool", "children": []},
-            ]},
-            {"name": "support", "op": "invoke_agent", "agent": "support", "kind": "agent", "children": [
-                {"name": "plan_support", "op": "generate_content", "agent": "support", "kind": "llm", "children": []},
-                {"name": "search_knowledge_base", "op": "execute_tool", "agent": "support", "kind": "tool", "children": []},
-                {"name": "create_ticket", "op": "execute_tool", "agent": "support", "kind": "tool", "children": []},
-            ]},
-            {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+            {
+                "name": "classify_intent",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
+            {
+                "name": "order-management",
+                "op": "invoke_agent",
+                "agent": "order-management",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_return",
+                        "op": "generate_content",
+                        "agent": "order-management",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "get_order_status",
+                        "op": "execute_tool",
+                        "agent": "order-management",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "create_return",
+                        "op": "execute_tool",
+                        "agent": "order-management",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                ],
+            },
+            {
+                "name": "support",
+                "op": "invoke_agent",
+                "agent": "support",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_support",
+                        "op": "generate_content",
+                        "agent": "support",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "search_knowledge_base",
+                        "op": "execute_tool",
+                        "agent": "support",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "create_ticket",
+                        "op": "execute_tool",
+                        "agent": "support",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                ],
+            },
+            {
+                "name": "format_response",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
         ]
     if journey_type == "support_question":
         return [
-            {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-            {"name": "support", "op": "invoke_agent", "agent": "support", "kind": "agent", "children": [
-                {"name": "plan_support", "op": "generate_content", "agent": "support", "kind": "llm", "children": []},
-                {"name": "search_knowledge_base", "op": "execute_tool", "agent": "support", "kind": "tool", "children": []},
-                {"name": "get_customer_profile", "op": "execute_tool", "agent": "support", "kind": "tool", "children": []},
-            ]},
-            {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+            {
+                "name": "classify_intent",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
+            {
+                "name": "support",
+                "op": "invoke_agent",
+                "agent": "support",
+                "kind": "agent",
+                "children": [
+                    {
+                        "name": "plan_support",
+                        "op": "generate_content",
+                        "agent": "support",
+                        "kind": "llm",
+                        "children": [],
+                    },
+                    {
+                        "name": "search_knowledge_base",
+                        "op": "execute_tool",
+                        "agent": "support",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                    {
+                        "name": "get_customer_profile",
+                        "op": "execute_tool",
+                        "agent": "support",
+                        "kind": "tool",
+                        "children": [],
+                    },
+                ],
+            },
+            {
+                "name": "format_response",
+                "op": "generate_content",
+                "agent": "cymbal-assistant",
+                "kind": "llm",
+                "children": [],
+            },
         ]
     # browse_abandon_return
     return [
-        {"name": "classify_intent", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
-        {"name": "product-discovery", "op": "invoke_agent", "agent": "product-discovery", "kind": "agent", "children": [
-            {"name": "plan_search", "op": "generate_content", "agent": "product-discovery", "kind": "llm", "children": []},
-            {"name": "search_products", "op": "execute_tool", "agent": "product-discovery", "kind": "tool", "children": []},
-            {"name": "personalization", "op": "invoke_agent", "agent": "personalization", "kind": "agent", "children": [
-                {"name": "get_customer_profile", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-                {"name": "get_personalized_recs", "op": "execute_tool", "agent": "personalization", "kind": "tool", "children": []},
-            ]},
-        ]},
-        {"name": "checkout", "op": "invoke_agent", "agent": "checkout", "kind": "agent", "children": [
-            {"name": "plan_checkout", "op": "generate_content", "agent": "checkout", "kind": "llm", "children": []},
-            {"name": "add_to_cart", "op": "execute_tool", "agent": "checkout", "kind": "tool", "children": []},
-            {"name": "get_cart", "op": "execute_tool", "agent": "checkout", "kind": "tool", "children": []},
-        ]},
-        {"name": "format_response", "op": "generate_content", "agent": "cymbal-assistant", "kind": "llm", "children": []},
+        {
+            "name": "classify_intent",
+            "op": "generate_content",
+            "agent": "cymbal-assistant",
+            "kind": "llm",
+            "children": [],
+        },
+        {
+            "name": "product-discovery",
+            "op": "invoke_agent",
+            "agent": "product-discovery",
+            "kind": "agent",
+            "children": [
+                {
+                    "name": "plan_search",
+                    "op": "generate_content",
+                    "agent": "product-discovery",
+                    "kind": "llm",
+                    "children": [],
+                },
+                {
+                    "name": "search_products",
+                    "op": "execute_tool",
+                    "agent": "product-discovery",
+                    "kind": "tool",
+                    "children": [],
+                },
+                {
+                    "name": "personalization",
+                    "op": "invoke_agent",
+                    "agent": "personalization",
+                    "kind": "agent",
+                    "children": [
+                        {
+                            "name": "get_customer_profile",
+                            "op": "execute_tool",
+                            "agent": "personalization",
+                            "kind": "tool",
+                            "children": [],
+                        },
+                        {
+                            "name": "get_personalized_recs",
+                            "op": "execute_tool",
+                            "agent": "personalization",
+                            "kind": "tool",
+                            "children": [],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "checkout",
+            "op": "invoke_agent",
+            "agent": "checkout",
+            "kind": "agent",
+            "children": [
+                {
+                    "name": "plan_checkout",
+                    "op": "generate_content",
+                    "agent": "checkout",
+                    "kind": "llm",
+                    "children": [],
+                },
+                {
+                    "name": "add_to_cart",
+                    "op": "execute_tool",
+                    "agent": "checkout",
+                    "kind": "tool",
+                    "children": [],
+                },
+                {
+                    "name": "get_cart",
+                    "op": "execute_tool",
+                    "agent": "checkout",
+                    "kind": "tool",
+                    "children": [],
+                },
+            ],
+        },
+        {
+            "name": "format_response",
+            "op": "generate_content",
+            "agent": "cymbal-assistant",
+            "kind": "llm",
+            "children": [],
+        },
     ]
 
 
@@ -173,6 +500,7 @@ def _inject_anomalous_spans(tree: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Modifies the first agent-kind child that is product-discovery (if any).
     """
     import copy
+
     tree = copy.deepcopy(tree)
     for node in tree:
         if node["kind"] == "agent" and node["agent"] == "product-discovery":
@@ -181,32 +509,70 @@ def _inject_anomalous_spans(tree: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for tool_name in ANOMALOUS_TOOLS_IN_PRODUCT_DISCOVERY:
                 repeat = 5 if tool_name == "check_availability" else 3
                 for _ in range(repeat):
-                    anomalous.append({
-                        "name": tool_name,
-                        "op": "execute_tool",
-                        "agent": "product-discovery",
-                        "kind": "tool",
-                        "children": [],
-                        "anomalous": True,
-                    })
+                    anomalous.append(
+                        {
+                            "name": tool_name,
+                            "op": "execute_tool",
+                            "agent": "product-discovery",
+                            "kind": "tool",
+                            "children": [],
+                            "anomalous": True,
+                        }
+                    )
             # Inject anomalous delegation
-            anomalous.append({
-                "name": ANOMALOUS_DELEGATION,
-                "op": "invoke_agent",
-                "agent": ANOMALOUS_DELEGATION,
-                "kind": "agent",
-                "anomalous": True,
-                "children": [
-                    {"name": "get_warehouse_stock", "op": "execute_tool", "agent": ANOMALOUS_DELEGATION, "kind": "tool", "children": []},
-                    {"name": "get_warehouse_stock", "op": "execute_tool", "agent": ANOMALOUS_DELEGATION, "kind": "tool", "children": []},
-                    {"name": "get_warehouse_stock", "op": "execute_tool", "agent": ANOMALOUS_DELEGATION, "kind": "tool", "children": []},
-                    {"name": "calculate_shipping", "op": "execute_tool", "agent": ANOMALOUS_DELEGATION, "kind": "tool", "children": []},
-                    {"name": "calculate_shipping", "op": "execute_tool", "agent": ANOMALOUS_DELEGATION, "kind": "tool", "children": []},
-                ],
-            })
+            anomalous.append(
+                {
+                    "name": ANOMALOUS_DELEGATION,
+                    "op": "invoke_agent",
+                    "agent": ANOMALOUS_DELEGATION,
+                    "kind": "agent",
+                    "anomalous": True,
+                    "children": [
+                        {
+                            "name": "get_warehouse_stock",
+                            "op": "execute_tool",
+                            "agent": ANOMALOUS_DELEGATION,
+                            "kind": "tool",
+                            "children": [],
+                        },
+                        {
+                            "name": "get_warehouse_stock",
+                            "op": "execute_tool",
+                            "agent": ANOMALOUS_DELEGATION,
+                            "kind": "tool",
+                            "children": [],
+                        },
+                        {
+                            "name": "get_warehouse_stock",
+                            "op": "execute_tool",
+                            "agent": ANOMALOUS_DELEGATION,
+                            "kind": "tool",
+                            "children": [],
+                        },
+                        {
+                            "name": "calculate_shipping",
+                            "op": "execute_tool",
+                            "agent": ANOMALOUS_DELEGATION,
+                            "kind": "tool",
+                            "children": [],
+                        },
+                        {
+                            "name": "calculate_shipping",
+                            "op": "execute_tool",
+                            "agent": ANOMALOUS_DELEGATION,
+                            "kind": "tool",
+                            "children": [],
+                        },
+                    ],
+                }
+            )
             # Insert before the last child (get_product_details etc.)
             insert_pos = max(len(node["children"]) - 1, 1)
-            node["children"] = node["children"][:insert_pos] + anomalous + node["children"][insert_pos:]
+            node["children"] = (
+                node["children"][:insert_pos]
+                + anomalous
+                + node["children"][insert_pos:]
+            )
             break
     return tree
 
@@ -214,6 +580,7 @@ def _inject_anomalous_spans(tree: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Percentile helpers
 # ---------------------------------------------------------------------------
+
 
 def _percentile(values: list[float], pct: float) -> float:
     """Return the *pct*-th percentile (0-100) of *values*."""
@@ -232,6 +599,7 @@ def _percentile(values: list[float], pct: float) -> float:
 # Main generator class
 # ---------------------------------------------------------------------------
 
+
 class DemoDataGenerator:
     """Deterministic demo data generator for Cymbal Shops.
 
@@ -240,6 +608,7 @@ class DemoDataGenerator:
     """
 
     def __init__(self, seed: int = 42) -> None:
+        """Initialize with a deterministic random seed."""
         self._rng = random.Random(seed)
         self._sessions: list[dict[str, Any]] | None = None
         self._traces: list[dict[str, Any]] | None = None
@@ -274,22 +643,26 @@ class DemoDataGenerator:
                 user = self._rng.choice(user_pool)
                 journey = self._rng.choice(journey_pool)
                 turns = self._rng.randint(*journey.turns_range)
-                # Spread within the day (6am–23pm typical usage)
+                # Spread within the day (6am-23pm typical usage)
                 hour = self._rng.randint(6, 23)
                 minute = self._rng.randint(0, 59)
                 second = self._rng.randint(0, 59)
-                ts = _BASE_TIME + timedelta(days=day, hours=hour, minutes=minute, seconds=second)
+                ts = _BASE_TIME + timedelta(
+                    days=day, hours=hour, minutes=minute, seconds=second
+                )
                 session_id = self._hex_id(16)
-                sessions.append({
-                    "session_id": session_id,
-                    "user_id": user.user_id,
-                    "user_display_name": user.display_name,
-                    "user_geo_region": user.geo_region,
-                    "timestamp": ts,
-                    "journey_type": journey.journey_type,
-                    "turns": turns,
-                    "agents_involved": list(journey.agents_involved),
-                })
+                sessions.append(
+                    {
+                        "session_id": session_id,
+                        "user_id": user.user_id,
+                        "user_display_name": user.display_name,
+                        "user_geo_region": user.geo_region,
+                        "timestamp": ts,
+                        "journey_type": journey.journey_type,
+                        "turns": turns,
+                        "agents_involved": list(journey.agents_involved),
+                    }
+                )
         sessions.sort(key=lambda s: s["timestamp"])
         return sessions
 
@@ -383,8 +756,12 @@ class DemoDataGenerator:
             if kind == "llm":
                 attributes["gen_ai.request.model"] = model
                 attributes["gen_ai.response.model"] = f"{model}-001"
-                attributes["gen_ai.usage.input_tokens"] = self._rng.randint(*_INPUT_TOKENS_RANGE)
-                attributes["gen_ai.usage.output_tokens"] = self._rng.randint(*_OUTPUT_TOKENS_RANGE)
+                attributes["gen_ai.usage.input_tokens"] = self._rng.randint(
+                    *_INPUT_TOKENS_RANGE
+                )
+                attributes["gen_ai.usage.output_tokens"] = self._rng.randint(
+                    *_OUTPUT_TOKENS_RANGE
+                )
             if kind == "tool":
                 attributes["gen_ai.tool.name"] = node["name"]
                 attributes["gen_ai.tool.call.id"] = f"call_{self._hex_id(8)}"
@@ -397,19 +774,21 @@ class DemoDataGenerator:
                 if self._rng.random() < 0.5:
                     status_code = 2  # ERROR
                     status_message = "429 Too Many Requests"
-                    events.append({
-                        "name": "exception",
-                        "attributes": {
-                            "exception.type": "RateLimitError",
-                            "exception.message": "429 Too Many Requests from payment-mcp",
-                            "exception.stacktrace": (
-                                "Traceback (most recent call last):\n"
-                                '  File "cymbal/tools/payment.py", line 42, in validate_coupon\n'
-                                "    raise RateLimitError(resp.status_code)\n"
-                                "RateLimitError: 429 Too Many Requests"
-                            ),
-                        },
-                    })
+                    events.append(
+                        {
+                            "name": "exception",
+                            "attributes": {
+                                "exception.type": "RateLimitError",
+                                "exception.message": "429 Too Many Requests from payment-mcp",
+                                "exception.stacktrace": (
+                                    "Traceback (most recent call last):\n"
+                                    '  File "cymbal/tools/payment.py", line 42, in validate_coupon\n'
+                                    "    raise RateLimitError(resp.status_code)\n"
+                                    "RateLimitError: 429 Too Many Requests"
+                                ),
+                            },
+                        }
+                    )
 
             # Resource attributes with version override during incident
             resource_attrs = dict(RESOURCE_ATTRIBUTES)
@@ -449,7 +828,7 @@ class DemoDataGenerator:
             degraded = self._is_degraded(ts)
             version = "v2.4.1" if degraded else "v2.4.0"
 
-            for turn_idx in range(session["turns"]):
+            for _turn_idx in range(session["turns"]):
                 trace_id = self._hex_id(32)
                 root_span_id = self._hex_id(16)
 
@@ -507,22 +886,24 @@ class DemoDataGenerator:
                     "links": [],
                 }
 
-                all_spans = [root_span] + child_spans
+                all_spans = [root_span, *child_spans]
 
                 # Propagate error status to root if any child has error
                 if any(s["status"]["code"] == 2 for s in child_spans):
                     root_span["status"] = {"code": 2, "message": "child span error"}
 
-                traces.append({
-                    "trace_id": trace_id,
-                    "session_id": session["session_id"],
-                    "timestamp": ts,
-                    "is_degraded": degraded,
-                    "journey_type": journey_type,
-                    "user_id": session["user_id"],
-                    "version": version,
-                    "spans": all_spans,
-                })
+                traces.append(
+                    {
+                        "trace_id": trace_id,
+                        "session_id": session["session_id"],
+                        "timestamp": ts,
+                        "is_degraded": degraded,
+                        "journey_type": journey_type,
+                        "user_id": session["user_id"],
+                        "version": version,
+                        "spans": all_spans,
+                    }
+                )
                 ts = ts + turn_gap + timedelta(seconds=self._rng.randint(5, 30))
 
         traces.sort(key=lambda t: t["timestamp"])
@@ -559,7 +940,8 @@ class DemoDataGenerator:
         traces = [t for t in self.get_all_traces() if t["timestamp"] >= cutoff]
         if service_name:
             traces = [
-                t for t in traces
+                t
+                for t in traces
                 if any(
                     s["resource"]["attributes"].get("service.name") == service_name
                     for s in t["spans"]
@@ -567,8 +949,7 @@ class DemoDataGenerator:
             ]
         if errors_only:
             traces = [
-                t for t in traces
-                if any(s["status"]["code"] == 2 for s in t["spans"])
+                t for t in traces if any(s["status"]["code"] == 2 for s in t["spans"])
             ]
         return traces
 
@@ -588,40 +969,51 @@ class DemoDataGenerator:
 
     @staticmethod
     def _span_duration_ms(span: dict[str, Any]) -> float:
-        return span["duration_nano"] / 1e6
+        return float(span["duration_nano"]) / 1e6
 
     @staticmethod
     def _span_is_llm(span: dict[str, Any]) -> bool:
-        return span.get("attributes", {}).get("gen_ai.operation.name") == "generate_content"
+        return bool(
+            span.get("attributes", {}).get("gen_ai.operation.name")
+            == "generate_content"
+        )
 
     @staticmethod
     def _span_is_tool(span: dict[str, Any]) -> bool:
-        return span.get("attributes", {}).get("gen_ai.operation.name") == "execute_tool"
+        return bool(
+            span.get("attributes", {}).get("gen_ai.operation.name") == "execute_tool"
+        )
 
     @staticmethod
     def _span_is_agent(span: dict[str, Any]) -> bool:
-        return span.get("attributes", {}).get("gen_ai.operation.name") == "invoke_agent"
+        return bool(
+            span.get("attributes", {}).get("gen_ai.operation.name") == "invoke_agent"
+        )
 
     @staticmethod
     def _span_tokens(span: dict[str, Any]) -> int:
         attrs = span.get("attributes", {})
-        return attrs.get("gen_ai.usage.input_tokens", 0) + attrs.get("gen_ai.usage.output_tokens", 0)
+        return int(attrs.get("gen_ai.usage.input_tokens", 0)) + int(
+            attrs.get("gen_ai.usage.output_tokens", 0)
+        )
 
     @staticmethod
     def _span_has_error(span: dict[str, Any]) -> bool:
-        return span.get("status", {}).get("code") == 2
+        return bool(span.get("status", {}).get("code") == 2)
 
     @staticmethod
     def _trace_duration_ms(trace: dict[str, Any]) -> float:
         root = trace["spans"][0]
-        return root["duration_nano"] / 1e6
+        return float(root["duration_nano"]) / 1e6
 
     @staticmethod
     def _trace_total_tokens(trace: dict[str, Any]) -> int:
         total = 0
         for s in trace["spans"]:
             attrs = s.get("attributes", {})
-            total += attrs.get("gen_ai.usage.input_tokens", 0) + attrs.get("gen_ai.usage.output_tokens", 0)
+            total += attrs.get("gen_ai.usage.input_tokens", 0) + attrs.get(
+                "gen_ai.usage.output_tokens", 0
+            )
         return total
 
     @staticmethod
@@ -632,13 +1024,22 @@ class DemoDataGenerator:
     # Graph endpoints
     # ------------------------------------------------------------------
 
-    def get_topology(self, hours: float = 168, errors_only: bool = False, service_name: str | None = None) -> dict[str, Any]:
+    def get_topology(
+        self,
+        hours: float = 168,
+        errors_only: bool = False,
+        service_name: str | None = None,
+    ) -> dict[str, Any]:
         """Build topology graph matching AgentOps UI format."""
         traces = self._filter_traces(hours, service_name, errors_only)
 
         # Aggregate per-node and per-edge stats
-        node_stats: dict[str, dict[str, Any]] = {}  # id -> {exec, tokens, errors, durations}
-        edge_stats: dict[tuple[str, str], dict[str, Any]] = {}  # (src, tgt) -> {calls, durations, errors, tokens}
+        node_stats: dict[
+            str, dict[str, Any]
+        ] = {}  # id -> {exec, tokens, errors, durations}
+        edge_stats: dict[
+            tuple[str, str], dict[str, Any]
+        ] = {}  # (src, tgt) -> {calls, durations, errors, tokens}
 
         for trace in traces:
             for span in trace["spans"]:
@@ -680,9 +1081,13 @@ class DemoDataGenerator:
                             p_attrs = ps.get("attributes", {})
                             p_op = p_attrs.get("gen_ai.operation.name", "")
                             if p_op == "invoke_agent":
-                                parent_name = p_attrs.get("gen_ai.agent.name", ps["name"])
+                                parent_name = p_attrs.get(
+                                    "gen_ai.agent.name", ps["name"]
+                                )
                             elif p_op == "execute_tool":
-                                parent_name = p_attrs.get("gen_ai.tool.name", ps["name"])
+                                parent_name = p_attrs.get(
+                                    "gen_ai.tool.name", ps["name"]
+                                )
                             elif p_op == "generate_content":
                                 parent_name = ps["name"]
                             else:
@@ -691,7 +1096,12 @@ class DemoDataGenerator:
                     if parent_name and parent_name != node_id:
                         ek = (parent_name, node_id)
                         if ek not in edge_stats:
-                            edge_stats[ek] = {"calls": 0, "durations": [], "errors": 0, "tokens": 0}
+                            edge_stats[ek] = {
+                                "calls": 0,
+                                "durations": [],
+                                "errors": 0,
+                                "tokens": 0,
+                            }
                         es = edge_stats[ek]
                         es["calls"] += 1
                         es["durations"].append(self._span_duration_ms(span))
@@ -720,38 +1130,47 @@ class DemoDataGenerator:
         nodes = []
         for nid, ns in node_stats.items():
             avg_dur = statistics.mean(ns["durations"]) if ns["durations"] else 0.0
-            nodes.append({
-                "id": nid,
-                "type": ns["type"],
-                "data": {
-                    "label": nid,
-                    "nodeType": ns["type"],
-                    "executionCount": ns["exec"],
-                    "totalTokens": ns["tokens"],
-                    "errorCount": ns["errors"],
-                    "avgDurationMs": round(avg_dur, 2),
-                },
-                "position": positions.get(nid, {"x": 400.0, "y": 300.0}),
-            })
+            nodes.append(
+                {
+                    "id": nid,
+                    "type": ns["type"],
+                    "data": {
+                        "label": nid,
+                        "nodeType": ns["type"],
+                        "executionCount": ns["exec"],
+                        "totalTokens": ns["tokens"],
+                        "errorCount": ns["errors"],
+                        "avgDurationMs": round(avg_dur, 2),
+                    },
+                    "position": positions.get(nid, {"x": 400.0, "y": 300.0}),
+                }
+            )
 
         edges = []
         for (src, tgt), es in edge_stats.items():
             avg_dur = statistics.mean(es["durations"]) if es["durations"] else 0.0
-            edges.append({
-                "id": f"{src}->{tgt}",
-                "source": src,
-                "target": tgt,
-                "data": {
-                    "callCount": es["calls"],
-                    "avgDurationMs": round(avg_dur, 2),
-                    "errorCount": es["errors"],
-                    "totalTokens": es["tokens"],
-                },
-            })
+            edges.append(
+                {
+                    "id": f"{src}->{tgt}",
+                    "source": src,
+                    "target": tgt,
+                    "data": {
+                        "callCount": es["calls"],
+                        "avgDurationMs": round(avg_dur, 2),
+                        "errorCount": es["errors"],
+                        "totalTokens": es["tokens"],
+                    },
+                }
+            )
 
         return {"nodes": nodes, "edges": edges}
 
-    def get_trajectories(self, hours: float = 168, errors_only: bool = False, service_name: str | None = None) -> dict[str, Any]:
+    def get_trajectories(
+        self,
+        hours: float = 168,
+        errors_only: bool = False,
+        service_name: str | None = None,
+    ) -> dict[str, Any]:
         """Build Sankey trajectory data matching AgentOps UI format."""
         traces = self._filter_traces(hours, service_name, errors_only)
 
@@ -789,7 +1208,9 @@ class DemoDataGenerator:
 
         return {"nodes": nodes, "links": links, "loopTraces": []}
 
-    def get_node_detail(self, node_id: str, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_node_detail(
+        self, node_id: str, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Get detailed info for a specific topology node."""
         traces = self._filter_traces(hours, service_name)
 
@@ -849,18 +1270,20 @@ class DemoDataGenerator:
                         payload["completion"] = f"[{span['name']}] completion content"
                     elif nt == "tool":
                         payload["toolInput"] = f'{{"tool": "{span["name"]}"}}'
-                        payload["toolOutput"] = f'{{"status": "ok", "tool": "{span["name"]}"}}'
+                        payload["toolOutput"] = (
+                            f'{{"status": "ok", "tool": "{span["name"]}"}}'
+                        )
                     recent_payloads.append(payload)
 
         error_rate = error_count / total_invocations if total_invocations else 0.0
         # Estimate cost: $0.075 per 1M input tokens, $0.30 per 1M output tokens
         estimated_cost = (input_tokens * 0.075 + output_tokens * 0.30) / 1_000_000
 
-        top_errors = sorted(
-            [{"message": msg, "count": cnt} for msg, cnt in error_messages.items()],
-            key=lambda e: e["count"],
-            reverse=True,
-        )[:5]
+        error_list = [
+            {"message": msg, "count": cnt} for msg, cnt in error_messages.items()
+        ]
+        error_list.sort(key=lambda e: -e["count"])  # type: ignore[operator]
+        top_errors = error_list[:5]
 
         return {
             "nodeId": node_id,
@@ -881,7 +1304,13 @@ class DemoDataGenerator:
             "recentPayloads": recent_payloads,
         }
 
-    def get_edge_detail(self, source_id: str, target_id: str, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_edge_detail(
+        self,
+        source_id: str,
+        target_id: str,
+        hours: float = 168,
+        service_name: str | None = None,
+    ) -> dict[str, Any]:
         """Get detailed info for a topology edge."""
         traces = self._filter_traces(hours, service_name)
 
@@ -892,7 +1321,9 @@ class DemoDataGenerator:
         output_tokens = 0
 
         for trace in traces:
-            span_map: dict[str, dict[str, Any]] = {s["span_id"]: s for s in trace["spans"]}
+            span_map: dict[str, dict[str, Any]] = {
+                s["span_id"]: s for s in trace["spans"]
+            }
             for span in trace["spans"]:
                 attrs = span.get("attributes", {})
                 op = attrs.get("gen_ai.operation.name", "")
@@ -949,7 +1380,9 @@ class DemoDataGenerator:
             "outputTokens": output_tokens,
         }
 
-    def get_timeseries(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_timeseries(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Get latency/QPS timeseries (alias for dashboard timeseries)."""
         return self.get_dashboard_timeseries(hours, service_name)
 
@@ -957,7 +1390,9 @@ class DemoDataGenerator:
     # Dashboard endpoints
     # ------------------------------------------------------------------
 
-    def get_dashboard_kpis(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_kpis(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return KPI metrics matching AgentOps UI format."""
         traces = self._filter_traces(hours, service_name)
         sessions = self._filter_sessions(hours)
@@ -967,14 +1402,18 @@ class DemoDataGenerator:
         total_sessions = len(sessions)
         avg_turns = statistics.mean([s["turns"] for s in sessions]) if sessions else 0.0
         root_invocations = len(traces)
-        error_traces = sum(1 for t in traces if any(s["status"]["code"] == 2 for s in t["spans"]))
+        error_traces = sum(
+            1 for t in traces if any(s["status"]["code"] == 2 for s in t["spans"])
+        )
         error_rate = error_traces / root_invocations if root_invocations else 0.0
 
         # Previous period
         prev_session_ids = {t["session_id"] for t in prev_traces}
         prev_sessions_count = len(prev_session_ids)
         prev_root = len(prev_traces)
-        prev_errors = sum(1 for t in prev_traces if any(s["status"]["code"] == 2 for s in t["spans"]))
+        prev_errors = sum(
+            1 for t in prev_traces if any(s["status"]["code"] == 2 for s in t["spans"])
+        )
         prev_error_rate = prev_errors / prev_root if prev_root else 0.0
 
         # Compute turns for previous sessions
@@ -982,7 +1421,9 @@ class DemoDataGenerator:
         for t in prev_traces:
             sid = t["session_id"]
             prev_session_turns[sid] = prev_session_turns.get(sid, 0) + 1
-        prev_avg_turns = statistics.mean(prev_session_turns.values()) if prev_session_turns else 0.0
+        prev_avg_turns = (
+            statistics.mean(prev_session_turns.values()) if prev_session_turns else 0.0
+        )
 
         def _trend(current: float, previous: float) -> float:
             if previous == 0:
@@ -1002,7 +1443,9 @@ class DemoDataGenerator:
             }
         }
 
-    def get_dashboard_timeseries(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_timeseries(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return timeseries data bucketed appropriately."""
         traces = self._filter_traces(hours, service_name)
 
@@ -1027,7 +1470,8 @@ class DemoDataGenerator:
         for trace in traces:
             ts = trace["timestamp"]
             bucket_start = start + timedelta(
-                minutes=((ts - start).total_seconds() // (bucket_minutes * 60)) * bucket_minutes
+                minutes=((ts - start).total_seconds() // (bucket_minutes * 60))
+                * bucket_minutes
             )
             key = bucket_start.strftime("%Y-%m-%dT%H:%M:%SZ")
             if key in buckets:
@@ -1044,22 +1488,38 @@ class DemoDataGenerator:
 
             p50 = _percentile(durations, 50) if durations else 0.0
             p95 = _percentile(durations, 95) if durations else 0.0
-            latency_series.append({"timestamp": ts_key, "p50": round(p50, 2), "p95": round(p95, 2)})
+            latency_series.append(
+                {"timestamp": ts_key, "p50": round(p50, 2), "p95": round(p95, 2)}
+            )
 
             qps_val = len(bucket_traces) / bucket_seconds if bucket_seconds else 0.0
-            error_traces = sum(1 for t in bucket_traces if any(s["status"]["code"] == 2 for s in t["spans"]))
+            error_traces = sum(
+                1
+                for t in bucket_traces
+                if any(s["status"]["code"] == 2 for s in t["spans"])
+            )
             err_rate = error_traces / len(bucket_traces) if bucket_traces else 0.0
-            qps_series.append({"timestamp": ts_key, "qps": round(qps_val, 4), "errorRate": round(err_rate, 4)})
+            qps_series.append(
+                {
+                    "timestamp": ts_key,
+                    "qps": round(qps_val, 4),
+                    "errorRate": round(err_rate, 4),
+                }
+            )
 
             input_tok = sum(
                 s.get("attributes", {}).get("gen_ai.usage.input_tokens", 0)
-                for t in bucket_traces for s in t["spans"]
+                for t in bucket_traces
+                for s in t["spans"]
             )
             output_tok = sum(
                 s.get("attributes", {}).get("gen_ai.usage.output_tokens", 0)
-                for t in bucket_traces for s in t["spans"]
+                for t in bucket_traces
+                for s in t["spans"]
             )
-            token_series.append({"timestamp": ts_key, "input": input_tok, "output": output_tok})
+            token_series.append(
+                {"timestamp": ts_key, "input": input_tok, "output": output_tok}
+            )
 
         return {
             "latency": latency_series,
@@ -1067,7 +1527,9 @@ class DemoDataGenerator:
             "tokens": token_series,
         }
 
-    def get_dashboard_models(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_models(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return model call statistics."""
         traces = self._filter_traces(hours, service_name)
         model_stats: dict[str, dict[str, Any]] = {}
@@ -1079,7 +1541,13 @@ class DemoDataGenerator:
                 attrs = span.get("attributes", {})
                 model = attrs.get("gen_ai.request.model", "unknown")
                 if model not in model_stats:
-                    model_stats[model] = {"calls": 0, "errors": 0, "quota_exits": 0, "tokens": 0, "durations": []}
+                    model_stats[model] = {
+                        "calls": 0,
+                        "errors": 0,
+                        "quota_exits": 0,
+                        "tokens": 0,
+                        "durations": [],
+                    }
                 ms = model_stats[model]
                 ms["calls"] += 1
                 ms["durations"].append(self._span_duration_ms(span))
@@ -1090,18 +1558,22 @@ class DemoDataGenerator:
         model_calls = []
         for model_name, ms in sorted(model_stats.items()):
             err_rate = ms["errors"] / ms["calls"] if ms["calls"] else 0.0
-            model_calls.append({
-                "modelName": model_name,
-                "totalCalls": ms["calls"],
-                "p95Duration": round(_percentile(ms["durations"], 95), 2),
-                "errorRate": round(err_rate, 4),
-                "quotaExits": ms["quota_exits"],
-                "tokensUsed": ms["tokens"],
-            })
+            model_calls.append(
+                {
+                    "modelName": model_name,
+                    "totalCalls": ms["calls"],
+                    "p95Duration": round(_percentile(ms["durations"], 95), 2),
+                    "errorRate": round(err_rate, 4),
+                    "quotaExits": ms["quota_exits"],
+                    "tokensUsed": ms["tokens"],
+                }
+            )
 
         return {"modelCalls": model_calls}
 
-    def get_dashboard_tools(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_tools(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return tool call statistics."""
         traces = self._filter_traces(hours, service_name)
         tool_stats: dict[str, dict[str, Any]] = {}
@@ -1123,16 +1595,20 @@ class DemoDataGenerator:
         tool_calls = []
         for tn, ts in sorted(tool_stats.items()):
             err_rate = ts["errors"] / ts["calls"] if ts["calls"] else 0.0
-            tool_calls.append({
-                "toolName": tn,
-                "totalCalls": ts["calls"],
-                "p95Duration": round(_percentile(ts["durations"], 95), 2),
-                "errorRate": round(err_rate, 4),
-            })
+            tool_calls.append(
+                {
+                    "toolName": tn,
+                    "totalCalls": ts["calls"],
+                    "p95Duration": round(_percentile(ts["durations"], 95), 2),
+                    "errorRate": round(err_rate, 4),
+                }
+            )
 
         return {"toolCalls": tool_calls}
 
-    def get_dashboard_logs(self, hours: float = 168, limit: int = 2000, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_logs(
+        self, hours: float = 168, limit: int = 2000, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return synthetic agent logs."""
         traces = self._filter_traces(hours, service_name)
         logs: list[dict[str, Any]] = []
@@ -1157,23 +1633,27 @@ class DemoDataGenerator:
                 else:
                     continue
 
-                logs.append({
-                    "timestamp": span["start_time"],
-                    "agentId": attrs.get("gen_ai.agent.id", f"{agent_name}-v1"),
-                    "severity": severity,
-                    "message": message,
-                    "traceId": trace["trace_id"],
-                    "spanId": span["span_id"],
-                    "agentName": agent_name,
-                    "resourceId": REASONING_ENGINE_ID,
-                })
+                logs.append(
+                    {
+                        "timestamp": span["start_time"],
+                        "agentId": attrs.get("gen_ai.agent.id", f"{agent_name}-v1"),
+                        "severity": severity,
+                        "message": message,
+                        "traceId": trace["trace_id"],
+                        "spanId": span["span_id"],
+                        "agentName": agent_name,
+                        "resourceId": REASONING_ENGINE_ID,
+                    }
+                )
 
                 if len(logs) >= limit:
                     return {"agentLogs": logs}
 
         return {"agentLogs": logs}
 
-    def get_dashboard_sessions(self, hours: float = 168, limit: int = 2000, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_sessions(
+        self, hours: float = 168, limit: int = 2000, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return per-session aggregation for the dashboard."""
         traces = self._filter_traces(hours, service_name)
 
@@ -1186,40 +1666,54 @@ class DemoDataGenerator:
             session_traces[sid].append(t)
 
         agent_sessions: list[dict[str, Any]] = []
-        for sid, st in sorted(session_traces.items(), key=lambda x: x[1][0]["timestamp"]):
+        for sid, st in sorted(
+            session_traces.items(), key=lambda x: x[1][0]["timestamp"]
+        ):
             all_spans = [s for t in st for s in t["spans"]]
             total_tokens = sum(self._span_tokens(s) for s in all_spans)
             error_count = sum(1 for s in all_spans if self._span_has_error(s))
             latencies = [self._trace_duration_ms(t) for t in st]
             llm_calls = sum(1 for s in all_spans if self._span_is_llm(s))
             tool_calls = sum(1 for s in all_spans if self._span_is_tool(s))
-            tool_errors = sum(1 for s in all_spans if self._span_is_tool(s) and self._span_has_error(s))
-            llm_errors = sum(1 for s in all_spans if self._span_is_llm(s) and self._span_has_error(s))
+            tool_errors = sum(
+                1
+                for s in all_spans
+                if self._span_is_tool(s) and self._span_has_error(s)
+            )
+            llm_errors = sum(
+                1 for s in all_spans if self._span_is_llm(s) and self._span_has_error(s)
+            )
 
-            agent_sessions.append({
-                "timestamp": st[0]["spans"][0]["start_time"],
-                "sessionId": sid,
-                "turns": len(st),
-                "latestTraceId": st[-1]["trace_id"],
-                "totalTokens": total_tokens,
-                "errorCount": error_count,
-                "avgLatencyMs": round(statistics.mean(latencies), 2) if latencies else 0.0,
-                "p95LatencyMs": round(_percentile(latencies, 95), 2),
-                "agentName": "cymbal-assistant",
-                "resourceId": REASONING_ENGINE_ID,
-                "spanCount": len(all_spans),
-                "llmCallCount": llm_calls,
-                "toolCallCount": tool_calls,
-                "toolErrorCount": tool_errors,
-                "llmErrorCount": llm_errors,
-            })
+            agent_sessions.append(
+                {
+                    "timestamp": st[0]["spans"][0]["start_time"],
+                    "sessionId": sid,
+                    "turns": len(st),
+                    "latestTraceId": st[-1]["trace_id"],
+                    "totalTokens": total_tokens,
+                    "errorCount": error_count,
+                    "avgLatencyMs": round(statistics.mean(latencies), 2)
+                    if latencies
+                    else 0.0,
+                    "p95LatencyMs": round(_percentile(latencies, 95), 2),
+                    "agentName": "cymbal-assistant",
+                    "resourceId": REASONING_ENGINE_ID,
+                    "spanCount": len(all_spans),
+                    "llmCallCount": llm_calls,
+                    "toolCallCount": tool_calls,
+                    "toolErrorCount": tool_errors,
+                    "llmErrorCount": llm_errors,
+                }
+            )
 
             if len(agent_sessions) >= limit:
                 break
 
         return {"agentSessions": agent_sessions}
 
-    def get_dashboard_traces(self, hours: float = 168, limit: int = 2000, service_name: str | None = None) -> dict[str, Any]:
+    def get_dashboard_traces(
+        self, hours: float = 168, limit: int = 2000, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return per-trace data for the dashboard."""
         traces = self._filter_traces(hours, service_name)
         agent_traces: list[dict[str, Any]] = []
@@ -1231,24 +1725,30 @@ class DemoDataGenerator:
             latency = self._trace_duration_ms(trace)
             llm_calls = sum(1 for s in spans if self._span_is_llm(s))
             tool_calls = sum(1 for s in spans if self._span_is_tool(s))
-            tool_errors = sum(1 for s in spans if self._span_is_tool(s) and self._span_has_error(s))
-            llm_errors = sum(1 for s in spans if self._span_is_llm(s) and self._span_has_error(s))
+            tool_errors = sum(
+                1 for s in spans if self._span_is_tool(s) and self._span_has_error(s)
+            )
+            llm_errors = sum(
+                1 for s in spans if self._span_is_llm(s) and self._span_has_error(s)
+            )
 
-            agent_traces.append({
-                "timestamp": trace["spans"][0]["start_time"],
-                "traceId": trace["trace_id"],
-                "sessionId": trace["session_id"],
-                "totalTokens": total_tokens,
-                "errorCount": error_count,
-                "latencyMs": round(latency, 2),
-                "agentName": "cymbal-assistant",
-                "resourceId": REASONING_ENGINE_ID,
-                "spanCount": len(spans),
-                "llmCallCount": llm_calls,
-                "toolCallCount": tool_calls,
-                "toolErrorCount": tool_errors,
-                "llmErrorCount": llm_errors,
-            })
+            agent_traces.append(
+                {
+                    "timestamp": trace["spans"][0]["start_time"],
+                    "traceId": trace["trace_id"],
+                    "sessionId": trace["session_id"],
+                    "totalTokens": total_tokens,
+                    "errorCount": error_count,
+                    "latencyMs": round(latency, 2),
+                    "agentName": "cymbal-assistant",
+                    "resourceId": REASONING_ENGINE_ID,
+                    "spanCount": len(spans),
+                    "llmCallCount": llm_calls,
+                    "toolCallCount": tool_calls,
+                    "toolErrorCount": tool_errors,
+                    "llmErrorCount": llm_errors,
+                }
+            )
 
         return {"agentTraces": agent_traces}
 
@@ -1256,7 +1756,9 @@ class DemoDataGenerator:
     # Registry endpoints
     # ------------------------------------------------------------------
 
-    def get_registry_agents(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_registry_agents(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return agent registry data."""
         traces = self._filter_traces(hours, service_name)
         agent_stats: dict[str, dict[str, Any]] = {}
@@ -1291,30 +1793,38 @@ class DemoDataGenerator:
                 attrs = span.get("attributes", {})
                 agent_name = attrs.get("gen_ai.agent.name", "cymbal-assistant")
                 if agent_name in agent_stats:
-                    agent_stats[agent_name]["input_tokens"] += attrs.get("gen_ai.usage.input_tokens", 0)
-                    agent_stats[agent_name]["output_tokens"] += attrs.get("gen_ai.usage.output_tokens", 0)
+                    agent_stats[agent_name]["input_tokens"] += attrs.get(
+                        "gen_ai.usage.input_tokens", 0
+                    )
+                    agent_stats[agent_name]["output_tokens"] += attrs.get(
+                        "gen_ai.usage.output_tokens", 0
+                    )
 
         agents_list = []
         for agent_name, ag in sorted(agent_stats.items()):
             total = ag["turns"]
             err_rate = ag["errors"] / total if total else 0.0
-            agents_list.append({
-                "serviceName": "cymbal-assistant",
-                "agentId": f"{agent_name}-v1",
-                "agentName": agent_name,
-                "totalSessions": len(ag["sessions"]),
-                "totalTurns": total,
-                "inputTokens": ag["input_tokens"],
-                "outputTokens": ag["output_tokens"],
-                "errorCount": ag["errors"],
-                "errorRate": round(err_rate, 4),
-                "p50DurationMs": round(_percentile(ag["durations"], 50), 2),
-                "p95DurationMs": round(_percentile(ag["durations"], 95), 2),
-            })
+            agents_list.append(
+                {
+                    "serviceName": "cymbal-assistant",
+                    "agentId": f"{agent_name}-v1",
+                    "agentName": agent_name,
+                    "totalSessions": len(ag["sessions"]),
+                    "totalTurns": total,
+                    "inputTokens": ag["input_tokens"],
+                    "outputTokens": ag["output_tokens"],
+                    "errorCount": ag["errors"],
+                    "errorRate": round(err_rate, 4),
+                    "p50DurationMs": round(_percentile(ag["durations"], 50), 2),
+                    "p95DurationMs": round(_percentile(ag["durations"], 95), 2),
+                }
+            )
 
         return {"agents": agents_list}
 
-    def get_registry_tools(self, hours: float = 168, service_name: str | None = None) -> dict[str, Any]:
+    def get_registry_tools(
+        self, hours: float = 168, service_name: str | None = None
+    ) -> dict[str, Any]:
         """Return tool registry data."""
         traces = self._filter_traces(hours, service_name)
         tool_stats: dict[str, dict[str, Any]] = {}
@@ -1336,16 +1846,20 @@ class DemoDataGenerator:
         tools_list = []
         for tn, ts in sorted(tool_stats.items()):
             err_rate = ts["errors"] / ts["calls"] if ts["calls"] else 0.0
-            tools_list.append({
-                "serviceName": "cymbal-assistant",
-                "toolId": tn,
-                "toolName": tn,
-                "executionCount": ts["calls"],
-                "errorCount": ts["errors"],
-                "errorRate": round(err_rate, 4),
-                "avgDurationMs": round(statistics.mean(ts["durations"]), 2) if ts["durations"] else 0.0,
-                "p95DurationMs": round(_percentile(ts["durations"], 95), 2),
-            })
+            tools_list.append(
+                {
+                    "serviceName": "cymbal-assistant",
+                    "toolId": tn,
+                    "toolName": tn,
+                    "executionCount": ts["calls"],
+                    "errorCount": ts["errors"],
+                    "errorRate": round(err_rate, 4),
+                    "avgDurationMs": round(statistics.mean(ts["durations"]), 2)
+                    if ts["durations"]
+                    else 0.0,
+                    "p95DurationMs": round(_percentile(ts["durations"], 95), 2),
+                }
+            )
 
         return {"tools": tools_list}
 
@@ -1365,11 +1879,13 @@ class DemoDataGenerator:
                 for evt in span.get("events", []):
                     if evt.get("name") == "exception":
                         evt_attrs = evt.get("attributes", {})
-                        exceptions.append({
-                            "message": evt_attrs.get("exception.message", ""),
-                            "stacktrace": evt_attrs.get("exception.stacktrace", ""),
-                            "type": evt_attrs.get("exception.type", ""),
-                        })
+                        exceptions.append(
+                            {
+                                "message": evt_attrs.get("exception.message", ""),
+                                "stacktrace": evt_attrs.get("exception.stacktrace", ""),
+                                "type": evt_attrs.get("exception.type", ""),
+                            }
+                        )
                 return {
                     "traceId": trace_id,
                     "spanId": span_id,
@@ -1399,7 +1915,9 @@ class DemoDataGenerator:
                 severity = "ERROR" if self._span_has_error(span) else "INFO"
 
                 if op == "invoke_agent":
-                    payload = f"Agent {attrs.get('gen_ai.agent.name', span['name'])} invoked"
+                    payload = (
+                        f"Agent {attrs.get('gen_ai.agent.name', span['name'])} invoked"
+                    )
                 elif op == "execute_tool":
                     tool = attrs.get("gen_ai.tool.name", span["name"])
                     if self._span_has_error(span):
@@ -1412,11 +1930,13 @@ class DemoDataGenerator:
                 else:
                     continue
 
-                logs.append({
-                    "timestamp": span.get("start_time"),
-                    "severity": severity,
-                    "payload": payload,
-                })
+                logs.append(
+                    {
+                        "timestamp": span.get("start_time"),
+                        "severity": severity,
+                        "payload": payload,
+                    }
+                )
             return {"traceId": trace_id, "logs": logs}
 
         return {"traceId": trace_id, "logs": []}

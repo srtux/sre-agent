@@ -1,6 +1,5 @@
 """Tests for dashboards and preferences guest mode."""
 
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -38,9 +37,7 @@ class TestDashboardsGuestMode:
     def test_list_dashboards_returns_demo_data(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.get(
                 "/api/dashboards",
                 headers=guest_headers,
@@ -56,9 +53,7 @@ class TestDashboardsGuestMode:
     def test_get_dashboard_returns_demo_data(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.get(
                 "/api/dashboards/demo-dashboard-001", headers=guest_headers
             )
@@ -71,21 +66,15 @@ class TestDashboardsGuestMode:
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
         """Any dashboard ID returns the demo dashboard in guest mode."""
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
-            resp = client.get(
-                "/api/dashboards/nonexistent-id", headers=guest_headers
-            )
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
+            resp = client.get("/api/dashboards/nonexistent-id", headers=guest_headers)
         assert resp.status_code == 200
         assert resp.json()["id"] == "demo-dashboard-001"
 
     def test_create_dashboard_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards",
                 headers=guest_headers,
@@ -100,9 +89,7 @@ class TestDashboardsGuestMode:
     def test_update_dashboard_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.patch(
                 "/api/dashboards/d1",
                 headers=guest_headers,
@@ -116,18 +103,14 @@ class TestDashboardsGuestMode:
     def test_delete_dashboard_returns_204(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.delete("/api/dashboards/d1", headers=guest_headers)
         assert resp.status_code == 204
 
     def test_add_panel_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards/d1/panels",
                 headers=guest_headers,
@@ -139,21 +122,15 @@ class TestDashboardsGuestMode:
     def test_remove_panel_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
-            resp = client.delete(
-                "/api/dashboards/d1/panels/p1", headers=guest_headers
-            )
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
+            resp = client.delete("/api/dashboards/d1/panels/p1", headers=guest_headers)
         assert resp.status_code == 200
         assert "demo mode" in resp.json()["status"]
 
     def test_update_panel_position_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.patch(
                 "/api/dashboards/d1/panels/p1/position",
                 headers=guest_headers,
@@ -169,12 +146,8 @@ class TestTemplatesGuestMode:
     def test_list_templates_returns_demo_data(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
-            resp = client.get(
-                "/api/dashboards/templates/list", headers=guest_headers
-            )
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
+            resp = client.get("/api/dashboards/templates/list", headers=guest_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert "templates" in data
@@ -185,9 +158,7 @@ class TestTemplatesGuestMode:
     def test_get_template_returns_demo_data(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.get(
                 "/api/dashboards/templates/ai-agent-monitoring",
                 headers=guest_headers,
@@ -198,9 +169,7 @@ class TestTemplatesGuestMode:
     def test_provision_template_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards/templates/ai-agent-monitoring/provision",
                 headers=guest_headers,
@@ -213,9 +182,7 @@ class TestTemplatesGuestMode:
     def test_add_metric_panel_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards/d1/panels/metric",
                 headers=guest_headers,
@@ -230,9 +197,7 @@ class TestTemplatesGuestMode:
     def test_add_log_panel_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards/d1/panels/log",
                 headers=guest_headers,
@@ -244,9 +209,7 @@ class TestTemplatesGuestMode:
     def test_add_trace_panel_returns_demo_response(
         self, client: TestClient, guest_headers: dict[str, str]
     ) -> None:
-        with patch(
-            "sre_agent.api.routers.dashboards.is_guest_mode", return_value=True
-        ):
+        with patch("sre_agent.api.routers.dashboards.is_guest_mode", return_value=True):
             resp = client.post(
                 "/api/dashboards/d1/panels/trace",
                 headers=guest_headers,
@@ -317,9 +280,7 @@ class TestPreferencesGuestMode:
         with patch(
             "sre_agent.api.routers.preferences.is_guest_mode", return_value=True
         ):
-            resp = client.get(
-                "/api/preferences/projects/recent", headers=guest_headers
-            )
+            resp = client.get("/api/preferences/projects/recent", headers=guest_headers)
         assert resp.status_code == 200
         assert resp.json()["projects"] == ["cymbal-shops-demo"]
 
@@ -383,9 +344,7 @@ class TestPreferencesGuestMode:
         with patch(
             "sre_agent.api.routers.preferences.is_guest_mode", return_value=True
         ):
-            resp = client.get(
-                "/api/preferences/queries/recent", headers=guest_headers
-            )
+            resp = client.get("/api/preferences/queries/recent", headers=guest_headers)
         assert resp.status_code == 200
         assert resp.json()["queries"] == []
 
@@ -413,9 +372,7 @@ class TestPreferencesGuestMode:
         with patch(
             "sre_agent.api.routers.preferences.is_guest_mode", return_value=True
         ):
-            resp = client.get(
-                "/api/preferences/queries/saved", headers=guest_headers
-            )
+            resp = client.get("/api/preferences/queries/saved", headers=guest_headers)
         assert resp.status_code == 200
         assert resp.json()["queries"] == []
 

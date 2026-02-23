@@ -53,9 +53,7 @@ class TestGuestModeAgentGraph:
         assert r.status_code == 200
 
     def test_node_detail(self, guest_client):
-        r = guest_client.get(
-            f"{GRAPH_BASE}/node/cymbal-assistant", params=GRAPH_PARAMS
-        )
+        r = guest_client.get(f"{GRAPH_BASE}/node/cymbal-assistant", params=GRAPH_PARAMS)
         assert r.status_code == 200
 
     def test_setup_returns_ok(self, guest_client):
@@ -82,9 +80,7 @@ class TestGuestModeDashboard:
         assert kpis["rootInvocations"] > 0
 
     def test_dashboard_timeseries(self, guest_client):
-        r = guest_client.get(
-            f"{GRAPH_BASE}/dashboard/timeseries", params=GRAPH_PARAMS
-        )
+        r = guest_client.get(f"{GRAPH_BASE}/dashboard/timeseries", params=GRAPH_PARAMS)
         assert r.status_code == 200
 
     def test_dashboard_models(self, guest_client):

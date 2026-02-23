@@ -31,9 +31,7 @@ def guest_headers() -> dict[str, str]:
 @pytest.fixture(autouse=True)
 def mock_guest_mode():
     """Patch is_guest_mode to return True for all tests in this module."""
-    with patch(
-        "sre_agent.api.routers.agent_graph.is_guest_mode", return_value=True
-    ):
+    with patch("sre_agent.api.routers.agent_graph.is_guest_mode", return_value=True):
         yield
 
 
