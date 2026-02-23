@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict, Field
 
+from sre_agent.api.helpers.bq_discovery import get_linked_trace_dataset
 from sre_agent.auth import is_guest_mode
 from sre_agent.exceptions import UserFacingError
 from sre_agent.services import get_storage_service
@@ -247,8 +248,8 @@ async def get_eval_metrics_aggregate(
     project_id: str = Query(..., description="GCP project ID"),
     hours: int = Query(default=24, ge=1, le=720, description="Lookback window"),
     service_name: str = Query(default="", description="Agent/service name filter"),
-    trace_dataset: str = Query(
-        default=_DEFAULT_BQ_DATASET, description="BQ dataset name"
+    trace_dataset: str | None = Query(
+        default=None, description="BQ dataset name (auto-discovered if omitted)"
     ),
 ) -> dict[str, Any]:
     """Return aggregate evaluation metrics grouped by hour and metric name.
@@ -261,6 +262,13 @@ async def get_eval_metrics_aggregate(
         return {"metrics": _demo_eval_metrics(hours)}
 
     _validate_identifier(project_id, "project_id")
+
+    if not trace_dataset:
+        # Try to discover the linked dataset, fallback to env-var default
+        trace_dataset = (
+            await get_linked_trace_dataset(project_id) or _DEFAULT_BQ_DATASET
+        )
+
     _validate_identifier(trace_dataset, "trace_dataset")
     if service_name:
         _validate_identifier(service_name, "service_name")

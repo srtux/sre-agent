@@ -106,6 +106,15 @@ result = await run_scheduled_evaluations()
 | `GOOGLE_CLOUD_PROJECT` | GCP project for BigQuery queries | required |
 | `SRE_AGENT_EVAL_BQ_DATASET` | BigQuery dataset with OTel exports | `otel_export` |
 
+### BigQuery Dataset Discovery
+
+The evaluation service automatically attempts to discover the correct BigQuery dataset for a project if `SRE_AGENT_EVAL_BQ_DATASET` is not set. It uses the following priority:
+
+1.  **Managed Trace Link**: Queries the Cloud Observability API for any bucket linked to the `Spans` (trace) dataset.
+2.  **Environment Variable**: Falls back to the value of `SRE_AGENT_EVAL_BQ_DATASET` (defaults to `otel_export`).
+
+This discovery ensures that traces stored in dedicated Observability buckets are correctly identified even if they differ from the default log bucket.
+
 ## Supported Metrics
 
 The worker resolves metric names against `vertexai.evaluation.MetricPromptTemplateExamples.Pointwise`. Common metrics:

@@ -163,7 +163,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
   activeTab: Tab, setActiveTab: React.Dispatch<React.SetStateAction<Tab>>,
   filters: GraphFilters, setFilters: React.Dispatch<React.SetStateAction<GraphFilters>>
 }) {
-  const { serviceName, setServiceName } = useAgentContext()
+  const { serviceName, setServiceName, availableAgents } = useAgentContext()
   const guestMode = isGuestMode()
 
   // In guest mode, auto-set a service name so fetchAll doesn't bail on the empty check
@@ -201,6 +201,29 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
       setSelected({ kind: 'node', id: urlNode })
     }
   }, [])
+
+  // --- Initial project ID sync from backend if not in URL ---
+  useEffect(() => {
+    async function syncProject() {
+      const params = new URLSearchParams(window.location.search)
+      const urlProjectId = params.get('project_id')
+
+      if (!urlProjectId && !filters.projectId) {
+        try {
+          const res = await axios.get<{ project_id: string | null }>('/api/preferences/project')
+          if (res.data.project_id) {
+            setFilters(prev => ({
+              ...prev,
+              projectId: res.data.project_id!
+            }))
+          }
+        } catch (err) {
+          console.error('Failed to fetch initial project preference:', err)
+        }
+      }
+    }
+    syncProject()
+  }, []) // Only on mount
 
   const fetchAll = useCallback(async (isSilent: boolean) => {
     if (!filters.projectId.trim() || !serviceName.trim()) return
@@ -280,8 +303,6 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
 
       if (tsRes && tsRes.status === 'fulfilled') {
         setTimeseriesData(tsRes.value.data)
-      } else {
-        setTimeseriesData(null)
       }
 
       setLastUpdated(new Date())
@@ -296,6 +317,13 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
   }, [filters, activeTab, serviceName, guestMode])
 
   const handleLoad = useCallback(() => fetchAll(false), [fetchAll])
+
+  // --- Auto-select first agent if empty ---
+  useEffect(() => {
+    if (!serviceName && availableAgents.length > 0 && (activeTab === 'topology' || activeTab === 'trajectory')) {
+      setServiceName(availableAgents[0].serviceName)
+    }
+  }, [availableAgents, serviceName, activeTab, setServiceName])
 
   // Auto-load on initial project_id and serviceName change
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false)

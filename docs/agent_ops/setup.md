@@ -10,6 +10,14 @@ This guide outlines the setup process and the required IAM permissions.
 2. **Linked BigQuery Dataset**: The Observability bucket is linked to a BigQuery dataset (typically named `traces`), automatically synchronizing telemetry data.
 3. **Agent Graph Schema**: The SRE Agent executes schema modeling over the raw traces to build materialized views (`_AllSpans`, `agent_spans_raw`, `nodes`, `edges`, etc.) within an `agent_graph` BigQuery dataset.
 
+### Automatic Dataset Discovery
+
+To simplify multi-project support, the SRE Agent backend automatically discovers linked datasets:
+- **Traces**: Scans Cloud Observability buckets for datasets linked to the `Spans` path. Used for the topology graph and evaluation service.
+- **Logs**: Scans the Cloud Logging `_Default` bucket for BigQuery links. Used for correlated log viewing in the Trace Details panel.
+
+Discovery is cached for 1 hour to optimize performance.
+
 ## Automated Setup Wizard
 
 The AgentOps UI provides an automated onboarding wizard that handles this entire process. You simply need to navigate to the Agent Ops Dashboard.

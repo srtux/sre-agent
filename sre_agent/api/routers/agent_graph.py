@@ -16,12 +16,12 @@ from typing import Any
 from urllib.parse import unquote
 
 import anyio
-import httpx
 from fastapi import APIRouter, HTTPException, Query
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
+from sre_agent.api.helpers.bq_discovery import get_linked_log_dataset
 from sre_agent.api.helpers.cache import async_ttl_cache
 from sre_agent.auth import is_guest_mode
 from sre_agent.tools.synthetic.demo_data_generator import DemoDataGenerator
@@ -150,50 +150,6 @@ def _build_time_filter(
 def _build_bq_client(project_id: str) -> bigquery.Client:
     """Return an authenticated BigQuery client."""
     return bigquery.Client(project=project_id)
-
-
-@async_ttl_cache(ttl_seconds=3600)
-async def _get_default_log_dataset(project_id: str) -> str | None:
-    """Fetch the BigQuery dataset linked to the _Default log bucket.
-
-    Returns the dataset ID (e.g., 'test123') or None if not linked/accessible.
-    Results are cached for 1 hour since link changes are rare.
-    """
-    try:
-        from google.auth import default
-        from google.auth.transport.requests import Request
-
-        credentials, _ = default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        credentials.refresh(Request())  # type: ignore[no-untyped-call]
-        token = credentials.token
-    except Exception as exc:
-        logger.warning(f"Failed to get GCP credentials for log dataset lookup: {exc}")
-        return None
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "x-goog-user-project": project_id,
-    }
-    url = f"https://logging.googleapis.com/v2/projects/{project_id}/locations/global/buckets/_Default/links"
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers, timeout=5.0)
-            if resp.status_code == 200:
-                data = resp.json()
-                links = data.get("links", [])
-                if links and "bigqueryDataset" in links[0]:
-                    # e.g. "bigquery.googleapis.com/projects/123/datasets/test123"
-                    dataset_uri = links[0]["bigqueryDataset"].get("datasetId", "")
-                    if isinstance(dataset_uri, str) and dataset_uri:
-                        return dataset_uri.split("/")[-1]
-            return None
-    except Exception as exc:
-        logger.warning(f"Failed to fetch linked log dataset for {project_id}: {exc}")
-        return None
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
@@ -1338,7 +1294,7 @@ async def get_span_details(
         # Async fetch logs if we can
         logs = []
         try:
-            log_dataset = await _get_default_log_dataset(project_id)
+            log_dataset = await get_linked_log_dataset(project_id)
             if log_dataset:
                 log_query = f"""
                     SELECT timestamp, severity, text_payload, TO_JSON_STRING(json_payload) as json_payload_str
