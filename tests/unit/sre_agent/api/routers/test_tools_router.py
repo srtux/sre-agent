@@ -673,3 +673,85 @@ async def test_nl_query_metrics_promql(mock_tools) -> None:
         response = client.post("/api/tools/nl/query", json=payload)
         assert response.status_code == 200
         mock_tools["query_promql"].assert_awaited()
+
+
+# =============================================================================
+# Guest / demo mode tests for log endpoints
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_query_logs_guest_mode_returns_demo_entries() -> None:
+    """Logs query returns synthetic entries when in guest mode."""
+    with patch("sre_agent.api.routers.tools.is_guest_mode", return_value=True):
+        response = client.post(
+            "/api/tools/logs/query",
+            json={"limit": 10, "minutes_ago": 60},
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert "entries" in data
+    assert len(data["entries"]) > 0
+    entry = data["entries"][0]
+    assert "insert_id" in entry
+    assert "timestamp" in entry
+    assert "severity" in entry
+    assert "payload" in entry
+
+
+@pytest.mark.asyncio
+async def test_query_logs_guest_mode_respects_limit() -> None:
+    """Guest-mode log entries should not exceed requested limit."""
+    with patch("sre_agent.api.routers.tools.is_guest_mode", return_value=True):
+        response = client.post(
+            "/api/tools/logs/query",
+            json={"limit": 5, "minutes_ago": 60},
+        )
+    assert response.status_code == 200
+    assert len(response.json()["entries"]) <= 5
+
+
+@pytest.mark.asyncio
+async def test_query_logs_guest_mode_cursor_pagination() -> None:
+    """Guest-mode supports cursor-based pagination."""
+    with patch("sre_agent.api.routers.tools.is_guest_mode", return_value=True):
+        # First page
+        r1 = client.post(
+            "/api/tools/logs/query",
+            json={"limit": 5, "minutes_ago": 60},
+        )
+        entries1 = r1.json()["entries"]
+        assert len(entries1) > 0
+
+        # Second page using cursor from last entry
+        last = entries1[-1]
+        r2 = client.post(
+            "/api/tools/logs/query",
+            json={
+                "limit": 5,
+                "cursor_timestamp": last["timestamp"],
+                "cursor_insert_id": last["insert_id"],
+            },
+        )
+        entries2 = r2.json()["entries"]
+        # Entries should be older than cursor
+        if entries2:
+            assert entries2[0]["timestamp"] < last["timestamp"]
+
+
+@pytest.mark.asyncio
+async def test_logs_histogram_guest_mode_returns_buckets() -> None:
+    """Histogram returns synthetic buckets in guest mode."""
+    with patch("sre_agent.api.routers.tools.is_guest_mode", return_value=True):
+        response = client.post(
+            "/api/tools/logs/histogram",
+            json={"minutes_ago": 60, "bucket_count": 10},
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert "buckets" in data
+    assert "total_count" in data
+    assert len(data["buckets"]) == 10
+    bucket = data["buckets"][0]
+    for key in ("start", "end", "debug", "info", "warning", "error", "critical"):
+        assert key in bucket

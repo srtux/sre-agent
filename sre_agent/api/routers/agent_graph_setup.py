@@ -229,7 +229,12 @@ async def get_lro_status(project_id: str, operation_name: str) -> dict[str, Any]
 async def verify_dataset(project_id: str, dataset_id: str = "traces") -> dict[str, Any]:
     """Verify that the dataset and _AllSpans view are accessible."""
     if is_guest_mode():
-        return {"verified": True, "dataset": "demo", "view": "demo._AllSpans", "type": "VIEW"}
+        return {
+            "verified": True,
+            "dataset": "demo",
+            "view": "demo._AllSpans",
+            "type": "VIEW",
+        }
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset_id, "dataset_id")
 

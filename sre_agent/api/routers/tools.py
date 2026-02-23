@@ -349,6 +349,234 @@ async def query_alerts_endpoint(payload: AlertsQueryRequest) -> Any:
         raise UserFacingError(f"Internal server error: {e}") from e
 
 
+# =============================================================================
+# DEMO / GUEST MODE HELPERS FOR LOGS
+# =============================================================================
+
+# Realistic demo log messages by severity
+_DEMO_LOG_MESSAGES: dict[str, list[str | dict[str, Any]]] = {
+    "ERROR": [
+        {
+            "message": "Connection pool exhausted",
+            "error_code": "POOL_EXHAUSTED",
+            "pool_size": 100,
+        },
+        {
+            "message": "Timeout waiting for upstream response",
+            "service": "payment-api",
+            "timeout_ms": 30000,
+        },
+        {
+            "message": "Failed to parse response from dependency",
+            "error": "JSONDecodeError",
+            "status_code": 502,
+        },
+        {
+            "message": "OOM killed container",
+            "container": "order-service",
+            "memory_limit": "512Mi",
+        },
+    ],
+    "WARNING": [
+        "High latency detected: 450ms > threshold 200ms",
+        "Retry attempt 2/3 for request to inventory-service",
+        "Certificate expiring in 7 days for *.example.com",
+        "Disk usage at 85% on persistent volume pv-data-01",
+    ],
+    "INFO": [
+        {
+            "message": "Request processed",
+            "method": "POST",
+            "path": "/api/orders",
+            "status": 200,
+            "duration_ms": 125,
+        },
+        {
+            "message": "Agent turn completed",
+            "turn": 3,
+            "tokens_used": 1250,
+            "duration_ms": 890,
+        },
+        {
+            "message": "Health check passed",
+            "service": "order-service",
+            "latency_ms": 12,
+        },
+        {"message": "Cache hit ratio", "ratio": 0.94, "window": "5m"},
+    ],
+    "CRITICAL": [
+        {
+            "message": "Database connection failed",
+            "error": "ECONNREFUSED",
+            "host": "order-db.internal",
+            "port": 5432,
+        },
+        {
+            "message": "Circuit breaker OPEN for payment-service",
+            "failures": 15,
+            "threshold": 10,
+        },
+    ],
+    "DEBUG": [
+        "Cache miss for key: order:12345",
+        "Resolved DNS for payment-api.internal in 2ms",
+        "GC pause 45ms (young generation)",
+    ],
+}
+
+_DEMO_RESOURCE_TYPES = [
+    "aiplatform.googleapis.com/ReasoningEngine",
+    "k8s_container",
+    "cloud_run_revision",
+]
+
+_DEMO_PODS = [
+    "sre-agent-7d8f9c6b5-xk2p4",
+    "sre-agent-7d8f9c6b5-abc12",
+    "cymbal-assistant-6c7d8e9f0-mn34",
+]
+
+
+def _generate_demo_log_entries(
+    *,
+    cursor_timestamp: str | None = None,
+    cursor_insert_id: str | None = None,
+    limit: int = 50,
+    minutes_ago: int | None = None,
+) -> dict[str, Any]:
+    """Generate deterministic demo log entries for guest mode."""
+    import hashlib
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    window = timedelta(minutes=minutes_ago or 60)
+
+    # Determine start point for this page
+    if cursor_timestamp:
+        try:
+            page_end = datetime.fromisoformat(cursor_timestamp)
+            if page_end.tzinfo is None:
+                page_end = page_end.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            page_end = now
+    else:
+        page_end = now
+
+    # Severity distribution: INFO 60%, WARNING 20%, ERROR 12%, DEBUG 5%, CRITICAL 3%
+    sev_weights = (
+        ["INFO"] * 60
+        + ["WARNING"] * 20
+        + ["ERROR"] * 12
+        + ["DEBUG"] * 5
+        + ["CRITICAL"] * 3
+    )
+
+    entries: list[dict[str, Any]] = []
+    ts = page_end
+    earliest = now - window if not cursor_timestamp else page_end - timedelta(hours=2)
+
+    for i in range(limit):
+        # Deterministic pseudo-random spacing (5-45 seconds between entries)
+        seed = hashlib.md5(f"demo-log-{ts.isoformat()}-{i}".encode()).hexdigest()
+        gap_seconds = 5 + int(seed[:2], 16) % 40
+        ts = ts - timedelta(seconds=gap_seconds)
+
+        if ts < earliest:
+            break  # No more entries in this window
+
+        # Pick severity deterministically
+        sev_idx = int(seed[2:4], 16) % len(sev_weights)
+        severity = sev_weights[sev_idx]
+
+        # Pick message
+        messages = _DEMO_LOG_MESSAGES[severity]
+        msg_idx = int(seed[4:6], 16) % len(messages)
+        payload = messages[msg_idx]
+
+        # Pick resource
+        res_idx = int(seed[6:8], 16) % len(_DEMO_RESOURCE_TYPES)
+        pod_idx = int(seed[8:10], 16) % len(_DEMO_PODS)
+
+        insert_id = f"demo-{seed[:12]}"
+
+        entries.append(
+            {
+                "insert_id": insert_id,
+                "timestamp": ts.isoformat(),
+                "severity": severity,
+                "payload": payload,
+                "resource_type": _DEMO_RESOURCE_TYPES[res_idx],
+                "resource_labels": {
+                    "project_id": "cymbal-shops-demo",
+                    "reasoning_engine_id": "cymbal-assistant" if res_idx == 0 else "",
+                    "pod_name": _DEMO_PODS[pod_idx],
+                },
+                "trace_id": seed[:16] if severity in ("ERROR", "CRITICAL") else None,
+                "span_id": seed[16:24] if severity in ("ERROR", "CRITICAL") else None,
+                "http_request": None,
+            }
+        )
+
+    return {"entries": entries}
+
+
+def _generate_demo_log_histogram(
+    *,
+    minutes_ago: int | None = None,
+    bucket_count: int = 40,
+) -> dict[str, Any]:
+    """Generate deterministic demo histogram buckets for guest mode."""
+    import hashlib
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    window_minutes = minutes_ago or 60
+    start = now - timedelta(minutes=window_minutes)
+    bucket_seconds = (window_minutes * 60) / bucket_count
+
+    buckets: list[dict[str, Any]] = []
+    total_count = 0
+
+    for i in range(bucket_count):
+        bucket_start = start + timedelta(seconds=i * bucket_seconds)
+        bucket_end = start + timedelta(seconds=(i + 1) * bucket_seconds)
+        if i == bucket_count - 1:
+            bucket_end = now
+
+        # Deterministic counts per severity
+        seed = hashlib.md5(f"demo-histo-{i}-{window_minutes}".encode()).hexdigest()
+        info_count = 5 + int(seed[:2], 16) % 20
+        warning_count = int(seed[2:4], 16) % 8
+        error_count = int(seed[4:6], 16) % 5
+        debug_count = int(seed[6:8], 16) % 4
+        critical_count = 1 if int(seed[8:10], 16) % 10 == 0 else 0
+
+        bucket_total = (
+            info_count + warning_count + error_count + debug_count + critical_count
+        )
+        total_count += bucket_total
+
+        buckets.append(
+            {
+                "start": bucket_start.isoformat(),
+                "end": bucket_end.isoformat(),
+                "debug": debug_count,
+                "info": info_count,
+                "warning": warning_count,
+                "error": error_count,
+                "critical": critical_count,
+            }
+        )
+
+    return {
+        "buckets": buckets,
+        "total_count": total_count,
+        "scanned_entries": total_count,
+        "start_time": start.isoformat(),
+        "end_time": now.isoformat(),
+    }
+
+
 @router.post("/logs/query")
 async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
     """Fetch raw log entries without pattern extraction (faster for explorer).
@@ -361,6 +589,14 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
     intentionally ignored for cursor pages so the caller can scroll back
     beyond the initial time window.
     """
+    if is_guest_mode():
+        return _generate_demo_log_entries(
+            cursor_timestamp=payload.cursor_timestamp,
+            cursor_insert_id=payload.cursor_insert_id,
+            limit=payload.limit,
+            minutes_ago=payload.minutes_ago,
+        )
+
     try:
         from datetime import datetime, timedelta, timezone
 
@@ -415,6 +651,12 @@ async def query_logs_histogram_endpoint(payload: LogsHistogramRequest) -> Any:
     counts per time bucket, broken down by severity.  This powers the timeline
     histogram in the Logs Explorer.
     """
+    if is_guest_mode():
+        return _generate_demo_log_histogram(
+            minutes_ago=payload.minutes_ago,
+            bucket_count=payload.bucket_count,
+        )
+
     try:
         from datetime import datetime, timedelta, timezone
 

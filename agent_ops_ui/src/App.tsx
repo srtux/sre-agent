@@ -19,6 +19,7 @@ import type {
 import RegistryPage from './components/RegistryPage'
 import AgentDashboard from './components/dashboard/AgentDashboard'
 import AgentTracesPage from './components/traces/AgentTracesPage'
+import AgentLogsPage from './components/logs/AgentLogsPage'
 import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
 
 /** Check if the app is running in guest/demo mode (passed via URL param from Flutter). */
@@ -359,6 +360,15 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           Traces
         </button>
         <button
+          style={activeTab === 'logs' ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setActiveTab('logs')
+            setFilters(prev => ({ ...prev, hours: prev.hours === 720 ? 24 : prev.hours }))
+          }}
+        >
+          Logs
+        </button>
+        <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
           onClick={() => {
             if (activeTab !== 'topology') fetchAll(false)
@@ -438,6 +448,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   <AgentTracesPage hours={filters.hours} />
                 )}
 
+                {activeTab === 'logs' && (
+                  <AgentLogsPage hours={filters.hours} severity={filters.logSeverity} />
+                )}
+
             {activeTab === 'topology' && (
               <>
                 {topologyData ? (
@@ -504,7 +518,7 @@ function App() {
     const urlTab = params.get('tab')
 
     if (urlTraceId) return 'trajectory'
-    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces') {
+    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces' || urlTab === 'logs') {
       return urlTab as Tab
     }
     return 'agents'
@@ -521,7 +535,7 @@ function App() {
       const tId = p.get('trace_id')
       const tTab = p.get('tab')
       if (tId) return 'trajectory'
-      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard' || tTab === 'traces') {
+      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard' || tTab === 'traces' || tTab === 'logs') {
         return tTab as Tab
       }
       return 'agents'
