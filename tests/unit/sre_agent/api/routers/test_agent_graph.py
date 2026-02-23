@@ -2238,13 +2238,13 @@ class TestSpanDetailsEndpoint:
             mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
             resp = client.get(
-                "/api/v1/graph/trace/8f4de13a30f769/span/74e87600bb9ffefc/details",
+                "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
                 params={"project_id": "test-project"},
             )
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["traceId"] == "8f4de13a30f769"  # pragma: allowlist secret
+        assert data["traceId"] == "8f4de13a30f76906a206f477cc6777a4"  # pragma: allowlist secret
         assert data["statusCode"] == 2
         assert len(data["exceptions"]) == 1
         assert data["exceptions"][0]["message"] == "boom"
