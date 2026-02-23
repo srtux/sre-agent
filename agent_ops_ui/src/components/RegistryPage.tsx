@@ -8,10 +8,12 @@ import type {
 } from '../types'
 import { useAgentContext } from '../contexts/AgentContext'
 import VirtualizedDataTable from './tables/VirtualizedDataTable'
-import { MessageSquare, Cpu, AlertCircle, Clock, Zap, Users, Network, Route, LayoutDashboard, List } from 'lucide-react'
+import { MessageSquare, Cpu, AlertCircle, Clock, Zap, Users, Network, Route, LayoutDashboard, List, BarChart3 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import EvalSetupWizard from './evals/EvalSetupWizard'
+import { useEvalConfigs } from '../hooks/useEvalConfigs'
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -225,6 +227,8 @@ interface Props {
 export default function RegistryPage({ filters, mode, onNavigate }: Props) {
   const { availableAgents, loadingAgents, registryViewMode } = useAgentContext()
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { data: evalConfigs } = useEvalConfigs()
+  const [evalWizardAgent, setEvalWizardAgent] = useState<string | null>(null)
 
   const renderAgentActions = (serviceName: string) => (
     <div style={styles.actionContainer} onClick={(e) => e.stopPropagation()}>
@@ -232,6 +236,19 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
       <button style={styles.actionButton} onClick={() => onNavigate(serviceName, 'trajectory')}><Route size={14} /> Trajectory</button>
       <button style={styles.actionButton} onClick={() => onNavigate(serviceName, 'dashboard')}><LayoutDashboard size={14} /> Dashboard</button>
       <button style={styles.actionButton} onClick={() => onNavigate(serviceName, 'traces')}><List size={14} /> Traces</button>
+      <button
+        style={styles.actionButton}
+        onClick={() => {
+          const hasConfig = evalConfigs?.some(c => c.agent_name === serviceName)
+          if (hasConfig) {
+            onNavigate(serviceName, 'evals')
+          } else {
+            setEvalWizardAgent(serviceName)
+          }
+        }}
+      >
+        <BarChart3 size={14} /> Evals
+      </button>
     </div>
   )
 
@@ -745,6 +762,15 @@ export default function RegistryPage({ filters, mode, onNavigate }: Props) {
       }}>
         {mode === 'agents' ? renderAgentsList() : renderToolsList()}
       </div>
+      <EvalSetupWizard
+        isOpen={evalWizardAgent !== null}
+        onClose={() => setEvalWizardAgent(null)}
+        initialAgentName={evalWizardAgent ?? undefined}
+        onSaved={(name) => {
+          setEvalWizardAgent(null)
+          onNavigate(name, 'evals')
+        }}
+      />
     </div>
   )
 }

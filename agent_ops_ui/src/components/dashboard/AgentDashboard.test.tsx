@@ -37,6 +37,12 @@ vi.mock('./panels/ModelAndToolPanel', () => ({
   },
 }))
 
+vi.mock('./panels/EvalMetricsPanel', () => ({
+  default: function MockEvalMetrics() {
+    return <div data-testid="eval-metrics-panel">Eval Metrics</div>
+  },
+}))
+
 
 
 function renderWithQuery(ui: React.ReactElement) {

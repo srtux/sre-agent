@@ -20,6 +20,7 @@ import RegistryPage from './components/RegistryPage'
 import AgentDashboard from './components/dashboard/AgentDashboard'
 import AgentTracesPage from './components/traces/AgentTracesPage'
 import AgentLogsPage from './components/logs/AgentLogsPage'
+import EvalsPage from './components/evals/EvalsPage'
 import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
 
 /** Check if the app is running in guest/demo mode (passed via URL param from Flutter). */
@@ -401,6 +402,15 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         >
           Trajectory
         </button>
+        <button
+          style={activeTab === 'evals' ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setFilters(prev => ({ ...prev, hours: prev.hours === 720 ? 24 : prev.hours }))
+            setActiveTab('evals')
+          }}
+        >
+          Evals
+        </button>
       </div>
 
       <GraphToolbar
@@ -503,6 +513,13 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   )}
                 </>
               )}
+
+              {activeTab === 'evals' && (
+                <EvalsPage
+                  hours={filters.hours}
+                  initialAgent={new URLSearchParams(window.location.search).get('agent') ?? undefined}
+                />
+              )}
             </div>
 
             <SidePanel
@@ -527,7 +544,7 @@ function App() {
     const urlTab = params.get('tab')
 
     if (urlTraceId) return 'trajectory'
-    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces' || urlTab === 'logs') {
+    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces' || urlTab === 'logs' || urlTab === 'evals') {
       return urlTab as Tab
     }
     return 'agents'
@@ -544,7 +561,7 @@ function App() {
       const tId = p.get('trace_id')
       const tTab = p.get('tab')
       if (tId) return 'trajectory'
-      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard' || tTab === 'traces' || tTab === 'logs') {
+      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard' || tTab === 'traces' || tTab === 'logs' || tTab === 'evals') {
         return tTab as Tab
       }
       return 'agents'
