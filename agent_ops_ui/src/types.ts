@@ -77,7 +77,7 @@ export interface EdgeDetail {
   outputTokens: number;
 }
 
-export type Tab = 'agents' | 'tools' | 'dashboard' | 'traces' | 'logs' | 'topology' | 'trajectory';
+export type Tab = 'agents' | 'tools' | 'dashboard' | 'traces' | 'logs' | 'topology' | 'trajectory' | 'evals';
 
 export type SelectedElement =
   | { kind: 'node'; id: string }
@@ -280,4 +280,16 @@ export interface EvalMetricPoint {
 
 export interface EvalMetricsAggregateResponse {
   metrics: EvalMetricPoint[]
+}
+
+export interface EvalConfig {
+  agent_name: string
+  is_enabled: boolean
+  sampling_rate: number
+  metrics: string[]
+  last_eval_timestamp: string | null
+}
+
+export interface EvalConfigsResponse {
+  configs: EvalConfig[]
 }
