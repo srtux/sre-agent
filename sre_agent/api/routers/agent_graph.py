@@ -23,6 +23,8 @@ from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
 from sre_agent.api.helpers.cache import async_ttl_cache
+from sre_agent.auth import is_guest_mode
+from sre_agent.tools.synthetic.demo_data_generator import DemoDataGenerator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
@@ -310,6 +312,10 @@ async def get_topology(
         A dict with ``nodes`` and ``edges`` lists formatted for
         React Flow consumption.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_topology(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     if start_time is not None:
@@ -569,6 +575,10 @@ async def get_trajectories(
         A dict with ``nodes``, ``links``, and ``loopTraces`` lists
         formatted for Nivo Sankey consumption with loop annotations.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_trajectories(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     _validate_identifier(trace_dataset, "trace_dataset")
@@ -743,6 +753,12 @@ async def get_node_detail(
     Returns:
         A dict with detailed node metrics and recent payloads.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_node_detail(
+            node_id=unquote(logical_node_id), hours=hours
+        )
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     _validate_identifier(trace_dataset, "trace_dataset")
@@ -941,6 +957,9 @@ class SetupGraphRequest(BaseModel):
 @router.post("/setup")
 async def setup_agent_graph(req: SetupGraphRequest) -> dict[str, str]:
     """Execute the bigquery setup script."""
+    if is_guest_mode():
+        return {"status": "ok", "message": "Demo mode - setup not needed"}
+
     _validate_identifier(req.project_id, "project_id")
     _validate_identifier(req.trace_dataset, "trace_dataset")
 
@@ -1006,6 +1025,14 @@ async def get_edge_detail(
     Returns:
         A dict with detailed edge metrics.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_edge_detail(
+            source_id=unquote(source_id),
+            target_id=unquote(target_id),
+            hours=hours,
+        )
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     validated_source = _validate_logical_node_id(source_id)
@@ -1120,6 +1147,10 @@ async def get_timeseries(
         A dict with a ``series`` mapping of node IDs to ordered
         time-series points.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_timeseries(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     if start_time is not None:
@@ -1196,6 +1227,10 @@ async def get_timeseries(
 @router.get("/trace/{trace_id}/logs")
 async def get_trace_logs(trace_id: str, project_id: str) -> dict[str, Any]:
     """Fetch logs from Cloud Logging for a specific trace ID."""
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_trace_logs(trace_id=trace_id)
+
     _validate_identifier(project_id, "project_id")
     # Quick sanity check on trace ID to avoid injection
     if not re.match(r"^[a-fA-F0-9]{32}$", trace_id):
@@ -1236,6 +1271,10 @@ async def get_span_details(
     trace_dataset: str = "traces",
 ) -> dict[str, Any]:
     """Fetch rich details (including errors and correlated logs) for a specific span."""
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_span_details(trace_id=trace_id, span_id=span_id)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(trace_dataset, "trace_dataset")
 
@@ -1376,6 +1415,10 @@ async def get_agent_registry(
     Returns:
         A dict with an ``agents`` list containing aggregated stats.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_registry_agents(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     if start_time is not None:
@@ -1479,6 +1522,10 @@ async def get_tool_registry(
     Returns:
         A dict with a ``tools`` list containing aggregated stats.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_registry_tools(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
     if start_time is not None:
@@ -1582,6 +1629,10 @@ async def get_dashboard_kpis(
     Returns:
         A dict with a ``kpis`` object containing values and trends.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_kpis(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -1723,6 +1774,10 @@ async def get_dashboard_timeseries(
     Returns:
         A dict with ``latency``, ``qps``, and ``tokens`` arrays.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_timeseries(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -1836,6 +1891,10 @@ async def get_dashboard_models(
     Returns:
         A dict with a ``modelCalls`` list of per-model stats.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_models(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -1927,6 +1986,10 @@ async def get_dashboard_tools(
     Returns:
         A dict with a ``toolCalls`` list of per-tool stats.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_tools(hours=hours)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -2016,6 +2079,10 @@ async def get_dashboard_logs(
     Returns:
         A dict with an ``agentLogs`` list of log entries.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_logs(hours=hours, limit=limit)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -2131,6 +2198,10 @@ async def get_dashboard_sessions(
     Queries ``agent_spans_raw`` grouped by session_id to provide
     session-level metrics like turns, total latency, and tokens.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_sessions(hours=hours, limit=limit)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
@@ -2234,6 +2305,10 @@ async def get_dashboard_traces(
     Queries ``agent_spans_raw`` grouped by trace_id to provide
     trace-level metrics like status, duration, and tokens.
     """
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_dashboard_traces(hours=hours, limit=limit)
+
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
 
