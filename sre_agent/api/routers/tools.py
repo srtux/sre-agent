@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.api.dependencies import get_tool_context
+from sre_agent.auth import is_guest_mode
 from sre_agent.exceptions import ToolExecutionError, UserFacingError
 from sre_agent.schema import BaseToolResponse
 from sre_agent.tools import (
@@ -599,6 +600,11 @@ async def query_bigquery_endpoint(payload: BigQueryQueryRequest) -> Any:
 
     Returns data in BigQueryQueryResponse-compatible format (columns, rows).
     """
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.demo_bigquery import execute_demo_query
+
+        return execute_demo_query(payload.sql)
+
     try:
         ctx = await get_tool_context()
         client = BigQueryClient(project_id=payload.project_id, tool_context=ctx)
@@ -616,6 +622,11 @@ async def query_bigquery_endpoint(payload: BigQueryQueryRequest) -> Any:
 @router.get("/bigquery/datasets")
 async def list_bigquery_datasets(project_id: str | None = None) -> Any:
     """List datasets in the BigQuery project."""
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.demo_bigquery import get_demo_datasets
+
+        return get_demo_datasets()
+
     try:
         ctx = await get_tool_context()
         client = BigQueryClient(project_id=project_id, tool_context=ctx)
@@ -631,6 +642,11 @@ async def list_bigquery_datasets(project_id: str | None = None) -> Any:
 @router.get("/bigquery/datasets/{dataset_id}/tables")
 async def list_bigquery_tables(dataset_id: str, project_id: str | None = None) -> Any:
     """List tables in a BigQuery dataset."""
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.demo_bigquery import get_demo_tables
+
+        return get_demo_tables(dataset_id)
+
     try:
         ctx = await get_tool_context()
         client = BigQueryClient(project_id=project_id, tool_context=ctx)
@@ -648,6 +664,11 @@ async def get_bigquery_table_schema(
     dataset_id: str, table_id: str, project_id: str | None = None
 ) -> Any:
     """Get the schema of a BigQuery table."""
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.demo_bigquery import get_demo_table_schema
+
+        return get_demo_table_schema(dataset_id, table_id)
+
     try:
         ctx = await get_tool_context()
         client = BigQueryClient(project_id=project_id, tool_context=ctx)
@@ -670,6 +691,11 @@ async def get_bigquery_json_keys(
     project_id: str | None = None,
 ) -> Any:
     """Infer JSON keys for a BigQuery JSON column."""
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.demo_bigquery import get_demo_json_keys
+
+        return get_demo_json_keys(dataset_id, table_id, column_name)
+
     try:
         ctx = await get_tool_context()
         client = BigQueryClient(project_id=project_id, tool_context=ctx)
@@ -739,6 +765,13 @@ async def query_natural_language_endpoint(payload: NLQueryRequest) -> Any:
             detail=f"Unsupported domain: {payload.domain}. "
             f"Valid domains: {list(_NL_DOMAIN_PROMPTS.keys())}",
         )
+
+    if is_guest_mode() and payload.domain == "bigquery":
+        from sre_agent.tools.synthetic.demo_bigquery import execute_demo_query
+
+        # In guest mode, skip LLM translation and return a sample query result.
+        sample_sql = "SELECT name, COUNT(*) as cnt FROM traces._AllSpans GROUP BY name ORDER BY cnt DESC LIMIT 20"
+        return execute_demo_query(sample_sql)
 
     try:
         # 1. Translate NL → structured query via LLM

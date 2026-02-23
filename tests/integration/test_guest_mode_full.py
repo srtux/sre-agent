@@ -190,6 +190,93 @@ class TestGuestModeDashboards:
         assert r.status_code in (200, 201)
 
 
+class TestGuestModeBigQuery:
+    """Test BigQuery explorer endpoints in guest mode."""
+
+    TOOLS_BASE = "/api/tools"
+
+    def test_list_datasets(self, guest_client):
+        r = guest_client.get(f"{self.TOOLS_BASE}/bigquery/datasets")
+        assert r.status_code == 200
+        data = r.json()
+        assert "datasets" in data
+        assert "traces" in data["datasets"]
+        assert "agentops" in data["datasets"]
+
+    def test_list_tables(self, guest_client):
+        r = guest_client.get(f"{self.TOOLS_BASE}/bigquery/datasets/traces/tables")
+        assert r.status_code == 200
+        data = r.json()
+        assert "_AllSpans" in data["tables"]
+        assert "_AllLogs" in data["tables"]
+
+    def test_get_schema(self, guest_client):
+        r = guest_client.get(
+            f"{self.TOOLS_BASE}/bigquery/datasets/traces/tables/_AllSpans/schema"
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert "schema" in data
+        col_names = [c["name"] for c in data["schema"]]
+        assert "span_id" in col_names
+        assert "trace_id" in col_names
+        assert "duration_nano" in col_names
+        assert "attributes" in col_names
+
+    def test_get_json_keys(self, guest_client):
+        r = guest_client.get(
+            f"{self.TOOLS_BASE}/bigquery/datasets/traces/tables/_AllSpans"
+            "/columns/attributes/json-keys"
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert "gen_ai.agent.name" in data["keys"]
+
+    def test_query_select_star(self, guest_client):
+        r = guest_client.post(
+            f"{self.TOOLS_BASE}/bigquery/query",
+            json={"sql": "SELECT * FROM traces._AllSpans LIMIT 10"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert "columns" in data
+        assert "rows" in data
+        assert len(data["rows"]) == 10
+        assert "span_id" in data["columns"]
+
+    def test_query_count(self, guest_client):
+        r = guest_client.post(
+            f"{self.TOOLS_BASE}/bigquery/query",
+            json={"sql": "SELECT COUNT(*) as cnt FROM traces._AllSpans"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data["rows"]) == 1
+        assert data["rows"][0]["cnt"] > 0
+
+    def test_query_aggregation(self, guest_client):
+        r = guest_client.post(
+            f"{self.TOOLS_BASE}/bigquery/query",
+            json={
+                "sql": (
+                    "SELECT name, COUNT(*) as cnt "
+                    "FROM traces._AllSpans "
+                    "GROUP BY name "
+                    "ORDER BY cnt DESC "
+                    "LIMIT 5"
+                )
+            },
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert "name" in data["columns"]
+        assert "cnt" in data["columns"]
+        assert len(data["rows"]) <= 5
+        # Verify ordering
+        counts = [row["cnt"] for row in data["rows"]]
+        assert counts == sorted(counts, reverse=True)
+
+
 class TestGuestModeConfig:
     """Test system config endpoint in guest mode."""
 
