@@ -28,13 +28,13 @@ Phase 4 focuses on making Auto SRE a best-in-class AI agent system with full rea
 | Task | Status | Component | Description |
 |------|--------|-----------|-------------|
 | Observability-on-Self | in-progress | Backend Core | Link agent trace IDs to UI, "View Reasoning Trace" deep links |
-| Confirmation Bridge (HITL 2.0) | planned | Backend Core | Global interceptor for HIGH impact tool calls, user permission via UI banner |
-| Zero-Trust Identity | planned | Backend Core | 1:1 tool execution to end-user IAM identity mapping |
 
 ### Planned
 
 | Task | Status | Component | Description |
 |------|--------|-----------|-------------|
+| Confirmation Bridge (HITL 2.0) | planned | Backend Core | Global interceptor for HIGH impact tool calls, user permission via UI banner |
+| Zero-Trust Identity | planned | Backend Core | 1:1 tool execution to end-user IAM identity mapping |
 | Dynamic Tool Descriptions | planned | Backend Core | Inject tool docstrings at runtime to prevent hallucination drift |
 | Dynamic Few-Shot Examples | planned | Services & Memory | RAG-based injection of past successful investigations into prompt |
 | Token Efficiency Optimization | planned | Backend Core | Move constraints to prompt end to combat "lost in the middle" |

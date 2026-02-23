@@ -2,7 +2,7 @@
 
 > **Source**: [`sre_agent/sub_agents/`](../../../sre_agent/sub_agents/)
 > **Router**: [`sre_agent/core/router.py`](../../../sre_agent/core/router.py)
-> **Status**: Production-ready (6 sub-agents, all with shared tool registry)
+> **Status**: Production-ready (7 sub-agents, all with shared tool registry)
 
 ## Overview
 
@@ -152,7 +152,7 @@ The `RoutingResult` includes:
 
 **Module**: `sre_agent/sub_agents/trace.py`
 **Model**: `get_model_name("fast")` (Gemini Flash)
-**Tool set**: `TRACE_ANALYST_TOOLS` (21 tools)
+**Tool set**: `TRACE_ANALYST_TOOLS` (16 tools)
 
 **Purpose**: Comprehensive trace analysis for latency, errors, structure, and
 resiliency patterns. The primary sub-agent for distributed tracing.
@@ -181,7 +181,7 @@ resiliency patterns. The primary sub-agent for distributed tracing.
 
 **Module**: `sre_agent/sub_agents/trace.py`
 **Model**: `get_model_name("deep")` (Gemini Pro)
-**Tool set**: `AGGREGATE_ANALYZER_TOOLS` (16 tools)
+**Tool set**: `AGGREGATE_ANALYZER_TOOLS` (14 tools)
 
 **Purpose**: Fleet-wide BigQuery analysis to identify patterns before examining
 individual traces. Operates at the aggregate level using SQL queries against
@@ -293,7 +293,7 @@ routes to the appropriate specialist.
 
 **Module**: `sre_agent/sub_agents/root_cause.py`
 **Model**: `get_model_name("deep")` (Gemini Pro)
-**Tool set**: `ROOT_CAUSE_ANALYST_TOOLS` (21 tools)
+**Tool set**: `ROOT_CAUSE_ANALYST_TOOLS` (22 tools)
 
 **Purpose**: Multi-signal synthesis for root cause analysis. Answers three
 questions: WHAT happened, WHO/WHAT changed, and HOW BAD is the impact. This

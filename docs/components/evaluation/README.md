@@ -89,7 +89,7 @@ All scenario files live in `eval/` and follow the ADK `EvalSet` JSON schema:
 |------|------------|-------|-------|
 | `basic_capabilities.test.json` | `sre_agent_capabilities` | 1 | Sanity check: agent describes its capabilities |
 | `tool_selection.test.json` | `sre_agent_tool_selection` | 3 | Tool routing: trace fetch, log analysis, metric query |
-| `metrics_analysis.test.json` | `sre_agent_metrics` | 2 | CPU anomaly detection, memory leak identification |
+| `metrics_analysis.test.json` | `sre_agent_metrics` | 1 | CPU anomaly detection |
 | `incident_investigation.test.json` | `sre_agent_incident_investigation` | 1 | Multi-stage pipeline: Aggregate > Triage > Deep Dive |
 | `error_diagnosis.test.json` | `sre_agent_error_diagnosis` | 3 | DB pool exhaustion, cascading timeouts, OOM kills |
 | `multi_signal_correlation.test.json` | `sre_agent_multi_signal` | 2 | Cross-signal: deployment regression, SLO degradation |
@@ -266,9 +266,9 @@ From `vertexai.evaluation.MetricPromptTemplateExamples.Pointwise`:
 | File | Purpose |
 |------|---------|
 | `eval/conftest.py` | Shared fixtures: credential checks, `load_eval_set()`, `make_*_config()` builders |
-| `eval/test_evaluate.py` | 8 test functions, one per scenario category |
+| `eval/test_evaluate.py` | 9 test functions, one per scenario category |
 | `eval/test_config.json` | Shared rubric criteria and judge model configuration |
-| `eval/*.test.json` | 9 scenario files (21 total eval cases) |
+| `eval/*.test.json` | 9 scenario files (20 total eval cases) |
 | `deploy/run_eval.py` | CI/CD eval runner with Vertex AI sync |
 | `sre_agent/services/eval_worker.py` | Online evaluation worker (BigQuery + Vertex AI) |
 | `sre_agent/api/routers/evals.py` | REST API for eval config CRUD and metrics |

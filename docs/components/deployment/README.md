@@ -23,11 +23,10 @@ flowchart TB
         Code --> Local[Local Dev Server<br/>scripts/start_dev.py]
     end
 
-    subgraph CloudBuild["Google Cloud Build Pipeline"]
+    subgraph CloudBuild["Google Cloud Build Pipeline (6 Stages)"]
         direction TB
-        S1[Stage 1: Deploy Backend<br/>deploy/deploy.py] --> S3[Stage 3: Wait Gate]
+        S1[Stage 1: Deploy Backend<br/>deploy/deploy.py] --> S6[Stage 6: Deploy Frontend<br/>Cloud Run]
         S2[Stage 2: Fetch Resource ID<br/>REST API lookup] --> S4[Stage 4: Build Docker Image]
-        S3 --> S6[Stage 6: Deploy Frontend<br/>Cloud Run]
         S4 --> S5[Stage 5: Push to GCR]
         S5 --> S6
         S6 --> S7[Stage 7: Run Evals<br/>deploy/run_eval.py]
@@ -278,7 +277,7 @@ Start with `uv run poe dev` (runs `scripts/start_dev.py` which launches backend 
 | `deploy/Dockerfile.unified` | Three-stage Docker build (Flutter + React + Python) |
 | `deploy/k8s/deployment.yaml` | Kubernetes Deployment manifest |
 | `deploy/k8s/service.yaml` | Kubernetes Service manifest (LoadBalancer) |
-| `cloudbuild.yaml` | 7-stage Google Cloud Build pipeline |
+| `cloudbuild.yaml` | 6-stage Google Cloud Build pipeline |
 | `scripts/start_dev.py` | Local development server launcher |
 
 ## Component Roadmap
@@ -288,7 +287,7 @@ Start with `uv run poe dev` (runs `scripts/start_dev.py` which launches backend 
 | Agent Engine deployment | Done | Create/update/delete with retry logic |
 | Cloud Run deployment | Done | Unified image with Secret Manager |
 | GKE deployment | Done | Manifests with ConfigMap/Secret |
-| Cloud Build CI/CD | Done | 7-stage pipeline with parallel tracks |
+| Cloud Build CI/CD | Done | 6-stage pipeline with parallel tracks |
 | Agent Identity support | Done | v1beta1 API with `--use_agent_identity` |
 | Parallel full-stack deploy | Done | Concurrent backend patch + frontend deploy |
 | Post-deploy eval gate | Done | Stage 7 eval suite (non-blocking) |

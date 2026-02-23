@@ -16,7 +16,7 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | **Deep dive into a component**      | [**Component Docs**](components/README.md)                         |
 | Write or modify code                | [Development Guide](guides/development.md)                        |
 | Write or run tests                  | [Testing Strategy](testing/testing.md)                              |
-| Run or write agent evaluations      | [Evaluation Guide](../EVALUATIONS.md)                           |
+| Run or write agent evaluations      | [Evaluation Guide](EVALUATIONS.md)                              |
 | Deploy to production                | [Deployment Guide](guides/deployment.md)                           |
 | Understand deployment architecture  | [Deployment Architecture](infrastructure/DEPLOYMENT.md)            |
 | Debug an issue                      | [Debugging Guides](#debugging)                                     |
@@ -39,7 +39,7 @@ Detailed documentation for each major system component, including architecture d
 | [**Backend Core**](components/backend-core/README.md) | FastAPI API layer, core execution engine, auth, schemas, agent orchestrator | Architecture + Request Lifecycle |
 | [**Council of Experts**](components/council/README.md) | Parallel multi-agent investigation: Fast/Standard/Debate modes | Orchestrator Flow + Standard Investigation |
 | [**Sub-Agents**](components/sub-agents/README.md) | Specialist agents: trace, logs, metrics, alerts, root cause, debugger | 3-Tier Router + Trace Analysis Flow |
-| [**Tools Ecosystem**](components/tools/README.md) | 108+ tools: GCP clients, analysis, MCP, sandbox, playbooks | Tool Categories + Call Lifecycle |
+| [**Tools Ecosystem**](components/tools/README.md) | 118+ tools: GCP clients, analysis, MCP, sandbox, playbooks | Tool Categories + Call Lifecycle |
 | [**Services & Memory**](components/services-memory/README.md) | Session management, storage, memory subsystem, mistake learning | Dual-Mode Architecture + Memory Flow |
 | [**Flutter Frontend**](components/flutter-frontend/README.md) | Material 3 web dashboard, GenUI/A2UI, Observability Explorer | Component Hierarchy + NDJSON Stream |
 | [**AgentOps UI**](components/agent-ops-ui/README.md) | React operational dashboard: KPIs, topology, trajectory, evals | Tab Architecture + Data Fetching |
@@ -211,7 +211,7 @@ Operational runbooks for specific GCP services.
 | Document | Description |
 |----------|-------------|
 | [Evaluation Standards](EVALUATIONS.md) | Dual-layer eval architecture, rubrics, anti-hallucination |
-| [Evaluation Guide](../EVALUATIONS.md) | Running evals locally and in CI/CD |
+| [Evaluation Guide](EVALUATIONS.md) | Running evals locally and in CI/CD |
 | [Observability Guide](OBSERVABILITY.md) | Tracing and logging best practices |
 
 ---
@@ -321,4 +321,4 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
    - [Debugging Guides](#debugging)
 
 ---
-*Last verified: 2026-02-23
+*Last verified: 2026-02-23*

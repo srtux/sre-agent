@@ -1,6 +1,6 @@
 # Tools Ecosystem
 
-> **Source**: `sre_agent/tools/` | **Tool count**: 108+ functions | **Registration points**: 4
+> **Source**: `sre_agent/tools/` | **Tool count**: 118+ functions | **Registration points**: 4
 
 The Tools Ecosystem is the primary interface through which the SRE Agent interacts with
 Google Cloud Platform observability data. Every tool is wrapped with the `@adk_tool`
@@ -158,20 +158,20 @@ Defined in `sre_agent/tools/config.py` as the `ToolCategory` enum:
 | **Discovery** | `discovery` | `tools/discovery/` | `discover_telemetry_sources`, `list_gcp_projects` |
 | **Orchestration** | `orchestration` | `tools/investigation.py` | `route_request`, `update_investigation_state` |
 | **Trace Fetch** | `trace_fetch` | `tools/clients/trace.py` | `fetch_trace`, `list_traces` |
-| **Trace Analyze** | `trace_analyze` | `tools/analysis/trace/` | `analyze_critical_path`, `compare_traces` |
-| **Log Fetch** | `log_fetch` | `tools/clients/logging.py` | `list_log_entries`, `tail_logs` |
+| **Trace Analyze** | `trace_analyze` | `tools/analysis/trace/` | `analyze_critical_path`, `compare_span_timings` |
+| **Log Fetch** | `log_fetch` | `tools/clients/logging.py` | `list_log_entries` |
 | **Log Analyze** | `log_analyze` | `tools/analysis/logs/` | `extract_log_patterns` (Drain3) |
 | **Metric Fetch** | `metric_fetch` | `tools/clients/monitoring.py` | `list_time_series`, `list_metric_descriptors` |
 | **Metric Analyze** | `metric_analyze` | `tools/analysis/metrics/` | `detect_metric_anomalies` |
-| **Alert** | `alert` | `tools/clients/alerts.py` | `list_alert_policies`, `get_active_incidents` |
-| **SLO** | `slo` | `tools/analysis/slo/` | `analyze_slo_burn_rate` (1h/6h/24h/72h windows) |
-| **GKE** | `gke` | `tools/clients/gke.py` | `get_gke_cluster_status`, `list_gke_events` |
+| **Alert** | `alert` | `tools/clients/alerts.py` | `list_alert_policies`, `list_alerts` |
+| **SLO** | `slo` | `tools/analysis/slo/` | `analyze_multi_window_burn_rate` (1h/6h/24h/72h windows) |
+| **GKE** | `gke` | `tools/clients/gke.py` | `get_gke_cluster_health`, `get_pod_restart_events` |
 | **Remediation** | `remediation` | `tools/analysis/remediation/` | `generate_remediation_suggestions` |
 | **Correlation** | `correlation` | `tools/analysis/correlation/` | `correlate_metrics_with_traces_via_exemplars` |
 | **MCP** | `mcp` | `tools/mcp/` | BigQuery SQL, heavy PromQL aggregations |
 | **Sandbox** | `sandbox` | `tools/sandbox/` | `process_data_in_sandbox` |
 | **Research** | `research` | `tools/research.py` | `search_google`, `fetch_web_page` |
-| **GitHub** | `github` | `tools/github/` | `read_github_file`, `create_pull_request` |
+| **GitHub** | `github` | `tools/github/` | `github_read_file`, `github_create_pull_request` |
 | **Memory** | `memory` | `tools/memory.py` | `add_finding_to_memory`, `search_memory` |
 
 ---
@@ -191,10 +191,10 @@ Credential resolution order inside `_get_client`:
 | Factory Function | Client Class |
 |----------|-------------|
 | `get_trace_client()` | `TraceServiceClient` |
-| `get_logging_client()` | `LoggingServiceClient` |
+| `get_logging_client()` | `LoggingServiceV2Client` |
 | `get_monitoring_client()` | `MetricServiceClient` |
 | `get_alert_policy_client()` | `AlertPolicyServiceClient` |
-| `get_error_reporting_client()` | `ErrorReportingServiceClient` |
+| `get_error_reporting_client()` | `ErrorStatsServiceClient` |
 
 Additional clients (GKE, App Hub, Asset Inventory, Dependency Graph) are created in
 their respective modules under `tools/clients/`.

@@ -259,6 +259,7 @@ const queryClient = new QueryClient({
 |------|------------|---------|-----------|
 | `useDashboardMetrics` | `/dashboard/kpis`, `/dashboard/timeseries` | `KpiMetrics`, `LatencyPoint[]`, `QpsPoint[]`, `TokenPoint[]` | `['dashboard-metrics', projectId, serviceName, hours]` |
 | `useDashboardTables` | `/dashboard/models`, `/dashboard/tools`, `/dashboard/logs`, `/dashboard/sessions`, `/dashboard/traces` | `ModelCallRow[]`, `ToolCallRow[]`, `AgentLogRow[]`, `AgentSessionRow[]`, `AgentTraceRow[]` | `['dashboard-tables', projectId, serviceName, hours]` |
+| `useAgentLogs` | `/dashboard/logs` | `AgentLogRow[]` | `['agent-logs', projectId, serviceName, hours]` |
 | `useEvalConfigs` | `/evals/config` | `EvalConfig[]` | `['eval-configs']` |
 | `useEvalMetrics` | `/evals/metrics/aggregate` | `EvalMetricPoint[]` | `['eval-metrics', projectId, serviceName, hours]` |
 
@@ -376,7 +377,7 @@ agent_ops_ui/src/
 |   |   +-- EChartWrapper.tsx          # ECharts wrapper
 |   +-- dashboard/
 |   |   +-- AgentDashboard.tsx         # 4-row dashboard grid (KPIs, charts, evals, tables)
-|   |   +-- DashboardToolbar.tsx       # Filter controls
+|   |   +-- AgentDashboard.test.tsx    # Dashboard tests
 |   |   +-- panels/
 |   |       +-- KpiGrid.tsx            # 4 KPI cards with trends
 |   |       +-- InteractionMetricsPanel.tsx  # Latency, QPS, token charts

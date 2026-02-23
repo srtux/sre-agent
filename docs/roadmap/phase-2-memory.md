@@ -19,7 +19,7 @@ This phase includes Phase 2, Phase 2.5 (SRE Reliability Suite), and Phase 2.75 (
 
 ---
 
-## Phase 2.5: SRE Reliability Suite {#phase-25}
+## Phase 2.5: SRE Reliability Suite
 
 | Task | Status | Component | Description |
 |------|--------|-----------|-------------|
@@ -35,7 +35,7 @@ This phase includes Phase 2, Phase 2.5 (SRE Reliability Suite), and Phase 2.75 (
 
 ---
 
-## Phase 2.75: Parallel Council & Debate Architecture {#phase-275}
+## Phase 2.75: Parallel Council & Debate Architecture
 
 | Task | Status | Component | Description |
 |------|--------|-----------|-------------|

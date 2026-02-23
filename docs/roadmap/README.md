@@ -43,8 +43,8 @@ gantt
 |-------|--------|--------|------|-----------------|
 | [Phase 1](phase-1-foundation.md) | Jan 2026 | Completed | Technical debt reduction, reasoning structure | Modular API, ReAct pattern, tool taxonomy, EUC auth |
 | [Phase 2](phase-2-memory.md) | Jan-Feb 2026 | Completed | Deep context retention, guided investigations | Memory integration, investigation state machine, CI/CD |
-| [Phase 2.5](phase-2-memory.md#phase-25) | Feb 2026 | Completed | Production-grade resilience | Circuit breaker, SLO analysis, postmortem, change correlation |
-| [Phase 2.75](phase-2-memory.md#phase-275) | Feb 2026 | Completed | Parallel multi-agent investigation | Council of Experts, debate pipeline, intent classifier |
+| [Phase 2.5](phase-2-memory.md#phase-25-sre-reliability-suite) | Feb 2026 | Completed | Production-grade resilience | Circuit breaker, SLO analysis, postmortem, change correlation |
+| [Phase 2.75](phase-2-memory.md#phase-275-parallel-council--debate-architecture) | Feb 2026 | Completed | Parallel multi-agent investigation | Council of Experts, debate pipeline, intent classifier |
 | [Phase 3](phase-3-observability.md) | Feb 2026 | Completed | Observability, eval, sandbox, self-healing | Explorer dashboard, eval framework, sandbox execution, GitHub tools, playbooks |
 | [Phase 4](phase-4-modern.md) | Feb-Apr 2026 | **In Progress** | Transparency, continuous quality, governance | Streaming reasoning, CI evals, observability-on-self, HITL |
 | [Phase 5](phase-5-proactive.md) | Q2 2026 | Planned | Anticipate problems proactively | Anomaly detection, knowledge graph, panel self-assessment |

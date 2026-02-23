@@ -229,7 +229,7 @@ Each panel is an ADK `LlmAgent` with:
 **Analyzes**: Latency bottlenecks, errors, structural anomalies, resiliency
 anti-patterns (retry storms, cascading timeouts, connection pool exhaustion).
 
-**Key tools** (28 total from `TRACE_PANEL_TOOLS`):
+**Key tools** (23 total from `TRACE_PANEL_TOOLS`):
 `analyze_trace_comprehensive`, `compare_span_timings`, `analyze_critical_path`,
 `detect_all_sre_patterns`, `detect_retry_storm`, `find_exemplar_traces`,
 `build_service_dependency_graph`
@@ -253,7 +253,7 @@ metric-to-trace correlation via exemplars.
 **Analyzes**: Error patterns, new signatures, emerging anomalies using Drain3
 clustering and BigQuery log analysis at scale.
 
-**Key tools** (9 total from `LOGS_PANEL_TOOLS`):
+**Key tools** (8 total from `LOGS_PANEL_TOOLS`):
 `list_log_entries`, `analyze_bigquery_log_patterns`, `extract_log_patterns`,
 `compare_time_periods`, `discover_telemetry_sources`
 

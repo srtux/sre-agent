@@ -184,18 +184,18 @@ The API layer is a FastAPI application built with the factory pattern. It handle
 
 | Router | Prefix | Responsibility |
 |--------|--------|---------------|
-| `agent.py` | `/api/agent` | Agent execution (run, stream) |
+| `agent.py` | *(none)* | Agent execution (run, stream) |
 | `sessions.py` | `/api/sessions` | Session CRUD |
 | `tools.py` | `/api/tools` | Manual tool execution, telemetry queries |
-| `health.py` | `/api/health` | Health/readiness probes |
-| `system.py` | `/api/system` | System info, version |
+| `health.py` | *(none)* | Health/readiness probes |
+| `system.py` | *(none)* | System info, version |
 | `permissions.py` | `/api/permissions` | IAM permission checks |
 | `preferences.py` | `/api/preferences` | User preferences |
 | `help.py` | `/api/help` | Help content |
-| `evals.py` | `/api/evals` | Evaluation configs and results |
+| `evals.py` | `/api/v1/evals` | Evaluation configs and results |
 | `dashboards.py` | `/api/dashboards` | Custom dashboard CRUD |
-| `agent_graph.py` | `/api/agent-graph` | Agent topology graph data |
-| `agent_graph_setup.py` | `/api/agent-graph/setup` | BigQuery table setup |
+| `agent_graph.py` | `/api/v1/graph` | Agent topology graph data |
+| `agent_graph_setup.py` | `/api/v1/graph/setup` | BigQuery table setup |
 
 #### Helpers
 
@@ -219,7 +219,7 @@ The `Runner` class is the central execution loop, managing prompt composition, p
 
 `RunnerAgentAdapter` wraps `Runner` to present an ADK-compatible `run_async()` interface.
 
-#### 3-Tier Request Router (`router.py`)
+#### Request Router (`router.py`)
 
 The `route_request` function is an `@adk_tool` that the root agent calls as its **first action** on every user turn. It classifies the query into one of four tiers:
 
@@ -234,7 +234,7 @@ Classification is performed by `classify_routing()` from `council/intent_classif
 
 #### Policy Engine (`policy_engine.py`)
 
-Evaluates tool calls against safety policies before execution. Each tool has a `ToolPolicy` (access level: `READ_ONLY`/`WRITE`/`ADMIN`, category, approval requirement). `PolicyEngine.evaluate()` returns `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`. Thread-safe singleton via `get_policy_engine()`.
+Evaluates tool calls against safety policies before execution. Each tool has a `ToolPolicy` (access level: `READ_ONLY`/`WRITE`/`ADMIN`, category, approval requirement). `PolicyEngine.evaluate()` returns a `PolicyDecision` model with `allowed`, `requires_approval`, `reason`, and `risk_assessment` fields. Thread-safe singleton via `get_policy_engine()`.
 
 #### Circuit Breaker (`circuit_breaker.py`)
 

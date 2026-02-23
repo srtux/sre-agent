@@ -1,6 +1,6 @@
 # Testing Infrastructure
 
-> Component documentation for the Auto SRE test suite (`tests/`, `autosre/test/`, `agent_ops_ui/src/__tests__/`).
+> Component documentation for the Auto SRE test suite (`tests/`, `autosre/test/`, `agent_ops_ui/src/`).
 
 ## Overview
 

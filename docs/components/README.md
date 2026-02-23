@@ -13,7 +13,7 @@ This directory contains detailed documentation for each major component of the A
 | [Backend Core](backend-core/README.md) | `sre_agent/` | FastAPI API layer, core execution engine, auth, schemas, agent orchestrator | `sre_agent/{api,core,auth,schema,agent,prompt,model_config}.py` |
 | [Council of Experts](council/README.md) | `sre_agent/council/` | Parallel multi-agent investigation with 3 modes (Fast/Standard/Debate) | `sre_agent/council/` |
 | [Sub-Agents](sub-agents/README.md) | `sre_agent/sub_agents/` | Specialist agents for trace, logs, metrics, alerts, and root cause analysis | `sre_agent/sub_agents/` |
-| [Tools Ecosystem](tools/README.md) | `sre_agent/tools/` | 108+ investigation tools: GCP clients, analysis, MCP, sandbox, playbooks | `sre_agent/tools/` |
+| [Tools Ecosystem](tools/README.md) | `sre_agent/tools/` | 118+ investigation tools: GCP clients, analysis, MCP, sandbox, playbooks | `sre_agent/tools/` |
 | [Services & Memory](services-memory/README.md) | `sre_agent/{services,memory}/` | Session management, storage, memory subsystem, dual-mode execution | `sre_agent/{services,memory}/` |
 | [Flutter Frontend](flutter-frontend/README.md) | `autosre/` | Material 3 web dashboard with GenUI, Observability Explorer, Agent Graph | `autosre/lib/` |
 | [AgentOps UI](agent-ops-ui/README.md) | `agent_ops_ui/` | React operational dashboard: KPIs, topology, trajectory, evals | `agent_ops_ui/src/` |
