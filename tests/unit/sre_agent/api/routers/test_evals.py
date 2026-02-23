@@ -1,12 +1,14 @@
-"""Tests for Online GenAI Evaluation configuration endpoints.
+"""Tests for Online GenAI Evaluation configuration and metrics endpoints.
 
 Tests the evals router (sre_agent/api/routers/evals.py) including:
 - CRUD operations for eval configs
 - Guest mode behavior
 - Error handling (storage failures -> UserFacingError)
 - Validation (sampling_rate bounds)
+- Aggregate eval metrics endpoint
 """
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -384,3 +386,138 @@ async def test_upsert_config_default_metrics(mock_storage, mock_no_guest):
     )
     assert response.status_code == 200
     assert response.json()["config"]["metrics"] == []
+
+
+# ========== Aggregate eval metrics ==========
+
+
+@pytest.mark.asyncio
+async def test_aggregate_metrics_guest_mode(mock_storage, mock_guest_mode):
+    """Guest mode returns synthetic demo eval metrics."""
+    response = client.get(
+        "/api/v1/evals/metrics/aggregate",
+        params={"project_id": "test-project", "hours": 6},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "metrics" in data
+    assert len(data["metrics"]) > 0
+    # Each metric should have expected fields
+    first = data["metrics"][0]
+    assert "timeBucket" in first
+    assert "metricName" in first
+    assert "avgScore" in first
+    assert "sampleCount" in first
+    assert 0.0 <= first["avgScore"] <= 1.0
+    # Should have multiple metric types
+    metric_names = {m["metricName"] for m in data["metrics"]}
+    assert "coherence" in metric_names
+    assert "groundedness" in metric_names
+
+
+@pytest.mark.asyncio
+async def test_aggregate_metrics_invalid_project_id(mock_no_guest):
+    """Invalid project_id is rejected."""
+    response = client.get(
+        "/api/v1/evals/metrics/aggregate",
+        params={"project_id": "'; DROP TABLE --", "hours": 24},
+    )
+    assert response.status_code == 400
+    assert "project_id" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_aggregate_metrics_invalid_service_name(mock_no_guest):
+    """Invalid service_name with SQL injection chars is rejected."""
+    response = client.get(
+        "/api/v1/evals/metrics/aggregate",
+        params={
+            "project_id": "test-project",
+            "service_name": "'; DROP TABLE foo --",
+        },
+    )
+    assert response.status_code == 400
+    assert "service_name" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_aggregate_metrics_invalid_dataset(mock_no_guest):
+    """Invalid trace_dataset is rejected."""
+    response = client.get(
+        "/api/v1/evals/metrics/aggregate",
+        params={"project_id": "test-project", "trace_dataset": "bad;table"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_aggregate_metrics_missing_project_id(mock_no_guest):
+    """Missing project_id returns 422 (required param)."""
+    response = client.get("/api/v1/evals/metrics/aggregate")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+@patch("sre_agent.api.routers.evals.bigquery")
+async def test_aggregate_metrics_returns_data(mock_bq_mod, mock_no_guest):
+    """Normal mode returns formatted eval metrics from BigQuery."""
+    bucket_ts = datetime(2026, 2, 23, 10, 0, 0, tzinfo=timezone.utc)
+    mock_row = MagicMock()
+    mock_row.time_bucket = bucket_ts
+    mock_row.metric_name = "coherence"
+    mock_row.avg_score = 0.85
+    mock_row.sample_count = 42
+
+    mock_bq_client = MagicMock()
+    mock_bq_mod.Client.return_value = mock_bq_client
+    mock_bq_client.query_and_wait.return_value = [mock_row]
+
+    with patch("anyio.to_thread.run_sync") as mock_run_sync:
+        mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+        response = client.get(
+            "/api/v1/evals/metrics/aggregate",
+            params={"project_id": "test-project", "hours": 24},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["metrics"]) == 1
+    assert data["metrics"][0]["metricName"] == "coherence"
+    assert data["metrics"][0]["avgScore"] == 0.85
+    assert data["metrics"][0]["sampleCount"] == 42
+    assert "2026-02-23" in data["metrics"][0]["timeBucket"]
+
+
+@pytest.mark.asyncio
+@patch("sre_agent.api.routers.evals.bigquery")
+async def test_aggregate_metrics_empty_results(mock_bq_mod, mock_no_guest):
+    """Returns empty metrics list when no eval data exists."""
+    mock_bq_client = MagicMock()
+    mock_bq_mod.Client.return_value = mock_bq_client
+    mock_bq_client.query_and_wait.return_value = []
+
+    with patch("anyio.to_thread.run_sync") as mock_run_sync:
+        mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+        response = client.get(
+            "/api/v1/evals/metrics/aggregate",
+            params={"project_id": "test-project"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"metrics": []}
+
+
+@pytest.mark.asyncio
+@patch("sre_agent.api.routers.evals.bigquery")
+async def test_aggregate_metrics_bq_error(mock_bq_mod, mock_no_guest):
+    """BigQuery failure returns 500."""
+    mock_bq_mod.Client.side_effect = RuntimeError("BQ timeout")
+
+    response = client.get(
+        "/api/v1/evals/metrics/aggregate",
+        params={"project_id": "test-project"},
+    )
+    assert response.status_code == 500
+    assert "aggregate eval metrics" in response.json()["detail"].lower()

@@ -157,6 +157,7 @@ export interface SpanDetails {
   statusCode: number
   statusMessage: string
   exceptions: SpanDetailsException[]
+  evaluations?: EvalEvent[]
   attributes: Record<string, unknown>
 }
 
@@ -260,4 +261,23 @@ export interface QueryHistogramParams {
   minutesAgo?: number
   bucketCount?: number
   projectId?: string
+}
+
+// --- Evaluation types ---
+
+export interface EvalEvent {
+  metricName: string
+  score: number
+  explanation: string
+}
+
+export interface EvalMetricPoint {
+  timeBucket: string
+  metricName: string
+  avgScore: number
+  sampleCount: number
+}
+
+export interface EvalMetricsAggregateResponse {
+  metrics: EvalMetricPoint[]
 }

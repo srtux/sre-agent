@@ -1,15 +1,20 @@
-"""Online GenAI evaluation configuration endpoints."""
+"""Online GenAI evaluation configuration and metrics endpoints."""
 
 import logging
-from datetime import datetime
+import os
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+import anyio
+from fastapi import APIRouter, HTTPException, Query, Response
+from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.auth import is_guest_mode
 from sre_agent.exceptions import UserFacingError
 from sre_agent.services import get_storage_service
+from sre_agent.tools.bigquery.queries import get_aggregate_eval_metrics_query
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/evals", tags=["evals"])
@@ -203,3 +208,113 @@ async def delete_eval_config(agent_name: str) -> Response:
     except Exception as e:
         logger.exception("Error deleting eval config for %s", agent_name)
         raise UserFacingError(f"Internal server error: {e}") from e
+
+
+# ---------------------------------------------------------------------------
+# Aggregate metrics endpoint
+# ---------------------------------------------------------------------------
+
+_DEFAULT_BQ_DATASET = os.environ.get("SRE_AGENT_EVAL_BQ_DATASET", "otel_export")
+
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
+
+
+def _validate_identifier(value: str, name: str) -> None:
+    """Validate that *value* looks like a safe BQ identifier."""
+    if not _IDENTIFIER_RE.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {name}.")
+
+
+@router.get("/metrics/aggregate")
+async def get_eval_metrics_aggregate(
+    project_id: str = Query(..., description="GCP project ID"),
+    hours: int = Query(default=24, ge=1, le=720, description="Lookback window"),
+    service_name: str = Query(default="", description="Agent/service name filter"),
+    trace_dataset: str = Query(
+        default=_DEFAULT_BQ_DATASET, description="BQ dataset name"
+    ),
+) -> dict[str, Any]:
+    """Return aggregate evaluation metrics grouped by hour and metric name.
+
+    Returns:
+        A JSON object with a ``metrics`` key containing a list of
+        ``{timeBucket, metricName, avgScore, sampleCount}`` dicts.
+    """
+    if is_guest_mode():
+        return {"metrics": _demo_eval_metrics(hours)}
+
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(trace_dataset, "trace_dataset")
+    if service_name:
+        _validate_identifier(service_name, "service_name")
+
+    end_time = datetime.now(timezone.utc)
+    start_time = end_time - timedelta(hours=hours)
+
+    table_name = f"{project_id}.{trace_dataset}._AllSpans"
+    query = get_aggregate_eval_metrics_query(
+        table_name=table_name,
+        start_time=start_time.isoformat(),
+        end_time=end_time.isoformat(),
+        service_name=service_name or None,
+    )
+
+    try:
+        client = bigquery.Client(project=project_id)
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
+
+        metrics = []
+        for row in rows:
+            metrics.append(
+                {
+                    "timeBucket": row.time_bucket.isoformat()
+                    if row.time_bucket
+                    else None,
+                    "metricName": row.metric_name,
+                    "avgScore": float(row.avg_score) if row.avg_score else 0.0,
+                    "sampleCount": int(row.sample_count) if row.sample_count else 0,
+                }
+            )
+
+        return {"metrics": metrics}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to fetch aggregate eval metrics")
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch aggregate eval metrics."
+        ) from exc
+
+
+def _demo_eval_metrics(hours: int) -> list[dict[str, Any]]:
+    """Generate synthetic eval metrics for demo/guest mode."""
+    import random
+
+    now = datetime.now(timezone.utc)
+    metric_names = ["coherence", "groundedness", "fluency", "safety"]
+    results: list[dict[str, Any]] = []
+    random.seed(42)
+
+    for h in range(min(hours, 48)):
+        bucket = (now - timedelta(hours=hours - h)).replace(
+            minute=0, second=0, microsecond=0
+        )
+        for metric in metric_names:
+            base = {
+                "coherence": 0.85,
+                "groundedness": 0.78,
+                "fluency": 0.90,
+                "safety": 0.95,
+            }
+            score = max(0.0, min(1.0, base[metric] + random.uniform(-0.1, 0.1)))
+            results.append(
+                {
+                    "timeBucket": bucket.isoformat(),
+                    "metricName": metric,
+                    "avgScore": round(score, 3),
+                    "sampleCount": random.randint(5, 50),
+                }
+            )
+    return results
