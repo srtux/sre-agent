@@ -41,6 +41,7 @@ from sre_agent.auth import (
     encrypt_token,
     get_current_credentials_or_none,
     get_current_project_id,
+    is_guest_mode,
     set_current_credentials,
     set_current_project_id,
     set_current_user_id,
@@ -57,6 +58,10 @@ from sre_agent.services.agent_engine_client import (
     is_remote_mode,
 )
 from sre_agent.suggestions import generate_contextual_suggestions
+from sre_agent.tools.synthetic.demo_chat_responses import (
+    get_demo_suggestions,
+    get_demo_turns,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent"])
@@ -381,6 +386,39 @@ async def _handle_remote_agent(
     )
 
 
+async def _guest_event_generator(turn_index: int = 0) -> AsyncGenerator[str, None]:
+    """Stream pre-recorded demo events for guest mode."""
+    turns = get_demo_turns()
+    suggestions = get_demo_suggestions()
+
+    # Emit session event first
+    session_event = json.dumps(
+        {
+            "type": "session",
+            "session_id": "demo-session-001",
+            "title": "Demo: Cymbal Shops Incident Investigation",
+        }
+    )
+    yield session_event + "\n"
+
+    # Clamp turn index to available turns
+    idx = min(turn_index, len(turns) - 1)
+
+    # Stream all events for this turn with small delays
+    for event_line in turns[idx]:
+        yield event_line + "\n"
+        await asyncio.sleep(0.05)  # Small delay for realistic streaming
+
+    # Emit suggestions at the end
+    suggestion_event = json.dumps(
+        {
+            "type": "suggestions",
+            "suggestions": suggestions,
+        }
+    )
+    yield suggestion_event + "\n"
+
+
 @router.post("/api/genui/chat")
 @router.post("/agent")
 async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingResponse:
@@ -392,6 +430,15 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
     The mode is determined by the SRE_AGENT_ID environment variable.
     """
+    # Guest mode: stream pre-recorded demo responses
+    if is_guest_mode():
+        # Use message count to determine which turn to show
+        turn_index = len(request.messages) - 1 if request.messages else 0
+        return StreamingResponse(
+            _guest_event_generator(turn_index=turn_index),
+            media_type="application/x-ndjson",
+        )
+
     # Get credentials from middleware (set by auth_middleware)
     creds = get_current_credentials_or_none()
 
