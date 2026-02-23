@@ -205,9 +205,9 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         Promise<import('axios').AxiosResponse<SankeyResponse>>,
         ...Promise<import('axios').AxiosResponse<TimeSeriesData>>[],
       ] = [
-        axios.get<TopologyResponse>('/api/v1/graph/topology', { params }),
-        axios.get<SankeyResponse>('/api/v1/graph/trajectories', { params }),
-      ]
+          axios.get<TopologyResponse>('/api/v1/graph/topology', { params }),
+          axios.get<SankeyResponse>('/api/v1/graph/trajectories', { params }),
+        ]
 
       // Fetch timeseries when hours >= 2 (endpoint requires ge=2)
       if (filters.hours >= 2 && activeTab !== 'agents' && activeTab !== 'tools' && activeTab !== 'traces') {
@@ -331,6 +331,15 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           Tools
         </button>
         <button
+          style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setActiveTab('dashboard')
+            setFilters(prev => ({ ...prev, hours: 24 }))
+          }}
+        >
+          Dashboard
+        </button>
+        <button
           style={activeTab === 'traces' ? styles.tabActive : styles.tab}
           onClick={() => {
             setActiveTab('traces')
@@ -387,91 +396,91 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
             error={error}
           />
         ) : (
-            <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {activeTab === 'agents' && (
-                  <RegistryPage
-                    filters={{ ...filters, serviceName }}
-                    mode="agents"
-                    onNavigate={(name, tab) => {
-                      setServiceName(name)
-                      setActiveTab(tab as Tab)
-                    }}
-                  />
-                )}
+          <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {activeTab === 'agents' && (
+                <RegistryPage
+                  filters={{ ...filters, serviceName }}
+                  mode="agents"
+                  onNavigate={(name, tab) => {
+                    setServiceName(name)
+                    setActiveTab(tab as Tab)
+                  }}
+                />
+              )}
 
-                {activeTab === 'tools' && (
-                  <RegistryPage
-                    filters={{ ...filters, serviceName }}
-                    mode="tools"
-                    onNavigate={(name, tab) => {
-                      setServiceName(name)
-                      setActiveTab(tab as Tab)
-                    }}
-                  />
-                )}
+              {activeTab === 'tools' && (
+                <RegistryPage
+                  filters={{ ...filters, serviceName }}
+                  mode="tools"
+                  onNavigate={(name, tab) => {
+                    setServiceName(name)
+                    setActiveTab(tab as Tab)
+                  }}
+                />
+              )}
 
-                {activeTab === 'dashboard' && (
-                  <AgentDashboard hours={filters.hours} />
-                )}
+              {activeTab === 'dashboard' && (
+                <AgentDashboard hours={filters.hours} />
+              )}
 
-                {activeTab === 'traces' && (
-                  <AgentTracesPage hours={filters.hours} />
-                )}
+              {activeTab === 'traces' && (
+                <AgentTracesPage hours={filters.hours} />
+              )}
 
-            {activeTab === 'topology' && (
-              <>
-                {topologyData ? (
-                  <TopologyGraph
-                    nodes={topologyData.nodes}
-                        edges={topologyData.edges}
-                    sparklineData={timeseriesData}
-                    selectedNodeId={selected?.kind === 'node' ? selected.id : null}
-                    onNodeClick={(nodeId) =>
-                      setSelected({ kind: 'node', id: nodeId })
-                    }
-                    onEdgeClick={(sourceId, targetId) =>
-                      setSelected({ kind: 'edge', sourceId, targetId })
-                    }
-                  />
-                ) : (
-                  <div style={styles.placeholder}>
-                    {loadingTopology
-                            ? 'Loading agent graph data...'
-                            : 'Enter a project ID and click Load to visualize the agent graph.'}
-                  </div>
-                )}
-              </>
-            )}
+              {activeTab === 'topology' && (
+                <>
+                  {topologyData ? (
+                    <TopologyGraph
+                      nodes={topologyData.nodes}
+                      edges={topologyData.edges}
+                      sparklineData={timeseriesData}
+                      selectedNodeId={selected?.kind === 'node' ? selected.id : null}
+                      onNodeClick={(nodeId) =>
+                        setSelected({ kind: 'node', id: nodeId })
+                      }
+                      onEdgeClick={(sourceId, targetId) =>
+                        setSelected({ kind: 'edge', sourceId, targetId })
+                      }
+                    />
+                  ) : (
+                    <div style={styles.placeholder}>
+                      {loadingTopology
+                        ? 'Loading agent graph data...'
+                        : 'Enter a project ID and click Load to visualize the agent graph.'}
+                    </div>
+                  )}
+                </>
+              )}
 
-            {activeTab === 'trajectory' && (
-              <>
-                {sankeyData ? (
-                      <TrajectorySankey
-                        data={sankeyData}
-                        errorsOnly={filters.errorsOnly}
-                        onNodeClick={(nodeId) => setSelected({ kind: 'node', id: nodeId })}
-                      />
-                ) : (
-                  <div style={styles.placeholder}>
-                    {loadingSankey
-                      ? 'Loading trajectory data...'
-                      : 'Enter a project ID and click Load to visualize agent trajectories.'}
-                  </div>
-                )}
-              </>
-                )}
+              {activeTab === 'trajectory' && (
+                <>
+                  {sankeyData ? (
+                    <TrajectorySankey
+                      data={sankeyData}
+                      errorsOnly={filters.errorsOnly}
+                      onNodeClick={(nodeId) => setSelected({ kind: 'node', id: nodeId })}
+                    />
+                  ) : (
+                    <div style={styles.placeholder}>
+                      {loadingSankey
+                        ? 'Loading trajectory data...'
+                        : 'Enter a project ID and click Load to visualize agent trajectories.'}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <SidePanel
+              selected={selected}
+              projectId={filters.projectId}
+              hours={filters.hours}
+              onClose={() => setSelected(null)}
+              sparklineData={timeseriesData}
+              filters={{ ...filters, serviceName }}
+            />
           </div>
-
-          <SidePanel
-            selected={selected}
-            projectId={filters.projectId}
-            hours={filters.hours}
-                onClose={() => setSelected(null)}
-            sparklineData={timeseriesData}
-                filters={{ ...filters, serviceName }}
-          />
-        </div>
         )}
       </div>
     </div>
