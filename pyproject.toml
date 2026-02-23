@@ -38,6 +38,8 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.58b0",
     "cloudpickle>=3.1.2",
     "google-cloud-geminidataanalytics>=0.10.0",
+    "pyopenssl>=23.2.0",
+    "google-cloud-bigquery>=3.40.0",
 ]
 
 requires-python = ">=3.10,<3.13"
@@ -130,13 +132,13 @@ default = true
 
 [tool.codespell]
 skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*,./adk-docs/*,./adk-python/*,./autosre/linux/*,./autosre/windows/*,./autosre/macos/*,./agent_ops_ui/node_modules/*,./agent_ops_ui/dist/*,./agent_ops_ui/build/*"
-ignore-words-list = "already,ot,alledges"
+ignore-words-list = "already,ot,alledges,daa"
 
 [tool.deptry]
 ignore = ["DEP001", "DEP004"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet", "openinference-instrumentation-google-adk", "arize-otel", "nest-asyncio"]
+DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet", "openinference-instrumentation-google-adk", "arize-otel", "nest-asyncio", "pyopenssl"]
 DEP003 = ["mcp", "pydantic_core", "proto", "anyio"]
 
 [tool.agent-starter-pack]

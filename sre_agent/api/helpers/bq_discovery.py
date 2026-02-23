@@ -40,7 +40,7 @@ async def get_linked_log_dataset(project_id: str) -> str | None:
                     if "bigqueryDataset" in link:
                         dataset_uri = link["bigqueryDataset"].get("datasetId", "")
                         if dataset_uri:
-                            return dataset_uri.split("/")[-1]
+                            return str(dataset_uri.split("/")[-1])
         except Exception as exc:
             logger.debug(f"Logging discovery failed for {project_id}: {exc}")
 
@@ -98,7 +98,7 @@ async def get_linked_trace_dataset(project_id: str) -> str | None:
                                 or "trace" in ds_uri
                                 or "span" in ds_uri
                             ):
-                                return ds_uri.split("/")[-1]
+                                return str(ds_uri.split("/")[-1])
         except Exception as exc:
             logger.debug(f"Logging-based trace scan failed: {exc}")
 
@@ -124,7 +124,7 @@ async def get_linked_trace_dataset(project_id: str) -> str | None:
                                     "datasetId", ""
                                 )
                                 if ds_uri:
-                                    return ds_uri.split("/")[-1]
+                                    return str(ds_uri.split("/")[-1])
         except Exception as exc:
             logger.debug(f"Observability-based trace scan failed: {exc}")
 

@@ -2200,7 +2200,7 @@ class TestSpanDetailsEndpoint:
     """Tests for GET /trace/{trace_id}/span/{span_id}/details endpoint."""
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
-    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    @patch("sre_agent.api.routers.agent_graph.get_linked_log_dataset")
     def test_returns_span_details_with_logs(
         self, mock_get_dataset: MagicMock, mock_client_fn: MagicMock, client: TestClient
     ) -> None:
@@ -2244,7 +2244,10 @@ class TestSpanDetailsEndpoint:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["traceId"] == "8f4de13a30f76906a206f477cc6777a4"  # pragma: allowlist secret
+        assert (
+            data["traceId"]
+            == "8f4de13a30f76906a206f477cc6777a4"  # pragma: allowlist secret
+        )
         assert data["statusCode"] == 2
         assert len(data["exceptions"]) == 1
         assert data["exceptions"][0]["message"] == "boom"
@@ -2253,7 +2256,7 @@ class TestSpanDetailsEndpoint:
         assert data["logs"][0]["payload"] == "Log message"
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
-    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    @patch("sre_agent.api.routers.agent_graph.get_linked_log_dataset")
     def test_returns_evaluations_when_present(
         self,
         mock_get_dataset: MagicMock,
@@ -2296,7 +2299,7 @@ class TestSpanDetailsEndpoint:
         assert len(data["exceptions"]) == 1
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
-    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    @patch("sre_agent.api.routers.agent_graph.get_linked_log_dataset")
     def test_returns_empty_evaluations_when_none(
         self,
         mock_get_dataset: MagicMock,
@@ -2341,7 +2344,7 @@ class TestSpanDetailsEndpoint:
 
 
 class TestLogDatasetDiscovery:
-    """Tests for _get_default_log_dataset helper."""
+    """Tests for get_linked_log_dataset helper."""
 
     @patch("httpx.AsyncClient.get")
     @patch("google.auth.default")
@@ -2350,7 +2353,7 @@ class TestLogDatasetDiscovery:
     async def test_discovers_dataset_from_logging_api(
         self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: MagicMock
     ) -> None:
-        from sre_agent.api.routers.agent_graph import _get_default_log_dataset
+        from sre_agent.api.routers.agent_graph import get_linked_log_dataset
 
         mock_auth.return_value = (MagicMock(token="fake-token"), "project")
 
@@ -2363,7 +2366,7 @@ class TestLogDatasetDiscovery:
 
         # Cache is bypassed automatically in pytest
 
-        dataset = await _get_default_log_dataset("test-project")
+        dataset = await get_linked_log_dataset("test-project")
         assert dataset == "my_logs"
 
         # Verify the URL
