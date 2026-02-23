@@ -2238,19 +2238,92 @@ class TestSpanDetailsEndpoint:
             mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
             resp = client.get(
-                "/api/v1/graph/trace/8f4de13a30f769/span/74e87600bb9ffefc/details",
+                "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
                 params={"project_id": "test-project"},
             )
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["traceId"] == "8f4de13a30f769"  # pragma: allowlist secret
+        assert data["traceId"] == "8f4de13a30f76906a206f477cc6777a4"  # pragma: allowlist secret
         assert data["statusCode"] == 2
         assert len(data["exceptions"]) == 1
         assert data["exceptions"][0]["message"] == "boom"
         assert data["attributes"]["http.method"] == "GET"
         assert len(data["logs"]) == 1
         assert data["logs"][0]["payload"] == "Log message"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    def test_returns_evaluations_when_present(
+        self,
+        mock_get_dataset: MagicMock,
+        mock_client_fn: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Span details include evaluation events from gen_ai.evaluation.result."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        mock_get_dataset.return_value = None  # Skip log fetch
+
+        # Span events include both an exception and an eval result
+        events_json = (
+            '[{"name": "gen_ai.evaluation.result",'
+            ' "attributes": {"gen_ai.evaluation.metric.name": "coherence",'
+            ' "gen_ai.evaluation.score": 0.87,'
+            ' "gen_ai.evaluation.explanation": "Good coherence"}},'
+            ' {"name": "exception",'
+            ' "attributes": {"exception.message": "boom", "exception.type": "Err"}}]'
+        )
+        span_row = _make_row(
+            status_code=0,
+            status_message="",
+            events_json=events_json,
+            attributes_json="{}",
+        )
+        bq.query_and_wait.return_value = _mock_query_result([span_row])
+
+        resp = client.get(
+            "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["evaluations"]) == 1
+        assert data["evaluations"][0]["metricName"] == "coherence"
+        assert data["evaluations"][0]["score"] == 0.87
+        assert data["evaluations"][0]["explanation"] == "Good coherence"
+        assert len(data["exceptions"]) == 1
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    def test_returns_empty_evaluations_when_none(
+        self,
+        mock_get_dataset: MagicMock,
+        mock_client_fn: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Span details return empty evaluations when no eval events exist."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        mock_get_dataset.return_value = None
+
+        span_row = _make_row(
+            status_code=0,
+            status_message="",
+            events_json="[]",
+            attributes_json="{}",
+        )
+        bq.query_and_wait.return_value = _mock_query_result([span_row])
+
+        resp = client.get(
+            "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["evaluations"] == []
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_span_not_found_returns_404(

@@ -72,14 +72,33 @@ interface LogEntry {
   payload: string | Record<string, unknown>
 }
 
+interface EvalEventLocal {
+  metricName: string
+  score: number
+  explanation: string
+}
+
 interface SpanDetails {
   traceId: string
   spanId: string
   statusCode: string | number
   statusMessage: string
   exceptions: ExceptionDetails[]
+  evaluations?: EvalEventLocal[]
   attributes: Record<string, unknown>
   logs: LogEntry[]
+}
+
+function evalScoreColor(score: number): string {
+  if (score >= 0.8) return '#10B981'   // green
+  if (score >= 0.5) return '#F59E0B'   // amber
+  return '#EF4444'                      // red
+}
+
+function evalScoreBg(score: number): string {
+  if (score >= 0.8) return 'rgba(16, 185, 129, 0.1)'
+  if (score >= 0.5) return 'rgba(245, 158, 11, 0.1)'
+  return 'rgba(239, 68, 68, 0.1)'
 }
 
 export default function SpanDetailsView({ traceId, spanId }: { traceId: string, spanId: string }) {
@@ -124,6 +143,7 @@ export default function SpanDetailsView({ traceId, spanId }: { traceId: string, 
 
   const hasLogs = details.logs && details.logs.length > 0
   const hasExceptions = details.exceptions && details.exceptions.length > 0
+  const hasEvals = details.evaluations && details.evaluations.length > 0
 
   // Format attributes simply
   const attrsStr = JSON.stringify(details.attributes, null, 2)
@@ -139,6 +159,46 @@ export default function SpanDetailsView({ traceId, spanId }: { traceId: string, 
               {exc.stacktrace && `\n\n${exc.stacktrace}`}
             </div>
           ))}
+        </div>
+      )}
+
+      {hasEvals && (
+        <div style={styles.section}>
+          <div style={{ ...styles.heading, color: '#8B5CF6' }}>AI Evaluation ({details.evaluations!.length})</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {details.evaluations!.map((ev, i) => (
+              <div
+                key={i}
+                style={{
+                  background: evalScoreBg(ev.score),
+                  border: `1px solid ${evalScoreColor(ev.score)}33`,
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  minWidth: '160px',
+                  flex: '1 1 200px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ color: '#F0F4F8', fontWeight: 600, fontSize: '12px', textTransform: 'capitalize' }}>
+                    {ev.metricName}
+                  </span>
+                  <span style={{
+                    color: evalScoreColor(ev.score),
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>
+                    {ev.score.toFixed(2)}
+                  </span>
+                </div>
+                {ev.explanation && (
+                  <div style={{ color: '#94A3B8', fontSize: '11px', lineHeight: '1.4', marginTop: '4px' }}>
+                    {ev.explanation}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

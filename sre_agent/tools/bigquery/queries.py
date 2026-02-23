@@ -41,6 +41,58 @@ def get_aggregate_metrics_query(table_name: str, start_time: str, end_time: str)
     """
 
 
+def get_aggregate_eval_metrics_query(
+    table_name: str,
+    start_time: str,
+    end_time: str,
+    service_name: str | None = None,
+) -> str:
+    """Build a BigQuery SQL query for aggregate evaluation metrics over time.
+
+    Queries the OTel span events table for 'gen_ai.evaluation.result' events,
+    extracts metric name and score, groups by hourly time bucket, and
+    calculates the average score per metric.
+
+    Args:
+        table_name: Fully qualified table name (e.g. proj.dataset._AllSpans).
+        start_time: ISO timestamp for the start of the time range.
+        end_time: ISO timestamp for the end of the time range.
+        service_name: Optional service/agent name to filter on.
+
+    Returns:
+        A BigQuery SQL string.
+    """
+    service_filter = ""
+    if service_name:
+        service_filter = (
+            "AND JSON_VALUE(s.resource.attributes, '$.\"service.name\"') "
+            f"= '{service_name}'"
+        )
+
+    return f"""
+    WITH EvalEvents AS (
+      SELECT
+        TIMESTAMP_TRUNC(s.start_time, HOUR) AS time_bucket,
+        evt.attributes AS evt_attrs
+      FROM `{table_name}` AS s,
+        UNNEST(s.events) AS evt
+      WHERE
+        s.start_time BETWEEN TIMESTAMP('{start_time}') AND TIMESTAMP('{end_time}')
+        AND evt.name = 'gen_ai.evaluation.result'
+        {service_filter}
+    )
+    SELECT
+      time_bucket,
+      JSON_VALUE(evt_attrs, '$."gen_ai.evaluation.metric.name"') AS metric_name,
+      AVG(CAST(JSON_VALUE(evt_attrs, '$."gen_ai.evaluation.score"') AS FLOAT64)) AS avg_score,
+      COUNT(*) AS sample_count
+    FROM EvalEvents
+    WHERE JSON_VALUE(evt_attrs, '$."gen_ai.evaluation.metric.name"') IS NOT NULL
+    GROUP BY time_bucket, metric_name
+    ORDER BY time_bucket ASC, metric_name ASC
+    """
+
+
 def get_baseline_traces_query(
     table_name: str, service_name: str, start_time: str, end_time: str, limit: int = 10
 ) -> str:

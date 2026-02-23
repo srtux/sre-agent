@@ -1936,6 +1936,7 @@ class DemoDataGenerator:
                 if span["span_id"] != span_id:
                     continue
                 exceptions = []
+                evaluations = []
                 for evt in span.get("events", []):
                     if evt.get("name") == "exception":
                         evt_attrs = evt.get("attributes", {})
@@ -1946,13 +1947,29 @@ class DemoDataGenerator:
                                 "type": evt_attrs.get("exception.type", ""),
                             }
                         )
+
+                # Generate synthetic eval data for LLM spans
+                is_llm = span.get("attributes", {}).get("gen_ai.system") is not None
+                if is_llm:
+                    rng = self._rng
+                    for metric in ["coherence", "groundedness", "fluency", "safety"]:
+                        evaluations.append(
+                            {
+                                "metricName": metric,
+                                "score": round(rng.uniform(0.6, 1.0), 3),
+                                "explanation": f"Demo: {metric} score for this LLM call.",
+                            }
+                        )
+
                 return {
                     "traceId": trace_id,
                     "spanId": span_id,
                     "statusCode": span["status"]["code"],
                     "statusMessage": span["status"]["message"],
                     "exceptions": exceptions,
+                    "evaluations": evaluations,
                     "attributes": span["attributes"],
+                    "logs": [],
                 }
         return {
             "traceId": trace_id,
@@ -1960,7 +1977,9 @@ class DemoDataGenerator:
             "statusCode": 0,
             "statusMessage": "span not found",
             "exceptions": [],
+            "evaluations": [],
             "attributes": {},
+            "logs": [],
         }
 
     def get_trace_logs(self, trace_id: str) -> dict[str, Any]:

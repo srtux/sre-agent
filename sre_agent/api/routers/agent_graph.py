@@ -1314,8 +1314,9 @@ async def get_span_details(
         events = json.loads(row.events_json) if row.events_json else []
         attributes = json.loads(row.attributes_json) if row.attributes_json else {}
 
-        # Extract exceptions
+        # Extract exceptions and evaluation events
         exceptions = []
+        evaluations = []
         for evt in events:
             if evt.get("name") == "exception":
                 attrs = evt.get("attributes", {})
@@ -1325,6 +1326,14 @@ async def get_span_details(
                     "type": attrs.get("exception.type"),
                 }
                 exceptions.append(exc_obj)
+            elif evt.get("name") == "gen_ai.evaluation.result":
+                attrs = evt.get("attributes", {})
+                eval_obj = {
+                    "metricName": attrs.get("gen_ai.evaluation.metric.name", ""),
+                    "score": float(attrs.get("gen_ai.evaluation.score", 0.0)),
+                    "explanation": attrs.get("gen_ai.evaluation.explanation", ""),
+                }
+                evaluations.append(eval_obj)
 
         # Async fetch logs if we can
         logs = []
@@ -1377,6 +1386,7 @@ async def get_span_details(
             "statusCode": row.status_code,
             "statusMessage": row.status_message,
             "exceptions": exceptions,
+            "evaluations": evaluations,
             "attributes": attributes,
             "logs": logs,
         }
