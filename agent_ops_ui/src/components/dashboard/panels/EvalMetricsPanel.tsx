@@ -3,21 +3,7 @@ import type { EChartsOption } from 'echarts'
 import EChartWrapper from '../../charts/EChartWrapper'
 import { useEvalMetrics } from '../../../hooks/useEvalMetrics'
 import type { EvalMetricPoint } from '../../../types'
-
-/** Colour palette per metric – deterministic mapping. */
-const METRIC_COLORS: Record<string, string> = {
-  coherence: '#06B6D4',
-  groundedness: '#8B5CF6',
-  fluency: '#10B981',
-  safety: '#F59E0B',
-  relevance: '#EC4899',
-  faithfulness: '#3B82F6',
-}
-
-function colorForMetric(name: string): string {
-  const lower = name.toLowerCase()
-  return METRIC_COLORS[lower] ?? '#94A3B8'
-}
+import { colorForMetric } from '../../evals/evalColors'
 
 function formatTimestamp(iso: string, hours: number): string {
   const date = new Date(iso)
