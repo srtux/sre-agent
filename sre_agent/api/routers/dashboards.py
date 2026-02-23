@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from sre_agent.auth import is_guest_mode
 from sre_agent.services.dashboard_service import get_dashboard_service
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,70 @@ class AddTracePanelBody(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Guest / Demo Mode Data
+# ---------------------------------------------------------------------------
+
+_DEMO_DASHBOARD: dict[str, Any] = {
+    "id": "demo-dashboard-001",
+    "name": "Cymbal Assistant Overview",
+    "description": "AI Shopping Assistant monitoring dashboard",
+    "project_id": "cymbal-shops-demo",
+    "created_at": "2026-02-15T00:00:00Z",
+    "updated_at": "2026-02-20T15:45:00Z",
+    "panels": [
+        {
+            "id": "p1",
+            "title": "Agent Response Latency",
+            "type": "metric_chart",
+            "position": {"x": 0, "y": 0, "w": 6, "h": 4},
+            "config": {
+                "metric": "custom.googleapis.com/agent/response_latency",
+                "aggregation": "p99",
+            },
+        },
+        {
+            "id": "p2",
+            "title": "Tool Call Volume",
+            "type": "metric_chart",
+            "position": {"x": 6, "y": 0, "w": 6, "h": 4},
+            "config": {
+                "metric": "custom.googleapis.com/agent/tool_calls_per_request",
+            },
+        },
+        {
+            "id": "p3",
+            "title": "Error Rate",
+            "type": "metric_chart",
+            "position": {"x": 0, "y": 4, "w": 6, "h": 4},
+            "config": {
+                "metric": "custom.googleapis.com/agent/error_rate",
+            },
+        },
+        {
+            "id": "p4",
+            "title": "Recent Alerts",
+            "type": "alert_list",
+            "position": {"x": 6, "y": 4, "w": 6, "h": 4},
+            "config": {"max_items": 10},
+        },
+    ],
+}
+
+_DEMO_TEMPLATES: list[dict[str, str]] = [
+    {
+        "id": "ai-agent-monitoring",
+        "name": "AI Agent Monitoring",
+        "description": "Monitor AI agent performance, tool calls, and error rates",
+    },
+    {
+        "id": "mcp-server-health",
+        "name": "MCP Server Health",
+        "description": "Health and performance of MCP tool servers",
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Dashboard CRUD Endpoints
 # ---------------------------------------------------------------------------
 
@@ -148,6 +213,8 @@ async def list_dashboards(
     page_size: int = 50,
 ) -> dict[str, Any]:
     """List all dashboards."""
+    if is_guest_mode():
+        return {"dashboards": [_DEMO_DASHBOARD]}
     service = get_dashboard_service()
     return await service.list_dashboards(
         project_id=project_id,
@@ -159,6 +226,8 @@ async def list_dashboards(
 @router.get("/{dashboard_id}")
 async def get_dashboard(dashboard_id: str) -> dict[str, Any]:
     """Get a specific dashboard."""
+    if is_guest_mode():
+        return _DEMO_DASHBOARD
     service = get_dashboard_service()
     dashboard = await service.get_dashboard(dashboard_id)
     if not dashboard:
@@ -169,6 +238,12 @@ async def get_dashboard(dashboard_id: str) -> dict[str, Any]:
 @router.post("", status_code=201)
 async def create_dashboard(body: CreateDashboardBody) -> dict[str, Any]:
     """Create a new dashboard."""
+    if is_guest_mode():
+        return {
+            "id": "demo-dashboard-new",
+            "name": body.display_name,
+            "status": "created (demo mode)",
+        }
     service = get_dashboard_service()
     return await service.create_dashboard(
         display_name=body.display_name,
@@ -188,6 +263,8 @@ async def update_dashboard(
     body: UpdateDashboardBody,
 ) -> dict[str, Any]:
     """Update a dashboard."""
+    if is_guest_mode():
+        return {"id": dashboard_id, "status": "updated (demo mode)"}
     service = get_dashboard_service()
     updates = body.model_dump(exclude_none=True)
     result = await service.update_dashboard(dashboard_id, updates)
@@ -199,6 +276,8 @@ async def update_dashboard(
 @router.delete("/{dashboard_id}", status_code=204)
 async def delete_dashboard(dashboard_id: str) -> None:
     """Delete a dashboard."""
+    if is_guest_mode():
+        return None
     service = get_dashboard_service()
     deleted = await service.delete_dashboard(dashboard_id)
     if not deleted:
@@ -216,6 +295,12 @@ async def add_panel(
     body: AddPanelBody,
 ) -> dict[str, Any]:
     """Add a panel to a dashboard."""
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": "demo-panel-new",
+            "status": "added (demo mode)",
+        }
     service = get_dashboard_service()
     panel_data = body.model_dump(exclude_none=True)
     result = await service.add_panel(dashboard_id, panel_data)
@@ -230,6 +315,12 @@ async def remove_panel(
     panel_id: str,
 ) -> dict[str, Any]:
     """Remove a panel from a dashboard."""
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": panel_id,
+            "status": "removed (demo mode)",
+        }
     service = get_dashboard_service()
     result = await service.remove_panel(dashboard_id, panel_id)
     if not result:
@@ -244,6 +335,12 @@ async def update_panel_position(
     body: UpdatePanelPositionBody,
 ) -> dict[str, Any]:
     """Update a panel's grid position."""
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": panel_id,
+            "status": "updated (demo mode)",
+        }
     service = get_dashboard_service()
     grid_position = {
         "x": body.x,
@@ -269,6 +366,8 @@ async def list_templates() -> dict[str, Any]:
     Returns summary info for each template including service type,
     panel count, and description.
     """
+    if is_guest_mode():
+        return {"templates": _DEMO_TEMPLATES, "total_count": len(_DEMO_TEMPLATES)}
     service = get_dashboard_service()
     templates = await service.list_templates()
     return {"templates": templates, "total_count": len(templates)}
@@ -277,6 +376,11 @@ async def list_templates() -> dict[str, Any]:
 @router.get("/templates/{template_id}")
 async def get_template(template_id: str) -> dict[str, Any]:
     """Get a full OOTB dashboard template definition."""
+    if is_guest_mode():
+        for t in _DEMO_TEMPLATES:
+            if t["id"] == template_id:
+                return t
+        return _DEMO_TEMPLATES[0]
     service = get_dashboard_service()
     template = await service.get_template(template_id)
     if not template:
@@ -294,6 +398,12 @@ async def provision_template(
     Creates a dashboard instance from the template with all panels
     pre-configured. The dashboard can be customized after creation.
     """
+    if is_guest_mode():
+        return {
+            "id": "demo-provisioned",
+            "template_id": template_id,
+            "status": "provisioned (demo mode)",
+        }
     service = get_dashboard_service()
     project_id = body.project_id if body else None
     result = await service.provision_template(template_id, project_id=project_id)
@@ -318,6 +428,12 @@ async def add_metric_panel(
     specified metric type with optional resource filtering, aggregation,
     and threshold markers.
     """
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": "demo-metric-panel",
+            "status": "added (demo mode)",
+        }
     service = get_dashboard_service()
     result = await service.add_custom_metric_panel(
         dashboard_id,
@@ -346,6 +462,12 @@ async def add_log_panel(
     Creates a panel configured to display Cloud Logging entries
     matching the specified filter with optional severity filtering.
     """
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": "demo-log-panel",
+            "status": "added (demo mode)",
+        }
     service = get_dashboard_service()
     result = await service.add_custom_log_panel(
         dashboard_id,
@@ -370,6 +492,12 @@ async def add_trace_panel(
     Creates a panel configured to display distributed traces
     matching the specified filter expression.
     """
+    if is_guest_mode():
+        return {
+            "id": dashboard_id,
+            "panel_id": "demo-trace-panel",
+            "status": "added (demo mode)",
+        }
     service = get_dashboard_service()
     result = await service.add_custom_trace_panel(
         dashboard_id,

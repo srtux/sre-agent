@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from sre_agent.auth import get_current_user_id
+from sre_agent.auth import get_current_user_id, is_guest_mode
 from sre_agent.exceptions import UserFacingError
 from sre_agent.services import get_storage_service
 
@@ -78,6 +78,8 @@ class ToggleStarRequest(BaseModel):
 @router.get("/project")
 async def get_selected_project(user_id: str = "default") -> Any:
     """Get the selected project for a user."""
+    if is_guest_mode():
+        return {"project_id": "cymbal-shops-demo"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -91,6 +93,8 @@ async def get_selected_project(user_id: str = "default") -> Any:
 @router.post("/project")
 async def set_selected_project(request: SetProjectRequest) -> Any:
     """Set the selected project for a user."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -106,6 +110,8 @@ async def set_selected_project(request: SetProjectRequest) -> Any:
 @router.get("/tools")
 async def get_tool_preferences(user_id: str = "default") -> Any:
     """Get tool configuration preferences for a user."""
+    if is_guest_mode():
+        return {"enabled_tools": {}}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -121,6 +127,8 @@ async def get_tool_preferences(user_id: str = "default") -> Any:
 @router.post("/tools")
 async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
     """Set tool configuration preferences for a user."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -136,6 +144,8 @@ async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
 @router.get("/projects/recent")
 async def get_recent_projects(user_id: str = "default") -> Any:
     """Get recent projects for a user."""
+    if is_guest_mode():
+        return {"projects": ["cymbal-shops-demo"]}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -151,6 +161,8 @@ async def get_recent_projects(user_id: str = "default") -> Any:
 @router.post("/projects/recent")
 async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
     """Set recent projects for a user."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -166,6 +178,8 @@ async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
 @router.get("/projects/starred")
 async def get_starred_projects(user_id: str = "default") -> Any:
     """Get starred (pinned) projects for a user."""
+    if is_guest_mode():
+        return {"projects": ["cymbal-shops-demo"]}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -181,6 +195,8 @@ async def get_starred_projects(user_id: str = "default") -> Any:
 @router.post("/projects/starred")
 async def set_starred_projects(request: SetStarredProjectsRequest) -> Any:
     """Set starred (pinned) projects for a user."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -199,6 +215,8 @@ async def toggle_starred_project(request: ToggleStarRequest) -> Any:
 
     When ``starred`` is true the project is added; when false it is removed.
     """
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -282,6 +300,8 @@ async def get_recent_queries(
     panel_type: str | None = None,
 ) -> Any:
     """Get recent queries for a user, optionally filtered by panel type."""
+    if is_guest_mode():
+        return {"queries": []}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -297,6 +317,8 @@ async def get_recent_queries(
 @router.post("/queries/recent")
 async def add_recent_query(request: AddRecentQueryRequest) -> Any:
     """Record a query execution to recent history."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -321,6 +343,8 @@ async def get_saved_queries(
     panel_type: str | None = None,
 ) -> Any:
     """Get saved (bookmarked) queries for a user."""
+    if is_guest_mode():
+        return {"queries": []}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
@@ -336,6 +360,8 @@ async def get_saved_queries(
 @router.post("/queries/saved")
 async def save_query(request: SaveQueryRequest) -> Any:
     """Save a named query."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -359,6 +385,8 @@ async def save_query(request: SaveQueryRequest) -> Any:
 @router.put("/queries/saved/{query_id}")
 async def update_saved_query(query_id: str, request: UpdateSavedQueryRequest) -> Any:
     """Update a saved query name or text."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(request.user_id)
@@ -382,6 +410,8 @@ async def delete_saved_query(
     user_id: str = "default",
 ) -> Any:
     """Delete a saved query."""
+    if is_guest_mode():
+        return {"status": "ok"}
     try:
         storage = get_storage_service()
         uid = _effective_user_id(user_id)
