@@ -23,10 +23,10 @@ async function fetchEvalMetrics(
   return res.data.metrics
 }
 
-export function useEvalMetrics(hours: number) {
+export function useEvalMetrics(hours: number, explicitServiceName?: string) {
   const { selectedAgents } = useDashboardFilters()
   const { projectId } = useAgentContext()
-  const serviceName = selectedAgents.length > 0 ? selectedAgents[0] : ''
+  const serviceName = explicitServiceName ?? (selectedAgents.length > 0 ? selectedAgents[0] : '')
 
   return useQuery({
     queryKey: ['eval-metrics', projectId, serviceName, hours],
