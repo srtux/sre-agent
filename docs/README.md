@@ -13,6 +13,7 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 |-------------------------------------|--------------------------------------------------------------------|
 | Set up the project locally          | [Getting Started](guides/getting_started.md)                       |
 | Understand the architecture         | [System Overview](architecture/system_overview.md)                 |
+| **Deep dive into a component**      | [**Component Docs**](components/README.md)                         |
 | Write or modify code                | [Development Guide](guides/development.md)                        |
 | Write or run tests                  | [Testing Strategy](testing/testing.md)                              |
 | Run or write agent evaluations      | [Evaluation Guide](../EVALUATIONS.md)                           |
@@ -23,9 +24,47 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | Find available tools                | [Tools Catalog](reference/tools.md)                                |
 | Understand security model           | [Security Reference](reference/security.md)                        |
 | Understand demo/guest mode          | [Demo Mode Guide](guides/demo_mode.md)                             |
-| Check the project roadmap           | [Project Plan](PROJECT_PLAN.md)                                    |
+| **Check the project roadmap**       | [**Roadmap**](roadmap/README.md) / [Project Plan](PROJECT_PLAN.md) |
 | Troubleshoot Cloud Spanner          | [Spanner Playbook](SPANNER_TROUBLESHOOTING_PLAYBOOK.md)            |
 | Browse in-app help topics           | [Help System Content](#help-system-content)                        |
+
+---
+
+## Component Documentation
+
+Detailed documentation for each major system component, including architecture diagrams, data flow diagrams, and per-component roadmaps. **Start here for deep understanding.**
+
+| Component | Description | Diagrams |
+|-----------|-------------|----------|
+| [**Backend Core**](components/backend-core/README.md) | FastAPI API layer, core execution engine, auth, schemas, agent orchestrator | Architecture + Request Lifecycle |
+| [**Council of Experts**](components/council/README.md) | Parallel multi-agent investigation: Fast/Standard/Debate modes | Orchestrator Flow + Standard Investigation |
+| [**Sub-Agents**](components/sub-agents/README.md) | Specialist agents: trace, logs, metrics, alerts, root cause, debugger | 3-Tier Router + Trace Analysis Flow |
+| [**Tools Ecosystem**](components/tools/README.md) | 108+ tools: GCP clients, analysis, MCP, sandbox, playbooks | Tool Categories + Call Lifecycle |
+| [**Services & Memory**](components/services-memory/README.md) | Session management, storage, memory subsystem, mistake learning | Dual-Mode Architecture + Memory Flow |
+| [**Flutter Frontend**](components/flutter-frontend/README.md) | Material 3 web dashboard, GenUI/A2UI, Observability Explorer | Component Hierarchy + NDJSON Stream |
+| [**AgentOps UI**](components/agent-ops-ui/README.md) | React operational dashboard: KPIs, topology, trajectory, evals | Tab Architecture + Data Fetching |
+| [**Evaluation Framework**](components/evaluation/README.md) | Dual-layer quality: trajectory matching, rubric scoring, online eval | Offline/Online Architecture + Eval Pipeline |
+| [**Deployment**](components/deployment/README.md) | CI/CD, Docker, Kubernetes, Cloud Run, Agent Engine | Deployment Topology + Cloud Build Pipeline |
+| [**Testing**](components/testing/README.md) | 2429+ backend tests, 129+ Flutter tests, fixtures, mock patterns | Test Pyramid + Execution Flow |
+
+See the [Component Index](components/README.md) for the full reading order and cross-cutting concerns.
+
+---
+
+## Roadmap
+
+Track project progress across phases with per-component task tracking.
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| [Phase 1: Foundation](roadmap/phase-1-foundation.md) | Completed | Modularization, ReAct, tool taxonomy |
+| [Phase 2: Memory & Reliability](roadmap/phase-2-memory.md) | Completed | Memory, circuit breaker, SLO, Council architecture |
+| [Phase 3: Observability](roadmap/phase-3-observability.md) | Completed | Explorer dashboard, eval framework, sandbox, self-healing |
+| [Phase 4: Modern Agentics](roadmap/phase-4-modern.md) | **In Progress** | Streaming reasoning, CI evals, HITL |
+| [Phase 5: Proactive SRE](roadmap/phase-5-proactive.md) | Planned | Anomaly detection, knowledge graph |
+| [Phase 6: Enterprise](roadmap/phase-6-enterprise.md) | Planned | Multi-team, multi-cloud, canary deployments |
+
+See [Roadmap Index](roadmap/README.md) for conventions and the backlog.
 
 ---
 
@@ -265,13 +304,21 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
 
 1. **[llm.txt](../llm.txt)** -- High-density context (read first, always)
 2. **[AGENTS.md](../AGENTS.md)** -- Coding patterns, checklists, pitfalls
-3. **[Project Plan](PROJECT_PLAN.md)** -- Current roadmap and status
-4. **Relevant docs below** -- Based on your task:
-   - Modifying tools? Read [Tools Catalog](reference/tools.md) + [Development Guide](guides/development.md)
-   - Writing tests? Read [Testing Strategy](testing/testing.md)
-   - Debugging? Read the appropriate [Debugging Guide](#debugging)
-   - Deploying? Read [Deployment Guide](guides/deployment.md) + [Deployment Architecture](infrastructure/DEPLOYMENT.md)
-   - Understanding the help system? Read [Help System Architecture](architecture/help_system.md) + [Help Content](#help-system-content)
+3. **[Roadmap](roadmap/README.md)** -- Current project status and phases
+4. **[Component Docs](components/README.md)** -- Deep dive into the component you're modifying:
+   - Modifying backend/API? Read [Backend Core](components/backend-core/README.md)
+   - Working on council/investigation? Read [Council](components/council/README.md) + [Sub-Agents](components/sub-agents/README.md)
+   - Adding/changing tools? Read [Tools Ecosystem](components/tools/README.md)
+   - Working on sessions/memory? Read [Services & Memory](components/services-memory/README.md)
+   - Flutter frontend? Read [Flutter Frontend](components/flutter-frontend/README.md)
+   - AgentOps dashboard? Read [AgentOps UI](components/agent-ops-ui/README.md)
+   - Evaluations? Read [Evaluation Framework](components/evaluation/README.md)
+   - Deployment/CI? Read [Deployment](components/deployment/README.md)
+   - Testing? Read [Testing](components/testing/README.md)
+5. **Reference docs** -- For specific lookups:
+   - [Tools Catalog](reference/tools.md) + [Configuration](reference/configuration.md)
+   - [API Reference](reference/api.md) + [Security](reference/security.md)
+   - [Debugging Guides](#debugging)
 
 ---
-*Last verified: 2026-02-21
+*Last verified: 2026-02-23

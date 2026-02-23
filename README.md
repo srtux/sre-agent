@@ -697,11 +697,38 @@ uv run poe delete          # Delete agent (--resource_id ID)
 
 ## Documentation Index
 
+### Component Deep Dives (with Architecture & Data Flow Diagrams)
+
+| Component | Description |
+|-----------|-------------|
+| [Backend Core](docs/components/backend-core/README.md) | API layer, core engine, auth, schemas, agent orchestrator |
+| [Council of Experts](docs/components/council/README.md) | Parallel investigation: Fast/Standard/Debate modes |
+| [Sub-Agents](docs/components/sub-agents/README.md) | Specialist agents for trace, logs, metrics, alerts, RCA |
+| [Tools Ecosystem](docs/components/tools/README.md) | 108+ tools: GCP clients, analysis, MCP, sandbox, playbooks |
+| [Services & Memory](docs/components/services-memory/README.md) | Session management, storage, memory, mistake learning |
+| [Flutter Frontend](docs/components/flutter-frontend/README.md) | Material 3 dashboard, GenUI/A2UI, Observability Explorer |
+| [AgentOps UI](docs/components/agent-ops-ui/README.md) | React dashboard: KPIs, topology, trajectory, evals |
+| [Evaluation Framework](docs/components/evaluation/README.md) | Trajectory matching, rubric scoring, online eval |
+| [Deployment](docs/components/deployment/README.md) | CI/CD, Docker, Kubernetes, Cloud Run, Agent Engine |
+| [Testing](docs/components/testing/README.md) | 2429+ backend tests, 129+ Flutter tests, fixtures |
+
+### Roadmap & Planning
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| [Phase 1-3](docs/roadmap/phase-3-observability.md) | Completed | Foundation through Observability |
+| [Phase 4](docs/roadmap/phase-4-modern.md) | In Progress | Modern Agentics |
+| [Phase 5-6](docs/roadmap/phase-5-proactive.md) | Planned | Proactive SRE & Enterprise |
+| [Full Roadmap](docs/roadmap/README.md) | -- | Complete phase index with Gantt chart |
+
+### Guides & Reference
+
 | Document | Description |
 |----------|-------------|
+| [Docs Index](docs/README.md) | Complete documentation index with all sections |
 | [Getting Started](docs/guides/getting_started.md) | Configuration and environment setup |
 | [Development Guide](docs/guides/development.md) | Development workflow and coding standards |
-| [System Architecture](docs/architecture/system_overview.md) | Deep dive into the Council of Experts |
+| [System Architecture](docs/architecture/system_overview.md) | High-level system topology |
 | [Testing Guide](docs/testing/testing.md) | Testing standards and conventions |
 | [Evaluation Guide](docs/EVALUATIONS.md) | Agent performance measurement |
 | [Deployment Guide](docs/guides/deployment.md) | Deployment procedures and options |
@@ -709,11 +736,7 @@ uv run poe delete          # Delete agent (--resource_id ID)
 | [Configuration Reference](docs/reference/configuration.md) | All environment variables and settings |
 | [API Reference](docs/reference/api.md) | REST API endpoint documentation |
 | [Tool Reference](docs/reference/tools.md) | Complete tool catalog |
-| [Observability](docs/OBSERVABILITY.md) | Tracing and logging guide |
-| [Dashboard UI](docs/guides/dashboard_ui.md) | Investigation dashboard guide |
-| [Agent Graph Setup](docs/guides/bigquery_agent_graph_setup.md) | BigQuery Property Graph and pre-aggregation setup |
 | [AGENTS.md](AGENTS.md) | Single Source of Truth for coding patterns |
-| [CLAUDE.md](CLAUDE.md) | Claude Code session reference |
 | [Project Plan](docs/PROJECT_PLAN.md) | Living roadmap and completed milestones |
 
 ---
