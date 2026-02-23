@@ -704,5 +704,70 @@ def send_langfuse_score(
         return False
 
 
+def log_evaluation_result(
+    original_trace_id: str,
+    original_span_id: str,
+    eval_results: dict[str, dict[str, Any]],
+) -> bool:
+    """Log GenAI evaluation results as OTel events linked to the original trace.
+
+    Follows the OpenTelemetry GenAI Semantic Conventions for evaluation results.
+    Creates a new span under the original trace context and emits evaluation
+    metrics as span events.
+
+    Args:
+        original_trace_id: Hex trace ID of the original LLM call.
+        original_span_id: Hex span ID of the original LLM call.
+        eval_results: Dict mapping metric names to dicts with "score" and
+            optional "explanation" keys.
+
+    Returns:
+        True if evaluation results were logged successfully, False otherwise.
+    """
+    try:
+        from opentelemetry import trace
+        from opentelemetry.trace import (
+            NonRecordingSpan,
+            SpanContext,
+            TraceFlags,
+        )
+
+        # Build a SpanContext pointing at the original LLM span
+        parent_context = SpanContext(
+            trace_id=int(original_trace_id, 16),
+            span_id=int(original_span_id, 16),
+            is_remote=True,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+        parent_span = NonRecordingSpan(parent_context)
+        ctx = trace.set_span_in_context(parent_span)
+
+        tracer = trace.get_tracer("sre_agent.eval")
+        with tracer.start_as_current_span("gen_ai.evaluation", context=ctx) as span:
+            for metric_name, metric_data in eval_results.items():
+                span.add_event(
+                    "gen_ai.evaluation.result",
+                    attributes={
+                        "gen_ai.evaluation.metric.name": metric_name,
+                        "gen_ai.evaluation.score": float(metric_data["score"]),
+                        "gen_ai.evaluation.explanation": str(
+                            metric_data.get("explanation", "")
+                        ),
+                    },
+                )
+            logging.getLogger(__name__).debug(
+                f"Logged {len(eval_results)} evaluation results for trace {original_trace_id}"
+            )
+        return True
+    except ImportError:
+        logging.getLogger(__name__).warning(
+            "opentelemetry not installed, cannot log evaluation results"
+        )
+        return False
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to log evaluation results: {e}")
+        return False
+
+
 # Backwards compatibility alias
 configure_logging = setup_telemetry

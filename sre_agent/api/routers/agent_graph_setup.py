@@ -11,6 +11,8 @@ from google.auth.transport.requests import Request
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
+from sre_agent.auth import is_guest_mode
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -57,6 +59,8 @@ def _get_auth_token() -> str:
 @router.get("/check_bucket")
 async def check_observability_bucket(project_id: str) -> dict[str, Any]:
     """Check if an Observability bucket exists for the project."""
+    if is_guest_mode():
+        return {"exists": True, "buckets": [{"name": "demo-bucket"}]}
     _validate_identifier(project_id, "project_id")
     token = _get_auth_token()
 
@@ -111,6 +115,8 @@ class LinkDatasetRequest(BaseModel):
 @router.post("/link_dataset")
 async def link_dataset(req: LinkDatasetRequest) -> dict[str, Any]:
     """Create a BigQuery dataset and link it to the Observability bucket."""
+    if is_guest_mode():
+        return {"status": "already_linked", "link": {}, "link_id": "demo"}
     _validate_identifier(req.project_id, "project_id")
     _validate_identifier(req.bucket_id, "bucket_id")
     _validate_identifier(req.dataset_id, "dataset_id")
@@ -187,6 +193,8 @@ async def link_dataset(req: LinkDatasetRequest) -> dict[str, Any]:
 @router.get("/lro_status")
 async def get_lro_status(project_id: str, operation_name: str) -> dict[str, Any]:
     """Poll the status of a Long Running Operation."""
+    if is_guest_mode():
+        return {"done": True}
     _validate_identifier(project_id, "project_id")
     if (
         not operation_name.startswith("projects/")
@@ -220,6 +228,13 @@ async def get_lro_status(project_id: str, operation_name: str) -> dict[str, Any]
 @router.get("/verify")
 async def verify_dataset(project_id: str, dataset_id: str = "traces") -> dict[str, Any]:
     """Verify that the dataset and _AllSpans view are accessible."""
+    if is_guest_mode():
+        return {
+            "verified": True,
+            "dataset": "demo",
+            "view": "demo._AllSpans",
+            "type": "VIEW",
+        }
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset_id, "dataset_id")
 
@@ -267,6 +282,8 @@ class SchemaStepRequest(BaseModel):
 @router.post("/schema/{step}")
 async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, Any]:
     """Execute a specific BigQuery schema setup step."""
+    if is_guest_mode():
+        return {"status": "success", "message": f"Step {step} completed (demo mode)."}
     _validate_identifier(req.project_id, "project_id")
     _validate_identifier(req.trace_dataset, "trace_dataset")
     _validate_identifier(req.graph_dataset, "graph_dataset")

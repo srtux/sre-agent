@@ -523,6 +523,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const msg = row.original.message as string
           const parts = msg.split('|').map((s: string) => s.trim())
           const msgPart = parts.length > 0 ? parts[0] : msg
+          const isLlmSpan = msg.startsWith('LLM::')
           return (
             <div
               style={{
@@ -531,10 +532,31 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
                 textOverflow: 'ellipsis',
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
               title={msg}
             >
-              {msgPart}
+              <span>{msgPart}</span>
+              {isLlmSpan && (
+                <span
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: '#A78BFA',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    borderRadius: '4px',
+                    padding: '1px 5px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                  title="This LLM span may have AI evaluation scores — click to expand"
+                >
+                  AI Eval
+                </span>
+              )}
             </div>
           )
         },

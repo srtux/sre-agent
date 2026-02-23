@@ -22,6 +22,7 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | Look up environment variables       | [Configuration Reference](reference/configuration.md)              |
 | Find available tools                | [Tools Catalog](reference/tools.md)                                |
 | Understand security model           | [Security Reference](reference/security.md)                        |
+| Understand demo/guest mode          | [Demo Mode Guide](guides/demo_mode.md)                             |
 | Check the project roadmap           | [Project Plan](PROJECT_PLAN.md)                                    |
 | Troubleshoot Cloud Spanner          | [Spanner Playbook](SPANNER_TROUBLESHOOTING_PLAYBOOK.md)            |
 | Browse in-app help topics           | [Help System Content](#help-system-content)                        |
@@ -106,6 +107,7 @@ Practical how-to instructions for developers.
 | [Frontend Testing](testing/frontend_testing.md) | Flutter test strategy with Provider-based injection |
 | [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
 | [Dashboard Query Language](guides/dashboard_query_language.md) | MQL, PromQL, SQL capabilities |
+| [Demo Mode (Guest Account)](guides/demo_mode.md) | How guest mode works: synthetic data pipeline, guarded endpoints, testing |
 
 ### Deployment
 | Guide | Description |

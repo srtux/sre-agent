@@ -1,5 +1,6 @@
 import KpiGrid from './panels/KpiGrid'
 import InteractionMetricsPanel from './panels/InteractionMetricsPanel'
+import EvalMetricsPanel from './panels/EvalMetricsPanel'
 import ModelAndToolPanel from './panels/ModelAndToolPanel'
 
 // --- Styles ---
@@ -41,7 +42,12 @@ export default function AgentDashboard({ hours }: { hours: number }) {
           <InteractionMetricsPanel hours={hours} />
           </div>
 
-          {/* Row 3: Model & Tool Stats (side-by-side tables) */}
+          {/* Row 3: AI Evaluation Quality Scores */}
+          <div style={styles.fullWidth}>
+          <EvalMetricsPanel hours={hours} />
+          </div>
+
+          {/* Row 4: Model & Tool Stats (side-by-side tables) */}
           <div style={styles.fullWidth}>
           <ModelAndToolPanel hours={hours} />
         </div>

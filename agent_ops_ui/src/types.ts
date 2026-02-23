@@ -77,7 +77,7 @@ export interface EdgeDetail {
   outputTokens: number;
 }
 
-export type Tab = 'agents' | 'tools' | 'dashboard' | 'traces' | 'topology' | 'trajectory';
+export type Tab = 'agents' | 'tools' | 'dashboard' | 'traces' | 'logs' | 'topology' | 'trajectory';
 
 export type SelectedElement =
   | { kind: 'node'; id: string }
@@ -93,6 +93,8 @@ export interface GraphFilters {
   endTime?: string;
   traceDataset?: string;
   serviceName?: string;
+  /** Severity filter for logs tab (e.g. ['ERROR', 'WARNING']). Empty = all. */
+  logSeverity?: string[];
 }
 
 // --- Phase 3: View mode and payload types ---
@@ -155,6 +157,7 @@ export interface SpanDetails {
   statusCode: number
   statusMessage: string
   exceptions: SpanDetailsException[]
+  evaluations?: EvalEvent[]
   attributes: Record<string, unknown>
 }
 
@@ -204,4 +207,77 @@ export interface RegistryTool {
 
 export interface ToolRegistryResponse {
   tools: RegistryTool[]
+}
+
+// --- Logs Explorer types ---
+
+export interface LogEntry {
+  insert_id: string
+  timestamp: string
+  severity: string
+  payload: string | Record<string, unknown> | null
+  resource_type?: string
+  resource_labels?: Record<string, string>
+  trace_id?: string | null
+  span_id?: string | null
+  http_request?: Record<string, unknown> | null
+}
+
+export interface QueryLogsParams {
+  filter?: string
+  projectId?: string
+  limit: number
+  minutesAgo?: number
+  cursorTimestamp?: string
+  cursorInsertId?: string
+}
+
+export interface LogEntriesResponse {
+  entries: LogEntry[]
+  filter?: string | null
+  project_id?: string | null
+}
+
+export interface HistogramBucket {
+  start: string
+  end: string
+  debug: number
+  info: number
+  warning: number
+  error: number
+  critical: number
+}
+
+export interface LogsHistogramResponse {
+  buckets: HistogramBucket[]
+  total_count: number
+  scanned_entries: number
+  start_time: string
+  end_time: string
+}
+
+export interface QueryHistogramParams {
+  filter?: string
+  minutesAgo?: number
+  bucketCount?: number
+  projectId?: string
+}
+
+// --- Evaluation types ---
+
+export interface EvalEvent {
+  metricName: string
+  score: number
+  explanation: string
+}
+
+export interface EvalMetricPoint {
+  timeBucket: string
+  metricName: string
+  avgScore: number
+  sampleCount: number
+}
+
+export interface EvalMetricsAggregateResponse {
+  metrics: EvalMetricPoint[]
 }

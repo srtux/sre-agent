@@ -17,6 +17,7 @@ from sre_agent.api.routers import (
     agent_graph_setup_router,
     agent_router,
     dashboards_router,
+    evals_router,
     health_router,
     help_router,
     permissions_router,
@@ -81,6 +82,7 @@ def create_app(
     app.include_router(dashboards_router)
     app.include_router(agent_graph_router)
     app.include_router(agent_graph_setup_router)
+    app.include_router(evals_router)
 
     # Register tool test functions
     register_all_test_functions()

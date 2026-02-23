@@ -6,6 +6,7 @@ from sre_agent.services.agent_engine_client import (
     get_agent_engine_client,
     is_remote_mode,
 )
+from sre_agent.services.eval_worker import run_scheduled_evaluations
 from sre_agent.services.session import ADKSessionManager, get_session_service
 from sre_agent.services.storage import StorageService, get_storage_service
 
@@ -18,4 +19,5 @@ __all__ = [
     "get_session_service",
     "get_storage_service",
     "is_remote_mode",
+    "run_scheduled_evaluations",
 ]
