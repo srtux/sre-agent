@@ -96,10 +96,14 @@ async def test_list_eval_configs_with_data(mock_storage, mock_no_guest):
 
 @pytest.mark.asyncio
 async def test_list_eval_configs_guest_mode(mock_storage, mock_guest_mode):
-    """Guest mode returns empty configs list without hitting storage."""
+    """Guest mode returns demo eval configs without hitting storage."""
     response = client.get("/api/v1/evals/config")
     assert response.status_code == 200
-    assert response.json() == {"configs": []}
+    data = response.json()
+    configs = data["configs"]
+    assert len(configs) == 2
+    assert configs[0]["agent_name"] == "support-agent"
+    assert configs[1]["agent_name"] == "code-review-agent"
     mock_storage.get.assert_not_called()
 
 
