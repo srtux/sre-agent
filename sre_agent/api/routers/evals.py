@@ -95,7 +95,24 @@ async def list_eval_configs() -> dict[str, Any]:
         :class:`EvalConfig` dicts.
     """
     if is_guest_mode():
-        return {"configs": []}
+        return {
+            "configs": [
+                {
+                    "agent_name": "support-agent",
+                    "is_enabled": True,
+                    "sampling_rate": 1.0,
+                    "metrics": ["coherence", "groundedness", "fluency", "safety"],
+                    "last_eval_timestamp": None,
+                },
+                {
+                    "agent_name": "code-review-agent",
+                    "is_enabled": True,
+                    "sampling_rate": 0.5,
+                    "metrics": ["coherence", "groundedness"],
+                    "last_eval_timestamp": None,
+                },
+            ]
+        }
     try:
         configs = await _load_configs()
         return {"configs": list(configs.values())}
