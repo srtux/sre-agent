@@ -371,6 +371,53 @@ export default function GraphToolbar({
 
       <TimeRangeSelector filters={filters} onChange={onChange} />
 
+      {/* Severity filter pills (Logs tab only) */}
+      {activeTab === 'logs' && (() => {
+        const severities = ['INFO', 'WARNING', 'ERROR', 'CRITICAL'] as const
+        const sevColors: Record<string, { bg: string; border: string; text: string }> = {
+          INFO: { bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.4)', text: '#38BDF8' },
+          WARNING: { bg: 'rgba(250, 204, 21, 0.15)', border: 'rgba(250, 204, 21, 0.4)', text: '#FACC15' },
+          ERROR: { bg: 'rgba(248, 113, 113, 0.15)', border: 'rgba(248, 113, 113, 0.4)', text: '#F87171' },
+          CRITICAL: { bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.4)', text: '#A855F7' },
+        }
+        const current = filters.logSeverity || []
+        const toggle = (sev: string) => {
+          const next = current.includes(sev)
+            ? current.filter((s) => s !== sev)
+            : [...current, sev]
+          onChange({ ...filters, logSeverity: next })
+        }
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', color: '#78909C', fontWeight: 500 }}>Severity</span>
+            {severities.map((sev) => {
+              const isActive = current.includes(sev)
+              const c = sevColors[sev]
+              return (
+                <button
+                  key={sev}
+                  onClick={() => toggle(sev)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    border: `1px solid ${isActive ? c.border : 'rgba(255,255,255,0.1)'}`,
+                    background: isActive ? c.bg : 'transparent',
+                    color: isActive ? c.text : '#78909C',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    fontFamily: "'Outfit', sans-serif",
+                  }}
+                >
+                  {sev}
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
+
       {(activeTab === 'topology' || activeTab === 'trajectory') && (
         <div
           style={styles.toggleContainer}

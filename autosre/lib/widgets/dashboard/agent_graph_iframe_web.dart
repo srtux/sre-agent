@@ -8,6 +8,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/auth_service.dart';
 import '../../services/explorer_query_service.dart';
 import '../../services/project_service.dart';
 import '../../services/service_config.dart';
@@ -35,8 +36,10 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
       final baseUrl = ServiceConfig.agentGraphBaseUrl;
+      final guestParam =
+          AuthService.instance.isGuestMode ? '&guest_mode=true' : '';
       final dynamicSrc = _currentProjectId.isNotEmpty
-          ? '$baseUrl/graph/?project_id=$_currentProjectId'
+          ? '$baseUrl/graph/?project_id=$_currentProjectId$guestParam'
           : 'about:blank';
 
       _iframeElement = html.IFrameElement()
@@ -84,7 +87,10 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       _currentProjectId = newProjectId;
       if (_iframeElement != null) {
         final baseUrl = ServiceConfig.agentGraphBaseUrl;
-        final newSrc = '$baseUrl/graph/?project_id=$_currentProjectId';
+        final guestParam =
+            AuthService.instance.isGuestMode ? '&guest_mode=true' : '';
+        final newSrc =
+            '$baseUrl/graph/?project_id=$_currentProjectId$guestParam';
         _iframeElement!.src = newSrc;
       }
     }
