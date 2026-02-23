@@ -1383,8 +1383,68 @@ class DemoDataGenerator:
     def get_timeseries(
         self, hours: float = 168, service_name: str | None = None
     ) -> dict[str, Any]:
-        """Get latency/QPS timeseries (alias for dashboard timeseries)."""
-        return self.get_dashboard_timeseries(hours, service_name)
+        """Get per-node timeseries for topology sparklines.
+
+        Returns ``{series: {nodeId: [{bucket, callCount, errorCount,
+        avgDurationMs, totalTokens, totalCost}]}}``.
+        """
+        traces = self._filter_traces(hours, service_name)
+
+        bucket_minutes = 60 if hours >= 24 else 5
+        bucket_delta = timedelta(minutes=bucket_minutes)
+        start = _END_TIME - timedelta(hours=hours)
+
+        # node_id -> bucket_key -> list of span dicts
+        per_node: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+        for trace in traces:
+            for span in trace["spans"]:
+                attrs = span.get("attributes", {})
+                op = attrs.get("gen_ai.operation.name", "")
+                if op == "invoke_agent":
+                    node_id = attrs.get("gen_ai.agent.name", span["name"])
+                elif op == "execute_tool":
+                    node_id = attrs.get("gen_ai.tool.name", span["name"])
+                elif op == "generate_content":
+                    node_id = span["name"]
+                else:
+                    continue
+
+                ts = trace["timestamp"]
+                bucket_start = start + timedelta(
+                    minutes=((ts - start).total_seconds() // (bucket_minutes * 60))
+                    * bucket_minutes
+                )
+                key = bucket_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+                per_node.setdefault(node_id, {}).setdefault(key, []).append(span)
+
+        # Build series
+        series: dict[str, list[dict[str, Any]]] = {}
+        for node_id, buckets in per_node.items():
+            points: list[dict[str, Any]] = []
+            # Ensure contiguous buckets
+            t = start
+            while t < _END_TIME:
+                key = t.strftime("%Y-%m-%dT%H:%M:%SZ")
+                spans = buckets.get(key, [])
+                durations = [self._span_duration_ms(s) for s in spans]
+                tokens = sum(self._span_tokens(s) for s in spans)
+                errors = sum(1 for s in spans if self._span_has_error(s))
+                avg_dur = statistics.mean(durations) if durations else 0.0
+                points.append(
+                    {
+                        "bucket": key,
+                        "callCount": len(spans),
+                        "errorCount": errors,
+                        "avgDurationMs": round(avg_dur, 1),
+                        "totalTokens": tokens,
+                        "totalCost": round(tokens * 0.0000005, 6),
+                    }
+                )
+                t += bucket_delta
+            series[node_id] = points
+
+        return {"series": series}
 
     # ------------------------------------------------------------------
     # Dashboard endpoints

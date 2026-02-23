@@ -51,6 +51,16 @@ class TestGuestModeAgentGraph:
     def test_timeseries(self, guest_client):
         r = guest_client.get(f"{GRAPH_BASE}/timeseries", params=GRAPH_PARAMS)
         assert r.status_code == 200
+        data = r.json()
+        assert "series" in data
+        assert len(data["series"]) > 0
+        # Each node's series should have TimeSeriesPoint entries
+        for _node_id, points in data["series"].items():
+            assert len(points) > 0
+            assert "bucket" in points[0]
+            assert "callCount" in points[0]
+            assert "errorCount" in points[0]
+            assert "avgDurationMs" in points[0]
 
     def test_node_detail(self, guest_client):
         r = guest_client.get(f"{GRAPH_BASE}/node/cymbal-assistant", params=GRAPH_PARAMS)
