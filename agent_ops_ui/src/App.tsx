@@ -24,7 +24,7 @@ import EvalsPage from './components/evals/EvalsPage'
 import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
 
 /** Check if the app is running in guest/demo mode (passed via URL param from Flutter). */
-export function isGuestMode(): boolean {
+function isGuestMode(): boolean {
   const params = new URLSearchParams(window.location.search)
   return params.get('guest_mode') === 'true'
 }
@@ -223,7 +223,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
       }
     }
     syncProject()
-  }, []) // Only on mount
+  }, [filters.projectId, setFilters]) // Only on mount or if projectId is cleared
 
   const fetchAll = useCallback(async (isSilent: boolean) => {
     if (!filters.projectId.trim() || !serviceName.trim()) return

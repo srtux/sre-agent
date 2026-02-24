@@ -1,7 +1,7 @@
 """Tests for the agent graph topology and trajectory endpoints."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -2346,12 +2346,12 @@ class TestSpanDetailsEndpoint:
 class TestLogDatasetDiscovery:
     """Tests for get_linked_log_dataset helper."""
 
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.get", new_callable=AsyncMock)
     @patch("google.auth.default")
     @patch("google.auth.transport.requests.Request")
     @pytest.mark.anyio
     async def test_discovers_dataset_from_logging_api(
-        self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: MagicMock
+        self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: AsyncMock
     ) -> None:
         from sre_agent.api.routers.agent_graph import get_linked_log_dataset
 

@@ -20,10 +20,10 @@ class TestDrainDashboardQueue:
 
     def test_drain_returns_empty_list_when_queue_not_initialized(self) -> None:
         """Draining before init_dashboard_queue returns an empty list."""
-        # Run in a fresh context so the ContextVar has its default (None).
-        # Without this, earlier tests in the same thread may have already
-        # called init_dashboard_queue, leaving the var set.
-        ctx = contextvars.copy_context()
+        # Run in a fresh, empty context so the ContextVar has its default (None).
+        # copy_context() would inherit values from the current thread, causing
+        # pollution from earlier tests.
+        ctx = contextvars.Context()
         result = ctx.run(drain_dashboard_queue)
         assert result == []
 

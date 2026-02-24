@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,13 +11,14 @@ from sre_agent.api.helpers.bq_discovery import (
 @pytest.fixture
 def mock_httpx_client():
     with patch("httpx.AsyncClient") as mock:
+        mock.return_value = AsyncMock()
         yield mock
 
 
 @pytest.fixture
 def mock_google_auth():
     with patch("google.auth.default") as mock_default:
-        mock_creds = AsyncMock()
+        mock_creds = MagicMock()
         mock_creds.token = "fake-token"
         mock_default.return_value = (mock_creds, "project-id")
         yield mock_default
@@ -26,7 +27,7 @@ def mock_google_auth():
 @pytest.mark.asyncio
 async def test_get_linked_log_dataset_success(mock_httpx_client, mock_google_auth):
     mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
-    mock_client_instance.get.return_value = AsyncMock(
+    mock_client_instance.get.return_value = MagicMock(
         status_code=200,
         json=lambda: {
             "links": [
@@ -57,14 +58,14 @@ async def test_get_linked_trace_dataset_success(mock_httpx_client, mock_google_a
     # 3. List links for that one bucket
 
     responses = [
-        AsyncMock(status_code=200, json=lambda: {"buckets": []}),  # global list
-        AsyncMock(
+        MagicMock(status_code=200, json=lambda: {"buckets": []}),  # global list
+        MagicMock(
             status_code=200,
             json=lambda: {
                 "buckets": [{"name": "projects/p/locations/us/buckets/trace-bucket"}]
             },
         ),  # us list
-        AsyncMock(
+        MagicMock(
             status_code=200,
             json=lambda: {
                 "links": [
@@ -106,7 +107,7 @@ async def test_get_linked_trace_dataset_logging_scan(
     # 1. List buckets -> returns one
     # 2. Get links for that bucket -> returns a trace-like link
     responses = [
-        AsyncMock(
+        MagicMock(
             status_code=200,
             json=lambda: {
                 "buckets": [
@@ -114,7 +115,7 @@ async def test_get_linked_trace_dataset_logging_scan(
                 ]
             },
         ),
-        AsyncMock(
+        MagicMock(
             status_code=200,
             json=lambda: {
                 "links": [
@@ -138,12 +139,12 @@ async def test_get_linked_trace_dataset_logging_scan(
 async def test_get_linked_trace_dataset_fallback(mock_httpx_client, mock_google_auth):
     mock_client_instance = mock_httpx_client.return_value.__aenter__.return_value
     # All API calls return empty
-    mock_client_instance.get.return_value = AsyncMock(status_code=200, json=lambda: {})
+    mock_client_instance.get.return_value = MagicMock(status_code=200, json=lambda: {})
 
     with patch("google.cloud.bigquery.Client") as mock_bq:
         mock_bq_instance = mock_bq.return_value
         # Mock traces._AllSpans working
-        mock_bq_instance.get_table.return_value = AsyncMock()
+        mock_bq_instance.get_table.return_value = MagicMock()
 
         result = await get_linked_trace_dataset("project-123")
         assert result == "traces"
