@@ -2347,7 +2347,7 @@ class TestLogDatasetDiscovery:
     """Tests for get_linked_log_dataset helper."""
 
     @patch("httpx.AsyncClient.get")
-    @patch("google.auth.default")
+    @patch("sre_agent.api.helpers.bq_discovery.default")
     @patch("google.auth.transport.requests.Request")
     @pytest.mark.anyio
     async def test_discovers_dataset_from_logging_api(
