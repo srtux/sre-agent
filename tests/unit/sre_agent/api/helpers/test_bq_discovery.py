@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,9 +16,11 @@ def mock_httpx_client():
 
 @pytest.fixture
 def mock_google_auth():
-    with patch("google.auth.default") as mock_default:
+    with patch("sre_agent.api.helpers.bq_discovery.default") as mock_default:
         mock_creds = AsyncMock()
         mock_creds.token = "fake-token"
+        # refresh is a sync method, so we must mock it as such to avoid "coroutine never awaited"
+        mock_creds.refresh = MagicMock()
         mock_default.return_value = (mock_creds, "project-id")
         yield mock_default
 
