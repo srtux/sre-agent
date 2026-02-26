@@ -52,7 +52,9 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
             try:
                 start_dt = datetime.fromisoformat(s_start.replace("Z", "+00:00"))
                 end_dt = datetime.fromisoformat(s_end.replace("Z", "+00:00"))
-                duration_ms = (end_dt - start_dt).total_seconds() * 1000
+                s_start_unix = start_dt.timestamp()
+                s_end_unix = end_dt.timestamp()
+                duration_ms = (s_end_unix - s_start_unix) * 1000
             except (ValueError, TypeError) as e:
                 logger.warning(
                     f"Failed to parse timestamps for span {s.get('span_id')}: {e}"

@@ -17,7 +17,7 @@ def mock_httpx_client():
 
 @pytest.fixture
 def mock_google_auth():
-    with patch("google.auth.default") as mock_default:
+    with patch("sre_agent.api.helpers.bq_discovery.default") as mock_default:
         mock_creds = MagicMock()
         mock_creds.token = "fake-token"
         mock_default.return_value = (mock_creds, "project-id")
