@@ -5,13 +5,10 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException
 from google.api_core.exceptions import Forbidden, NotFound
-from google.auth import default
-from google.auth.exceptions import DefaultCredentialsError
-from google.auth.transport.requests import Request
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
-from sre_agent.auth import is_guest_mode
+from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS, is_guest_mode
 
 logger = logging.getLogger(__name__)
 
@@ -34,26 +31,33 @@ def _validate_identifier(identifier: str | None, name: str) -> str:
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
-    """Return a BigQuery client for the given project."""
-    return bigquery.Client(project=project_id)
+    """Return a BigQuery client for the given project, using EUC if available."""
+    return bigquery.Client(project=project_id, credentials=GLOBAL_CONTEXT_CREDENTIALS)
 
 
 def _get_auth_token() -> str:
-    """Get a GCP auth token using default credentials."""
-    try:
-        credentials, _ = default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        credentials.refresh(Request())  # type: ignore
-        if not credentials.token:
-            raise HTTPException(
-                status_code=401, detail="Failed to obtain Google Cloud access token."
+    """Get a GCP auth token from the current user credentials."""
+    token = GLOBAL_CONTEXT_CREDENTIALS.token
+    if not token:
+        # Fallback to ADC if no user token is in context (e.g. background setup)
+        try:
+            from google.auth import default
+            from google.auth.transport.requests import Request
+
+            credentials, _ = default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
             )
-        return credentials.token  # type: ignore
-    except DefaultCredentialsError as exc:
+            credentials.refresh(Request())  # type: ignore
+            token = credentials.token
+        except Exception as exc:
+            logger.warning(f"Failed to get fallback ADC token: {exc}")
+            token = None
+
+    if not token:
         raise HTTPException(
-            status_code=401, detail="Google Cloud credentials not found."
-        ) from exc
+            status_code=401, detail="Failed to obtain Google Cloud access token."
+        )
+    return token  # type: ignore
 
 
 @router.get("/check_bucket")

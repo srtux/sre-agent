@@ -52,11 +52,11 @@ from sre_agent.models.investigation import (
     PHASE_INSTRUCTIONS,
     InvestigationState,
 )
-from sre_agent.services import get_session_service
 from sre_agent.services.agent_engine_client import (
     get_agent_engine_client,
     is_remote_mode,
 )
+from sre_agent.services.session import get_session_service
 from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools.synthetic.demo_chat_responses import (
     get_demo_suggestions,

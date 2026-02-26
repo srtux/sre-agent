@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 
 from sre_agent.api.helpers.bq_discovery import get_linked_log_dataset
 from sre_agent.api.helpers.cache import async_ttl_cache
-from sre_agent.auth import is_guest_mode
+from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS, is_guest_mode
 from sre_agent.tools.synthetic.demo_data_generator import DemoDataGenerator
 
 logger = logging.getLogger(__name__)
@@ -147,11 +147,6 @@ def _build_time_filter(
     return f"{timestamp_col} >= TIMESTAMP_SUB({end_expr}, INTERVAL {minutes} MINUTE)"
 
 
-def _build_bq_client(project_id: str) -> bigquery.Client:
-    """Return an authenticated BigQuery client."""
-    return bigquery.Client(project=project_id)
-
-
 def _get_bq_client(project_id: str) -> bigquery.Client:
     """Create a BigQuery client scoped to the given project.
 
@@ -161,7 +156,7 @@ def _get_bq_client(project_id: str) -> bigquery.Client:
     Returns:
         A configured BigQuery client.
     """
-    return bigquery.Client(project=project_id)
+    return bigquery.Client(project=project_id, credentials=GLOBAL_CONTEXT_CREDENTIALS)
 
 
 def _get_node_color(node_type: str) -> str:

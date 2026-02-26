@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from sre_agent.exceptions import UserFacingError
-from sre_agent.services import get_session_service
+from sre_agent.services.session import get_session_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])

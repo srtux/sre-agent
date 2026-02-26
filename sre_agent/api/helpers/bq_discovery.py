@@ -5,6 +5,7 @@ from google.auth import default
 from google.auth.transport.requests import Request
 
 from sre_agent.api.helpers.cache import async_ttl_cache
+from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +17,13 @@ async def get_linked_log_dataset(project_id: str) -> str | None:
     Returns the dataset ID (e.g., 'logs') or None if not linked.
     """
     try:
-        credentials, _ = default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        credentials.refresh(Request())  # type: ignore
-        token = credentials.token
+        token = GLOBAL_CONTEXT_CREDENTIALS.token
+        if not token:
+            credentials, _ = default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            credentials.refresh(Request())  # type: ignore
+            token = credentials.token
     except Exception as exc:
         logger.warning(f"Failed to get GCP credentials for log discovery: {exc}")
         return None
@@ -57,11 +60,13 @@ async def get_linked_trace_dataset(project_id: str) -> str | None:
     3. Fallback: Check if a dataset literally named 'traces' exists in BigQuery.
     """
     try:
-        credentials, _ = default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        credentials.refresh(Request())  # type: ignore
-        token = credentials.token
+        token = GLOBAL_CONTEXT_CREDENTIALS.token
+        if not token:
+            credentials, _ = default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            credentials.refresh(Request())  # type: ignore
+            token = credentials.token
     except Exception as exc:
         logger.warning(f"Failed to get GCP credentials for trace discovery: {exc}")
         return None
@@ -134,7 +139,9 @@ async def get_linked_trace_dataset(project_id: str) -> str | None:
         from google.cloud import bigquery
         from google.cloud.exceptions import NotFound
 
-        bq_client = bigquery.Client(project=project_id)
+        bq_client = bigquery.Client(
+            project=project_id, credentials=GLOBAL_CONTEXT_CREDENTIALS
+        )
         # Check for 'traces' or 'obs_bucket_spans'
         for candidate in ["traces", "obs_bucket_spans"]:
             try:

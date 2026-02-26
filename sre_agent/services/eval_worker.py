@@ -14,8 +14,6 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from sre_agent.api.helpers.bq_discovery import get_linked_trace_dataset
-
 logger = logging.getLogger(__name__)
 
 # Default BigQuery dataset for OTel spans
@@ -237,6 +235,8 @@ async def run_scheduled_evaluations() -> dict[str, Any]:
     bq_dataset = os.environ.get("SRE_AGENT_EVAL_BQ_DATASET")
     if not bq_dataset:
         # Try to discover the linked dataset for the project
+        from sre_agent.api.helpers.bq_discovery import get_linked_trace_dataset
+
         discovered = await get_linked_trace_dataset(project_id)
         bq_dataset = discovered or _DEFAULT_BQ_DATASET
 

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.auth import get_current_user_id, is_guest_mode
 from sre_agent.exceptions import UserFacingError
-from sre_agent.services import get_storage_service
+from sre_agent.services.storage import get_storage_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/preferences", tags=["preferences"])

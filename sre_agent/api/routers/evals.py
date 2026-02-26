@@ -12,9 +12,9 @@ from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.api.helpers.bq_discovery import get_linked_trace_dataset
-from sre_agent.auth import is_guest_mode
+from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS, is_guest_mode
 from sre_agent.exceptions import UserFacingError
-from sre_agent.services import get_storage_service
+from sre_agent.services.storage import get_storage_service
 from sre_agent.tools.bigquery.queries import get_aggregate_eval_metrics_query
 
 logger = logging.getLogger(__name__)
@@ -285,7 +285,9 @@ async def get_eval_metrics_aggregate(
     )
 
     try:
-        client = bigquery.Client(project=project_id)
+        client = bigquery.Client(
+            project=project_id, credentials=GLOBAL_CONTEXT_CREDENTIALS
+        )
         rows = await anyio.to_thread.run_sync(
             lambda: list(client.query_and_wait(query))
         )

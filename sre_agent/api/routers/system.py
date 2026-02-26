@@ -14,7 +14,7 @@ from sre_agent.auth import (
     validate_access_token,
     validate_id_token,
 )
-from sre_agent.services import get_session_service
+from sre_agent.services.session import get_session_service
 from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools.common.debug import (
     get_debug_summary,

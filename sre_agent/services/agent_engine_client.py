@@ -289,9 +289,11 @@ class AgentEngineClient:
 
         if state_delta:
             logger.info(
-                f"🔄 Updating session state with EUC: {list(state_delta.keys())}"
+                f"🔄 Updating session state with EUC: {list(state_delta.keys())} for session {effective_session_id}"
             )
             await session_manager.update_session_state(session, state_delta)
+        else:
+            logger.debug(f"✅ Session {effective_session_id} state is up to date")
 
         logger.info(
             f"Streaming query to Agent Engine: user={user_id}, "

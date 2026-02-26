@@ -36,11 +36,16 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
       final baseUrl = ServiceConfig.agentGraphBaseUrl;
-      final guestParam =
-          AuthService.instance.isGuestMode ? '&guest_mode=true' : '';
-      final dynamicSrc = _currentProjectId.isNotEmpty
-          ? '$baseUrl/graph/?project_id=$_currentProjectId$guestParam'
-          : 'about:blank';
+      final isGuestMode = AuthService.instance.isGuestMode;
+      final userId = AuthService.instance.currentUser?.email;
+
+      var dynamicSrc = '$baseUrl/graph/?project_id=$_currentProjectId';
+      if (isGuestMode) {
+        dynamicSrc += '&guest_mode=true';
+      }
+      if (userId != null && userId.isNotEmpty) {
+        dynamicSrc += '&user_id=${Uri.encodeComponent(userId)}';
+      }
 
       _iframeElement = html.IFrameElement()
         ..id = _viewId
@@ -87,10 +92,16 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       _currentProjectId = newProjectId;
       if (_iframeElement != null) {
         final baseUrl = ServiceConfig.agentGraphBaseUrl;
-        final guestParam =
-            AuthService.instance.isGuestMode ? '&guest_mode=true' : '';
-        final newSrc =
-            '$baseUrl/graph/?project_id=$_currentProjectId$guestParam';
+        final isGuestMode = AuthService.instance.isGuestMode;
+        final userId = AuthService.instance.currentUser?.email;
+
+        var newSrc = '$baseUrl/graph/?project_id=$_currentProjectId';
+        if (isGuestMode) {
+          newSrc += '&guest_mode=true';
+        }
+        if (userId != null && userId.isNotEmpty) {
+          newSrc += '&user_id=${Uri.encodeComponent(userId)}';
+        }
         _iframeElement!.src = newSrc;
       }
     }

@@ -65,11 +65,14 @@ class ADKSessionManager:
     """
 
     APP_NAME = "sre_agent"
+    CACHE_TTL = 60.0  # 60 seconds TTL for session cache
 
     def __init__(self) -> None:
         """Initialize the session manager with appropriate backend."""
         self.app_name = self.APP_NAME
         self._session_service = self._create_session_service()
+        # In-memory session cache: key is (user_id, session_id), value is (Session, timestamp)
+        self._cache: dict[tuple[str, str], tuple[Session, float]] = {}
         logger.info(
             f"ADKSessionManager initialized with {type(self._session_service).__name__} (app_name={self.app_name})"
         )
@@ -184,6 +187,8 @@ class ADKSessionManager:
             user_id=user_id,
             state=state,
         )
+        # Populate cache
+        self._cache[(user_id, session.id)] = (cast(Session, session), time.time())
         logger.info(f"Created session {session.id} for user {user_id}")
         return cast(Session, session)
 
@@ -201,12 +206,23 @@ class ADKSessionManager:
         Returns:
             Session object or None if not found
         """
+        # Check cache first
+        cache_key = (user_id, session_id)
+        if cache_key in self._cache:
+            sess, timestamp = self._cache[cache_key]
+            if time.time() - timestamp < self.CACHE_TTL:
+                # logger.debug(f"Cache hit for session {session_id}")
+                return sess
+
         try:
             session = await self._session_service.get_session(
                 app_name=self.app_name,
                 user_id=user_id,
                 session_id=session_id,
             )
+            if session:
+                # Update cache
+                self._cache[cache_key] = (cast(Session, session), time.time())
             return cast(Session | None, session)
         except Exception as e:
             logger.warning(f"Failed to get session {session_id}: {e}")
@@ -329,6 +345,8 @@ class ADKSessionManager:
                 user_id=user_id,
                 session_id=session_id,
             )
+            # Invalidate cache
+            self._cache.pop((user_id, session_id), None)
             logger.info(f"Deleted session {session_id}")
             return True
         except Exception as e:
@@ -347,6 +365,8 @@ class ADKSessionManager:
         """
         try:
             await self._session_service.append_event(session, event)
+            # Update cache timestamp to keep it alive and fresh
+            self._cache[(session.user_id, session.id)] = (session, time.time())
         except Exception as e:
             # Handle 'NoneType' storage error and 'not found' errors gracefully (log and continue)
             if "NoneType" in str(e) or "not found" in str(e).lower():
