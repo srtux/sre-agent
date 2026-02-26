@@ -65,6 +65,8 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
                 "duration_ms": duration_ms,
                 "start_time": s_start,
                 "end_time": s_end,
+                "start_time_unix": s_start_unix,
+                "end_time_unix": s_end_unix,
                 "parent_span_id": s.get("parent_span_id"),
                 "labels": s.get("labels", {}),
             }
