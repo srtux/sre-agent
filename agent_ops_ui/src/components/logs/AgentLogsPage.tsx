@@ -15,7 +15,7 @@ import 'prismjs/themes/prism-tomorrow.css'
 Prism.languages.logquery = {
   keyword: /\b(AND|OR|NOT)\b/i,
   string: /(["'])(?:\\(?:\r\n|[\s\S])|(?!\1)[^\\\r\n])*\1/,
-  property: /\b[a-zA-Z_][a-zA-Z0-9_\.]*\b(?=\s*(=|!=|>=|<=|>|<|:))/,
+  property: /\b[a-zA-Z_][a-zA-Z0-9_.]*\b(?=\s*(=|!=|>=|<=|>|<|:))/,
   operator: /=|!=|>=|<=|>|<|:/,
   boolean: /\b(true|false)\b/i,
   number: /\b\d+(?:\.\d+)?\b/
