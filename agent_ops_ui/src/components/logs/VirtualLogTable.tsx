@@ -322,8 +322,26 @@ export default function VirtualLogTable({
                         ))}
                       </div>
                     )}
-                    {/* Full payload */}
-                    {typeof entry.payload === 'string' ? (
+                    {/* Full payload / Raw JSON */}
+                    {entry.raw ? (
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ ...styles.metaLabel, marginBottom: '4px', fontSize: '10px', textTransform: 'uppercase' }}>Full Log Entry (JSON)</div>
+                        <SyntaxHighlighter
+                          language="json"
+                          style={atomOneDark}
+                          customStyle={{
+                            margin: 0,
+                            padding: '8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            background: '#0F172A',
+                            border: '1px solid #1E293B',
+                          }}
+                        >
+                          {JSON.stringify(entry.raw, null, 2)}
+                        </SyntaxHighlighter>
+                      </div>
+                    ) : typeof entry.payload === 'string' ? (
                       <pre
                         style={{
                           fontFamily: "'JetBrains Mono', monospace",

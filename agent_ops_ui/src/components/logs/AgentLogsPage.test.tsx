@@ -8,6 +8,7 @@ import { useAgentContext } from '../../contexts/AgentContext'
 vi.mock('../../hooks/useAgentLogs', () => ({
   useAgentLogs: vi.fn(),
   useLogsHistogram: vi.fn(),
+  buildFilter: vi.fn().mockReturnValue('mock-filter'),
 }))
 
 // Mock the virtualizer to render all items directly (jsdom has no layout)

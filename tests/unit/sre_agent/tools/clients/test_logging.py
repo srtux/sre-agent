@@ -54,6 +54,26 @@ async def test_list_log_entries(mock_pager):
         assert "entries" in res_data
         assert len(res_data["entries"]) == 1
         assert res_data["entries"][0]["severity"] == "ERROR"
+        assert "raw" in res_data["entries"][0]
+
+
+@pytest.mark.asyncio
+async def test_list_log_entries_with_raw(mock_pager):
+    with patch("sre_agent.tools.clients.logging.get_logging_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.list_log_entries.return_value = mock_pager
+
+        # Mock the _pb attribute which we use for raw data
+        mock_entry = next(mock_pager.pages).entries[0]
+        mock_entry._pb = {"test": "data"}
+
+        # Reset pager iterator for the actual call
+        mock_pager.pages = iter([MagicMock(entries=[mock_entry], next_page_token=None)])
+
+        result = await list_log_entries("p1", "filter")
+        assert result.status == ToolStatus.SUCCESS
+        assert result.result["entries"][0]["raw"] == {"test": "data"}
 
 
 @pytest.mark.asyncio
@@ -93,37 +113,44 @@ async def test_get_logs_for_trace(mock_pager):
 
 @pytest.mark.asyncio
 async def test_list_error_events():
-    with patch(
-        "sre_agent.tools.clients.logging.get_error_reporting_client"
-    ) as mock_get_client:
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+    with patch.dict(
+        "sys.modules", {"google.cloud.errorreporting_v1beta1": MagicMock()}
+    ):
+        with patch.dict("sys.modules", {"google.cloud": MagicMock()}):
+            with patch(
+                "sre_agent.tools.clients.logging.get_error_reporting_client"
+            ) as mock_get_client:
+                mock_client = MagicMock()
+                mock_get_client.return_value = mock_client
 
-        mock_event = MagicMock()
-        mock_event.event_time = datetime.datetime.now()
-        mock_event.message = "Crash"
-        mock_event.service_context.service = "srv1"
-        mock_event.service_context.version = "v1"
+                mock_event = MagicMock()
+                mock_event.event_time = datetime.datetime.now()
+                mock_event.message = "Crash"
+                mock_event.service_context.service = "srv1"
+                mock_event.service_context.version = "v1"
 
-        mock_client.list_events.return_value = [mock_event]
+                mock_client.list_events.return_value = [mock_event]
 
-        result = await list_error_events(project_id="p1")
-        assert result.status == ToolStatus.SUCCESS
-        res_list = result.result
-        assert isinstance(res_list, list)
-        assert len(res_list) == 1
-        assert res_list[0]["message"] == "Crash"
+                result = await list_error_events(project_id="p1")
+                assert result.status == ToolStatus.SUCCESS
+                res_list = result.result
+                assert isinstance(res_list, list)
+                assert len(res_list) == 1
+                assert res_list[0]["message"] == "Crash"
 
 
 @pytest.mark.asyncio
 async def test_list_error_events_error():
-    with patch(
-        "sre_agent.tools.clients.logging.get_error_reporting_client",
-        side_effect=Exception("API Fail"),
+    with patch.dict(
+        "sys.modules", {"google.cloud.errorreporting_v1beta1": MagicMock()}
     ):
-        result = await list_error_events(project_id="p1")
-        assert result.status == ToolStatus.ERROR
-        assert "API Fail" in result.error
+        with patch(
+            "sre_agent.tools.clients.logging.get_error_reporting_client",
+            side_effect=Exception("API Fail"),
+        ):
+            result = await list_error_events(project_id="p1")
+            assert result.status == ToolStatus.ERROR
+            assert "API Fail" in result.error
 
 
 def test_extract_log_payload_text():

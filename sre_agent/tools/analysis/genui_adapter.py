@@ -1184,6 +1184,7 @@ def transform_log_entries(
                 "trace_id": trace_id,
                 "span_id": entry.get("spanId") or entry.get("span_id"),
                 "http_request": entry.get("httpRequest") or entry.get("http_request"),
+                "raw": entry.get("raw", {}),
             }
         )
 

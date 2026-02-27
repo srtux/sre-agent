@@ -228,6 +228,11 @@ class ADKContentGenerator implements ContentGenerator {
           requestBody['session_id'] = sessionId;
         }
 
+        // Include project_id if set
+        if (projectId != null && projectId!.isNotEmpty) {
+          requestBody['project_id'] = projectId;
+        }
+
         // Include user_id from auth service
         final userId = AuthService().currentUser?.email;
         if (userId != null) {

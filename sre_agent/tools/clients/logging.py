@@ -126,6 +126,28 @@ async def list_log_entries(
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
+def _entry_to_dict(entry: Any) -> dict[str, Any]:
+    from typing import cast
+
+    if hasattr(type(entry), "to_dict"):
+        # proto-plus messages
+        try:
+            return cast(dict[str, Any], type(entry).to_dict(entry))
+        except Exception:
+            pass
+    if hasattr(entry, "_pb"):
+        if isinstance(entry._pb, dict):
+            return cast(dict[str, Any], entry._pb.copy())
+        # falling back to protobuf's MessageToDict
+        try:
+            from google.protobuf.json_format import MessageToDict
+
+            return cast(dict[str, Any], MessageToDict(entry._pb))
+        except Exception:
+            pass
+    return {}
+
+
 def _list_log_entries_sync(
     project_id: str,
     filter_str: str,
@@ -212,6 +234,7 @@ def _list_log_entries_sync(
                         }
                         if entry.http_request
                         else None,
+                        "raw": _entry_to_dict(entry),
                     }
                 )
             next_token = first_page.next_page_token
