@@ -111,6 +111,7 @@ SELECT
   trace_id,
   start_time,
   JSON_VALUE(attributes, '\$.\"gen_ai.conversation.id\"') AS session_id,
+  JSON_VALUE(attributes, '\$.\"user.id\"') AS user_id,
   CAST(duration_nano AS FLOAT64) / 1000000.0 AS duration_ms,
   CASE status.code
     WHEN 0 THEN 'UNSET'
@@ -125,6 +126,14 @@ SELECT
   JSON_VALUE(attributes, '\$.\"gen_ai.request.model\"') AS request_model,
   JSON_VALUE(attributes, '\$.\"gen_ai.response.finish_reasons\"') AS finish_reasons,
   JSON_VALUE(attributes, '\$.\"gen_ai.system\"') AS system,
+  JSON_VALUE(attributes, '\$.\"gen_ai.agent.id\"') AS agent_id,
+  JSON_VALUE(attributes, '\$.\"gen_ai.agent.version\"') AS agent_version,
+  JSON_VALUE(attributes, '\$.\"gen_ai.tool.id\"') AS tool_id,
+  JSON_VALUE(attributes, '\$.\"gen_ai.system_instructions\"') AS system_instructions,
+  JSON_VALUE(attributes, '\$.\"gen_ai.data_source.id\"') AS data_source_id,
+  JSON_VALUE(attributes, '\$.\"gen_ai.output.type\"') AS output_type,
+  SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.request.temperature\"') AS FLOAT64) AS request_temperature,
+  SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.request.top_p\"') AS FLOAT64) AS request_top_p,
   COALESCE(
     JSON_VALUE(attributes, '\$.\"gen_ai.agent.description\"'),
     JSON_VALUE(attributes, '\$.\"gen_ai.tool.description\"')

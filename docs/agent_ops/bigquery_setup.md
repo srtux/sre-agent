@@ -10,29 +10,32 @@ The visualization aggregates data from a BigQuery table named `agent_spans_raw`.
 | :--- | :--- | :--- |
 | `trace_id` | STRING | ID of the trace (span group). **(Clustered)** |
 | `session_id` | STRING | ID of the user session. **(Clustered)** |
+| `user_id` | STRING | ID of the end user (if provided). |
 | `span_id` | STRING | ID of the individual span. |
 | `parent_id` | STRING | ID of the parent span (nullable). |
 | `node_label` | STRING | Display label for the node (e.g., "SQL Generator"). **(Clustered)** |
 | `node_type` | STRING | Category of node (e.g., "Agent", "Tool", "LLM"). |
 | `start_time` | TIMESTAMP | Start timestamp of the operation. **(Partitioned)** |
 | `duration_ms` | FLOAT64 | Duration of the operation in milliseconds.|
-| `status_code` | INT64 | Status (1: OK, 2: Error). |
+| `status_code` | STRING | Status code (UNSET, OK, ERROR). |
 | `input_tokens` | INT64 | Tokens consumed. |
 | `output_tokens` | INT64 | Tokens generated. |
-| `error_type` | STRING | Error type/description. |
-| `agent_description`| STRING | Role/Description of an Agent node. |
-| `tool_description` | STRING | Description of a Tool node. |
+| `agent_id` | STRING | Unique identifier for the agent configuration. |
+| `agent_version` | STRING | Version of the agent. |
+| `tool_id` | STRING | Unique identifier for the tool. |
+| `node_description`| STRING | Rich description of the agent or tool. |
 | `request_model` | STRING | The model requested (e.g. gemini-1.5-pro). |
-| `response_model` | STRING| The actual model that responded. |
-| `finish_reasons` | STRING | Reason the LLM stopped generating. |
-| `project_id` | STRING | The GCP Project ID (extracted from resource attributes). |
+| `service_name` | STRING | The name of the service that generated the span. |
+| `logical_node_id` | STRING | Canonical ID for the node (e.g. "Agent::Scanner"). |
 
 ## 2. Setup: Standard View (Recommended)
 
 To avoid limitations with "Incremental" Materialized Views (such as the `ARRAY function` error), start with a standard **View**. BigQuery's "Smart Tuning" will still optimize queries against this view.
 
 ```sql
-CREATE OR REPLACE VIEW `my-project.GRAPH_DATASET.agent_spans_raw`
+CREATE MATERIALIZED VIEW `my-project.GRAPH_DATASET.agent_spans_raw`
+PARTITION BY DATE(start_time)
+CLUSTER BY trace_id, session_id, node_label
 AS
 SELECT
   span_id,
@@ -41,19 +44,17 @@ SELECT
   start_time,
   -- Grouping IDs
   JSON_VALUE(attributes, '$.\"gen_ai.conversation.id\"') AS session_id,
-  JSON_VALUE(resource.attributes, '$.\"gcp.project_id\"') AS project_id,
+  JSON_VALUE(attributes, '$.\"user.id\"') AS user_id,
   -- Performance
   CAST(duration_nano AS FLOAT64) / 1000000.0 AS duration_ms,
-  status.code AS status_code,
-  JSON_VALUE(attributes, '$.\"error.type\"') AS error_type,
+  CASE status.code WHEN 0 THEN 'UNSET' WHEN 1 THEN 'OK' WHEN 2 THEN 'ERROR' ELSE CAST(status.code AS STRING) END AS status_code,
   -- GenAI Metadata
   SAFE_CAST(JSON_VALUE(attributes, '$.\"gen_ai.usage.input_tokens\"') AS INT64) AS input_tokens,
   SAFE_CAST(JSON_VALUE(attributes, '$.\"gen_ai.usage.output_tokens\"') AS INT64) AS output_tokens,
   JSON_VALUE(attributes, '$.\"gen_ai.request.model\"') AS request_model,
-  JSON_VALUE(attributes, '$.\"gen_ai.response.model\"') AS response_model,
   -- UI Rich Metadata
-  JSON_VALUE(attributes, '$.\"gen_ai.agent.description\"') AS agent_description,
-  JSON_VALUE(attributes, '$.\"gen_ai.tool.description\"') AS tool_description,
+  COALESCE(JSON_VALUE(attributes, '$.\"gen_ai.agent.description\"'), JSON_VALUE(attributes, '$.\"gen_ai.tool.description\"')) AS node_description,
+  JSON_VALUE(resource.attributes, '$.\"service.name\"') AS service_name,
   -- Node Classification
   CASE
     WHEN JSON_VALUE(attributes, '$.\"gen_ai.operation.name\"') = 'invoke_agent' THEN 'Agent'
@@ -67,9 +68,19 @@ SELECT
     JSON_VALUE(attributes, '$.\"gen_ai.tool.name\"'),
     JSON_VALUE(attributes, '$.\"gen_ai.response.model\"'),
     name
-  ) AS node_label
+  ) AS node_label,
+  CONCAT(
+    CASE
+      WHEN JSON_VALUE(attributes, '$.\"gen_ai.operation.name\"') = 'invoke_agent' THEN 'Agent'
+      WHEN JSON_VALUE(attributes, '$.\"gen_ai.operation.name\"') = 'execute_tool' THEN 'Tool'
+      WHEN JSON_VALUE(attributes, '$.\"gen_ai.operation.name\"') = 'generate_content' THEN 'LLM'
+      ELSE 'Glue'
+    END,
+    '::',
+    COALESCE(JSON_VALUE(attributes, '$.\"gen_ai.agent.name\"'), JSON_VALUE(attributes, '$.\"gen_ai.tool.name\"'), JSON_VALUE(attributes, '$.\"gen_ai.response.model\"'), name)
+  ) AS logical_node_id
 FROM `my-project.traces._AllSpans`
-WHERE JSON_VALUE(resource.attributes, '$.\"service.name\"') = "sre-agent";
+WHERE JSON_VALUE(resource.attributes, '$.\"cloud.platform\"') = "gcp.agent_engine";
 ```
 
 ## 3. Optimization: Materialized View

@@ -564,10 +564,10 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             sql2 = f"""
             CREATE OR REPLACE VIEW `{pd}.{gd}.tool_registry` AS
             WITH ParsedTools AS (
-              SELECT trace_id, session_id, TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket, service_name, logical_node_id, duration_ms, status_code, node_label, node_type
+              SELECT trace_id, session_id, TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket, service_name, logical_node_id, duration_ms, status_code, node_label, node_description, node_type
               FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type = 'Tool'
             )
-            SELECT time_bucket, service_name, logical_node_id AS tool_id, ANY_VALUE(node_label) AS tool_name, COUNT(*) AS execution_count, COUNTIF(status_code = 'ERROR') AS error_count, SAFE_DIVIDE(COUNTIF(status_code = 'ERROR'), COUNT(*)) AS error_rate, AVG(duration_ms) AS avg_duration_ms, APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
+            SELECT time_bucket, service_name, logical_node_id AS tool_id, ANY_VALUE(node_label) AS tool_name, ANY_VALUE(node_description) AS description, COUNT(*) AS execution_count, COUNTIF(status_code = 'ERROR') AS error_count, SAFE_DIVIDE(COUNTIF(status_code = 'ERROR'), COUNT(*)) AS error_rate, AVG(duration_ms) AS avg_duration_ms, APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
             FROM ParsedTools GROUP BY time_bucket, service_name, tool_id;
             """
             run_query(sql2)

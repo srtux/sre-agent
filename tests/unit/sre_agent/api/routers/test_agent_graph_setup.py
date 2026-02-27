@@ -219,3 +219,27 @@ async def test_execute_schema_step(client: AsyncClient):
         assert response.status_code == 200
         assert response.json()["status"] == "success"
         mock_bq_instance.query_and_wait.assert_called()
+
+
+@pytest.mark.anyio
+async def test_execute_schema_step_sql_content(client: AsyncClient):
+    with patch("sre_agent.api.routers.agent_graph_setup.bigquery.Client") as mock_bq:
+        mock_bq_instance = MagicMock()
+        mock_bq_instance.query_and_wait.return_value = []
+        mock_bq.return_value = mock_bq_instance
+
+        response = await client.post(
+            "/api/v1/graph/setup/schema/agent_spans_raw",
+            json={
+                "project_id": "test-project",
+                "trace_dataset": "traces",
+                "graph_dataset": "agentops",
+            },
+        )
+
+        assert response.status_code == 200
+        # Check that user_id is in the SQL sent to BigQuery
+        args, _ = mock_bq_instance.query_and_wait.call_args
+        sql = args[0]
+        assert "JSON_VALUE(attributes, '$.\"user.id\"') AS user_id" in sql
+        assert "JSON_VALUE(attributes, '$.\"gen_ai.agent.id\"') AS agent_id" in sql
