@@ -124,6 +124,27 @@ describe('useAgentLogs', () => {
     expect(body.filter).toContain('reasoning_engine_id="my-engine-123"')
   })
 
+  it('builds filter extracting numeric ID from full URI', async () => {
+    renderHook(
+      () =>
+        useAgentLogs({
+          agentId: '//aiplatform.googleapis.com/projects/summitt-gcp/locations/us-central1/reasoningEngines/4168506966131343360',
+          severity: [],
+          projectId: 'test-project',
+          minutesAgo: 60,
+        }),
+      { wrapper: createWrapper() },
+    )
+
+    await waitFor(() => {
+      expect(vi.mocked(axios.post)).toHaveBeenCalled()
+    })
+
+    const call = vi.mocked(axios.post).mock.calls[0]
+    const body = call[1] as Record<string, unknown>
+    expect(body.filter).toContain('reasoning_engine_id="4168506966131343360"')
+  })
+
   it('builds filter with severity when specified', async () => {
     renderHook(
       () =>
