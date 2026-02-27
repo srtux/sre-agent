@@ -306,13 +306,13 @@ For sub-second graph loading on time ranges >= 1 hour, the system uses a pre-agg
 
 ### Setup
 
-Run the setup script which creates the table and backfills 30 days:
+Run the setup script which creates the table, backfills 30 days of data, and automatically configures a scheduled query for incremental hourly updates:
 
 ```bash
 ./scripts/setup_agent_graph_bq.sh <project_id> <trace_dataset> [graph_dataset]
 ```
 
-Then set up the scheduled query (printed by the script) in Cloud Console > BigQuery > Scheduled Queries.
+The script will use the BigQuery Data Transfer Service to create and start the "Agent Graph Hourly Refresh" scheduled query.
 
 ### Performance Characteristics
 

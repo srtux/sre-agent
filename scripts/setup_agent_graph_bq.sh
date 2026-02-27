@@ -5,7 +5,7 @@ set -e
 # This automates the creation of the Materialized View and Property Graph
 # required for the AutoSRE Agent Graph visualization.
 #
-# See docs/AGENT_GRAPH_SETUP.md for detailed architecture and schema verification.
+# See docs/agent_ops/bigquery_setup.md for detailed architecture and schema verification.
 #
 # OTel GenAI Semantic Conventions Verification:
 #   This script relies on the following OpenTelemetry attributes being present
@@ -76,10 +76,13 @@ bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_edges" > /dev/null 2>&1 |
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_nodes" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_trajectories" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_span_payloads" > /dev/null 2>&1 || true
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_nodes_view" > /dev/null 2>&1 || true
 
 # Try deleting as both Materialized View and Table
 bq rm -f -m "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw" > /dev/null 2>&1 || true
+bq rm -f -m "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw_mv" > /dev/null 2>&1 || true
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw_mv" > /dev/null 2>&1 || true
 
 
 # 1. Base Materialized View for Raw Spans
@@ -178,6 +181,7 @@ SELECT
   ANY_VALUE(service_name) AS service_name,
   ANY_VALUE(node_type) AS node_type,
   ANY_VALUE(node_label) AS node_label,
+  ANY_VALUE(node_description) AS node_description,
   COUNT(span_id) AS execution_count,
   SUM(duration_ms) AS total_duration_ms,
   SUM(input_tokens) AS total_input_tokens,
@@ -198,6 +202,7 @@ SELECT
   ANY_VALUE(service_name) AS service_name,
   'User' AS node_type,
   'session' AS node_label,
+  'End user session entry point' AS node_description,
   APPROX_COUNT_DISTINCT(span_id) AS execution_count,
   SUM(duration_ms) AS total_duration_ms,
   SUM(input_tokens) AS total_input_tokens,
@@ -498,13 +503,15 @@ WITH RawEdges AS (
     n_dst.total_input_tokens as input_tokens,
     n_dst.total_output_tokens as output_tokens,
     n_dst.service_name,
+    n_dst.node_description,
     n_dst.start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_edges\` e
   JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_dst
     ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
-  LEFT JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
+  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
     ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
   WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 720 HOUR)
+    AND n_dst.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
 ),
 CostPaths AS (
   SELECT re.*,
@@ -546,7 +553,7 @@ SELECT
   SUM(edge_error_count) AS node_error_count,
   SUM(call_count) AS node_call_count,
   ROUND(SUM(span_cost), 6) AS node_total_cost,
-  target_id AS node_description,
+  ANY_VALUE(node_description) AS node_description,
   -- Subcall counts
   SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
@@ -565,26 +572,13 @@ GROUP BY time_bucket, source_id, target_id, source_type, target_type;
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$BACKFILL_SQL"
 
 # 7. Create scheduled query for hourly incremental updates
-# This provides the SQL for a BigQuery Scheduled Query that keeps the hourly table updated.
-# It runs a deduplicating merge into the 'agent_graph_hourly' table for new data.
-echo "🔹 Creating scheduled query for hourly updates..."
-echo "NOTE: Run the following command to create a scheduled query via bq CLI or Cloud Console:"
-echo ""
-cat << 'SCHEDULED_QUERY_EOF'
--- Scheduled Query: agent_graph_hourly_refresh
--- Schedule: Every 1 hour
--- Destination: agent_graph_hourly (WRITE_APPEND)
---
--- Create via Cloud Console > BigQuery > Scheduled Queries, or use:
---   bq mk --transfer_config \
---     --project_id=<PROJECT_ID> \
---     --target_dataset=<GRAPH_DATASET> \
---     --display_name="Agent Graph Hourly Refresh" \
---     --schedule="every 1 hours" \
---     --data_source=scheduled_query \
---     --params='{"query":"<SQL>","destination_table_name_template":"agent_graph_hourly","write_disposition":"WRITE_APPEND"}'
+echo "🔹 Preparing scheduled query for hourly updates..."
 
-INSERT INTO `<PROJECT_ID>.<GRAPH_DATASET>.agent_graph_hourly`
+# Define the SQL for the scheduled query.
+# We use a double-quoted heredoc so that $PROJECT_ID and $GRAPH_DATASET are expanded.
+# We must escape backticks so they remain in the final SQL.
+HOURLY_UPDATE_SQL=$(cat << SQL_UPDATE_EOF
+INSERT INTO \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
 WITH RawEdges AS (
   SELECT
     e.trace_id, e.session_id,
@@ -598,11 +592,12 @@ WITH RawEdges AS (
     n_dst.total_input_tokens as input_tokens,
     n_dst.total_output_tokens as output_tokens,
     n_dst.service_name,
+    n_dst.node_description,
     n_dst.start_time
-  FROM `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_edges` e
-  JOIN `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_nodes` n_dst
+  FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_edges\` e
+  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_dst
     ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
-  JOIN `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_nodes` n_src
+  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
     ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
   WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
     AND n_dst.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
@@ -625,7 +620,7 @@ CostPaths AS (
 ),
 -- Deduplicate: skip buckets that were already processed
 ExistingBuckets AS (
-  SELECT DISTINCT time_bucket FROM `<PROJECT_ID>.<GRAPH_DATASET>.agent_graph_hourly`
+  SELECT DISTINCT time_bucket FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
   WHERE time_bucket >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
 ),
 NewPaths AS (
@@ -655,7 +650,7 @@ SELECT
   SUM(edge_error_count) AS node_error_count,
   SUM(call_count) AS node_call_count,
   ROUND(SUM(span_cost), 6) AS node_total_cost,
-  target_id AS node_description,
+  ANY_VALUE(node_description) AS node_description,
   SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
   -- Downstream rollup (populated with direct values; full rollup computed at query time)
@@ -667,7 +662,38 @@ SELECT
   ANY_VALUE(service_name) AS service_name
 FROM NewPaths
 GROUP BY time_bucket, source_id, target_id, source_type, target_type;
-SCHEDULED_QUERY_EOF
+SQL_UPDATE_EOF
+)
+
+# Check if scheduled query already exists
+CONFIG_NAME="Agent Graph Hourly Refresh"
+EXISTING_CONFIG=$(bq ls --transfer_config --project_id="$PROJECT_ID" --transfer_location=US --format=prettyjson | jq -r ".[] | select(.displayName == \"$CONFIG_NAME\") | .name" || true)
+
+if [[ -z "$EXISTING_CONFIG" ]]; then
+  echo "🔹 Creating scheduled query: $CONFIG_NAME..."
+
+  # Construct params JSON string safely using jq
+  PARAMS=$(jq -n --arg q "$HOURLY_UPDATE_SQL" '{"query": $q}')
+
+  bq mk --transfer_config \
+    --project_id="$PROJECT_ID" \
+    --target_dataset="$GRAPH_DATASET" \
+    --display_name="$CONFIG_NAME" \
+    --schedule="every 1 hours" \
+    --data_source=scheduled_query \
+    --params="$PARAMS"
+
+  echo "✅ Scheduled query created."
+else
+  echo "✅ Scheduled query '$CONFIG_NAME' already exists ($EXISTING_CONFIG)."
+fi
+
+# Print the SQL for reference (optional but helpful)
+echo ""
+echo "Scheduled Query SQL for reference:"
+echo "---------------------------------------------------"
+echo "$HOURLY_UPDATE_SQL"
+echo "---------------------------------------------------"
 
 # 8. Create Agent Registry
 # This builds a statistical summary view specifically filtered for 'Agent' nodes.
