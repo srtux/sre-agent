@@ -385,6 +385,7 @@ async def get_topology(
                 SELECT
                     logical_node_id AS node_id,
                     ANY_VALUE(node_type) AS node_type,
+                    ANY_VALUE(node_description) AS node_description,
                     SUM(execution_count) AS execution_count,
                     SUM(COALESCE(total_input_tokens, 0)
                         + COALESCE(total_output_tokens, 0)) AS total_tokens,
@@ -448,6 +449,7 @@ async def get_topology(
                     "totalTokens": row.total_tokens or 0,
                     "errorCount": row.error_count or 0,
                     "avgDurationMs": round(row.avg_duration_ms or 0, 1),
+                    "description": getattr(row, "node_description", ""),
                 },
                 "position": {"x": 0, "y": 0},
             }
@@ -2179,6 +2181,7 @@ async def get_dashboard_sessions(
         query = f"""
             SELECT
                 session_id,
+                ANY_VALUE(user_id) AS user_id,
                 MIN(start_time) AS start_time,
                 COUNT(DISTINCT trace_id) AS turns,
                 ARRAY_AGG(trace_id ORDER BY start_time DESC LIMIT 1)[OFFSET(0)] AS latest_trace_id,
@@ -2218,6 +2221,7 @@ async def get_dashboard_sessions(
                 {
                     "timestamp": ts,
                     "sessionId": row.session_id or "unknown",
+                    "userId": getattr(row, "user_id", ""),
                     "turns": row.turns or 1,
                     "latestTraceId": row.latest_trace_id or "",
                     "totalTokens": row.total_tokens or 0,
@@ -2288,6 +2292,7 @@ async def get_dashboard_traces(
             SELECT
                 trace_id,
                 ANY_VALUE(session_id) AS session_id,
+                ANY_VALUE(user_id) AS user_id,
                 MIN(start_time) AS start_time,
                 SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS total_tokens,
                 COUNTIF(status_code = 'ERROR') AS error_count,
@@ -2325,6 +2330,7 @@ async def get_dashboard_traces(
                     "timestamp": ts,
                     "traceId": row.trace_id or "unknown",
                     "sessionId": row.session_id or "",
+                    "userId": getattr(row, "user_id", ""),
                     "totalTokens": row.total_tokens or 0,
                     "errorCount": row.error_count or 0,
                     "latencyMs": float(row.latency_ms or 0),

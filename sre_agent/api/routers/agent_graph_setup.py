@@ -303,6 +303,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
         "hourly",
         "backfill",
         "registries",
+        "scheduled_query",
     ]
     if step not in valid_steps:
         raise HTTPException(status_code=400, detail=f"Invalid schema step: {step}")
@@ -373,6 +374,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             SELECT
               span_id, parent_span_id AS parent_id, trace_id, start_time,
               JSON_VALUE(attributes, '$."gen_ai.conversation.id"') AS session_id,
+              JSON_VALUE(attributes, '$."user.id"') AS user_id,
               CAST(duration_nano AS FLOAT64) / 1000000.0 AS duration_ms,
               CASE status.code WHEN 0 THEN 'UNSET' WHEN 1 THEN 'OK' WHEN 2 THEN 'ERROR' ELSE CAST(status.code AS STRING) END AS status_code,
               status.message AS status_desc,
@@ -382,6 +384,15 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
               JSON_VALUE(attributes, '$."gen_ai.request.model"') AS request_model,
               JSON_VALUE(attributes, '$."gen_ai.response.finish_reasons"') AS finish_reasons,
               JSON_VALUE(attributes, '$."gen_ai.system"') AS system,
+              JSON_VALUE(attributes, '$."gen_ai.agent.id"') AS agent_id,
+              JSON_VALUE(attributes, '$."gen_ai.agent.version"') AS agent_version,
+              JSON_VALUE(attributes, '$."gen_ai.tool.id"') AS tool_id,
+              JSON_VALUE(attributes, '$."gen_ai.system_instructions"') AS system_instructions,
+              JSON_VALUE(attributes, '$."gen_ai.data_source.id"') AS data_source_id,
+              JSON_VALUE(attributes, '$."gen_ai.output.type"') AS output_type,
+              SAFE_CAST(JSON_VALUE(attributes, '$."gen_ai.request.temperature"') AS FLOAT64) AS request_temperature,
+              SAFE_CAST(JSON_VALUE(attributes, '$."gen_ai.request.top_p"') AS FLOAT64) AS request_top_p,
+              COALESCE(JSON_VALUE(attributes, '$."gen_ai.agent.description"'), JSON_VALUE(attributes, '$."gen_ai.tool.description"')) AS node_description,
               CASE WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'invoke_agent' THEN 'Agent' WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'execute_tool' THEN 'Tool' WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'generate_content' THEN 'LLM' ELSE 'Glue' END AS node_type,
               COALESCE(JSON_VALUE(attributes, '$."gen_ai.agent.name"'), JSON_VALUE(attributes, '$."gen_ai.tool.name"'), JSON_VALUE(attributes, '$."gen_ai.response.model"'), name) AS node_label,
               JSON_VALUE(resource.attributes, '$.\"service.name\"') AS service_name,
@@ -406,14 +417,14 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             sql = f"""
             CREATE OR REPLACE VIEW `{pd}.{gd}.agent_topology_nodes` AS
             SELECT trace_id, session_id, logical_node_id, ANY_VALUE(service_name) AS service_name,
-              ANY_VALUE(node_type) AS node_type, ANY_VALUE(node_label) AS node_label,
+              ANY_VALUE(node_type) AS node_type, ANY_VALUE(node_label) AS node_label, ANY_VALUE(node_description) AS node_description,
               COUNT(span_id) AS execution_count, SUM(duration_ms) AS total_duration_ms,
               SUM(input_tokens) AS total_input_tokens, SUM(output_tokens) AS total_output_tokens,
               COUNTIF(status_code = 'ERROR') AS error_count, MIN(start_time) AS start_time
             FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type != 'Glue' GROUP BY 1, 2, 3
             UNION ALL
             SELECT trace_id, session_id, 'User::session' AS logical_node_id, ANY_VALUE(service_name) AS service_name,
-              'User' AS node_type, 'session' AS node_label, APPROX_COUNT_DISTINCT(span_id) AS execution_count,
+              'User' AS node_type, 'session' AS node_label, 'End user session entry point' AS node_description, APPROX_COUNT_DISTINCT(span_id) AS execution_count,
               SUM(duration_ms) AS total_duration_ms, SUM(input_tokens) AS total_input_tokens,
               SUM(output_tokens) AS total_output_tokens, COUNTIF(status_code = 'ERROR') AS error_count, MIN(start_time) AS start_time
             FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type = 'Agent'
@@ -515,7 +526,8 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             WITH RawEdges AS (
               SELECT e.trace_id, e.session_id, TIMESTAMP_TRUNC(n_dst.start_time, HOUR) as time_bucket, e.source_node_id as source_id, n_src.node_type as source_type,
                 e.destination_node_id as target_id, n_dst.node_type as target_type, e.edge_weight as call_count, e.total_duration_ms, e.total_tokens,
-                e.error_count as edge_error_count, n_dst.total_input_tokens as input_tokens, n_dst.total_output_tokens as output_tokens, n_dst.service_name, n_dst.start_time
+                e.error_count as edge_error_count, n_dst.total_input_tokens as input_tokens, n_dst.total_output_tokens as output_tokens, n_dst.service_name, n_dst.start_time,
+                n_dst.node_description
               FROM `{pd}.{gd}.agent_topology_edges` e
               JOIN `{pd}.{gd}.agent_topology_nodes` n_dst ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
               LEFT JOIN `{pd}.{gd}.agent_topology_nodes` n_src ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
@@ -523,22 +535,28 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             ),
             CostPaths AS (
               SELECT re.*, COALESCE(input_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.00000015 WHEN target_id LIKE '%2.5-pro%' THEN 0.00000125 WHEN target_id LIKE '%1.5-pro%' THEN 0.00000125 ELSE 0.0000005 END + COALESCE(output_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.0000006 WHEN target_id LIKE '%2.5-pro%' THEN 0.00001 WHEN target_id LIKE '%1.5-pro%' THEN 0.000005 ELSE 0.000002 END AS span_cost
-              FROM CostPaths
+              FROM RawEdges re
             )
-            SELECT time_bucket, source_id, target_id, source_type, target_type, SUM(call_count) AS call_count, SUM(edge_error_count) AS error_count, SUM(total_tokens) AS edge_tokens, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, ROUND(SUM(span_cost), 6) AS total_cost, SUM(total_duration_ms) AS sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms, APPROX_COUNT_DISTINCT(session_id) AS unique_sessions, CAST(NULL AS STRING) AS sample_error, SUM(total_tokens) AS node_total_tokens, SUM(input_tokens) AS node_input_tokens, SUM(output_tokens) AS node_output_tokens, SUM(edge_error_count) > 0 AS node_has_error, SUM(total_duration_ms) AS node_sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms, SUM(edge_error_count) AS node_error_count, SUM(call_count) AS node_call_count, ROUND(SUM(span_cost), 6) AS node_total_cost, target_id AS node_description, SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens, ROUND(SUM(span_cost), 6) AS downstream_total_cost, SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count, ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids, ANY_VALUE(service_name) AS service_name
+            SELECT time_bucket, source_id, target_id, source_type, target_type, SUM(call_count) AS call_count, SUM(edge_error_count) AS error_count, SUM(total_tokens) AS edge_tokens, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, ROUND(SUM(span_cost), 6) AS total_cost, SUM(total_duration_ms) AS sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms, APPROX_COUNT_DISTINCT(session_id) AS unique_sessions, CAST(NULL AS STRING) AS sample_error, SUM(total_tokens) AS node_total_tokens, SUM(input_tokens) AS node_input_tokens, SUM(output_tokens) AS node_output_tokens, SUM(edge_error_count) > 0 AS node_has_error, SUM(total_duration_ms) AS node_sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms, SUM(edge_error_count) AS node_error_count, SUM(call_count) AS node_call_count, ROUND(SUM(span_cost), 6) AS node_total_cost, ANY_VALUE(node_description) AS node_description, SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens, ROUND(SUM(span_cost), 6) AS downstream_total_cost, SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count, ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids, ANY_VALUE(service_name) AS service_name
             FROM CostPaths GROUP BY time_bucket, source_id, target_id, source_type, target_type;
             """
             run_query(sql)
             return {"status": "success", "message": "Backfilled agent_graph_hourly."}
 
-        elif step == "registries":
             sql1 = f"""
             CREATE OR REPLACE VIEW `{pd}.{gd}.agent_registry` AS
             WITH ParsedAgents AS (
-              SELECT trace_id, session_id, TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket, service_name, logical_node_id, duration_ms, input_tokens, output_tokens, status_code, node_label, node_type
+              SELECT trace_id, session_id, TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket, service_name, logical_node_id, duration_ms, input_tokens, output_tokens, status_code, node_label, node_type, resource_id, node_description
               FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type = 'Agent'
             )
-            SELECT time_bucket, service_name, logical_node_id AS agent_id, ANY_VALUE(node_label) AS agent_name, APPROX_COUNT_DISTINCT(session_id) AS total_sessions, COUNT(*) AS total_turns, SUM(input_tokens) AS total_input_tokens, SUM(output_tokens) AS total_output_tokens, COUNTIF(status_code = 'ERROR') AS error_count, APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50_duration_ms, APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
+            SELECT
+              time_bucket, service_name, logical_node_id AS agent_id, ANY_VALUE(resource_id) AS engine_id,
+              ANY_VALUE(node_label) AS agent_name, ANY_VALUE(node_description) AS description,
+              APPROX_COUNT_DISTINCT(session_id) AS total_sessions, COUNT(*) AS total_turns,
+              SUM(input_tokens) AS total_input_tokens, SUM(output_tokens) AS total_output_tokens,
+              COUNTIF(status_code = 'ERROR') AS error_count,
+              APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50_duration_ms,
+              APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
             FROM ParsedAgents GROUP BY time_bucket, service_name, agent_id;
             """
             run_query(sql1)
@@ -554,6 +572,95 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             """
             run_query(sql2)
             return {"status": "success", "message": "Created registries."}
+
+        elif step == "scheduled_query":
+            import json
+            import subprocess
+
+            # Define the SQL for the scheduled query (incremental hourly update)
+            hourly_sql = f"""
+            INSERT INTO `{pd}.{gd}.agent_graph_hourly`
+            WITH RawEdges AS (
+              SELECT e.trace_id, e.session_id, TIMESTAMP_TRUNC(n_dst.start_time, HOUR) as time_bucket, e.source_node_id as source_id, n_src.node_type as source_type,
+                e.destination_node_id as target_id, n_dst.node_type as target_type, e.edge_weight as call_count, e.total_duration_ms, e.total_tokens,
+                e.error_count as edge_error_count, n_dst.total_input_tokens as input_tokens, n_dst.total_output_tokens as output_tokens, n_dst.service_name, n_dst.start_time,
+                n_dst.node_description
+              FROM `{pd}.{gd}.agent_topology_edges` e
+              JOIN `{pd}.{gd}.agent_topology_nodes` n_dst ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
+              JOIN `{pd}.{gd}.agent_topology_nodes` n_src ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
+              WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+                AND n_dst.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
+            ),
+            CostPaths AS (
+              SELECT re.*, COALESCE(input_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.00000015 WHEN target_id LIKE '%2.5-pro%' THEN 0.00000125 WHEN target_id LIKE '%1.5-pro%' THEN 0.00000125 ELSE 0.0000005 END + COALESCE(output_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.0000006 WHEN target_id LIKE '%2.5-pro%' THEN 0.00001 WHEN target_id LIKE '%1.5-pro%' THEN 0.000005 ELSE 0.000002 END AS span_cost
+              FROM RawEdges re
+            ),
+            ExistingBuckets AS (
+              SELECT DISTINCT time_bucket FROM `{pd}.{gd}.agent_graph_hourly`
+              WHERE time_bucket >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+            ),
+            NewPaths AS (
+              SELECT cp.* FROM CostPaths cp
+              LEFT JOIN ExistingBuckets eb ON cp.time_bucket = eb.time_bucket
+              WHERE eb.time_bucket IS NULL
+            )
+            SELECT time_bucket, source_id, target_id, source_type, target_type, SUM(call_count) AS call_count, SUM(edge_error_count) AS error_count, SUM(total_tokens) AS edge_tokens, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, ROUND(SUM(span_cost), 6) AS total_cost, SUM(total_duration_ms) AS sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms, COUNT(DISTINCT session_id) AS unique_sessions, CAST(NULL AS STRING) AS sample_error, SUM(total_tokens) AS node_total_tokens, SUM(input_tokens) AS node_input_tokens, SUM(output_tokens) AS node_output_tokens, SUM(edge_error_count) > 0 AS node_has_error, SUM(total_duration_ms) AS node_sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms, SUM(edge_error_count) AS node_error_count, SUM(call_count) AS node_call_count, ROUND(SUM(span_cost), 6) AS node_total_cost, ANY_VALUE(node_description) AS node_description, SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens, ROUND(SUM(span_cost), 6) AS downstream_total_cost, SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count, ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids, ANY_VALUE(service_name) AS service_name
+            FROM NewPaths GROUP BY time_bucket, source_id, target_id, source_type, target_type;
+            """
+
+            config_name = "Agent Graph Hourly Refresh"
+            # Check if it already exists using bq ls
+            try:
+                ls_cmd = [
+                    "bq",
+                    "ls",
+                    "--transfer_config",
+                    f"--project_id={pd}",
+                    "--transfer_location=US",
+                    "--format=json",
+                ]
+                ls_proc = subprocess.run(
+                    ls_cmd, capture_output=True, text=True, check=True
+                )
+                configs = json.loads(ls_proc.stdout)
+                for config in configs:
+                    if config.get("displayName") == config_name:
+                        return {
+                            "status": "success",
+                            "message": f"Scheduled query '{config_name}' already exists.",
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to check for existing scheduled query: {e}")
+
+            # Create it
+            params = json.dumps({"query": hourly_sql})
+            mk_cmd = [
+                "bq",
+                "mk",
+                "--transfer_config",
+                f"--project_id={pd}",
+                f"--target_dataset={gd}",
+                f"--display_name={config_name}",
+                "--schedule=every 1 hours",
+                "--data_source=scheduled_query",
+                f"--params={params}",
+            ]
+            try:
+                subprocess.run(mk_cmd, capture_output=True, text=True, check=True)
+                return {
+                    "status": "success",
+                    "message": f"Created scheduled query: {config_name}",
+                }
+            except subprocess.CalledProcessError as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to create scheduled query via bq CLI: {e.stderr}",
+                ) from e
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unexpected error creating scheduled query: {e!s}",
+                ) from e
 
         return {"status": "error", "message": f"Step {step} not implemented."}
 
