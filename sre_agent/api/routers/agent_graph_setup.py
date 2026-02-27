@@ -49,7 +49,7 @@ def _get_auth_token() -> str:
             raise HTTPException(
                 status_code=401, detail="Failed to obtain Google Cloud access token."
             )
-        return credentials.token  # type: ignore
+        return str(credentials.token)
     except DefaultCredentialsError as exc:
         raise HTTPException(
             status_code=401, detail="Google Cloud credentials not found."
