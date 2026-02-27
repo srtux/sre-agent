@@ -4,6 +4,22 @@ import { useAgentContext } from '../../contexts/AgentContext'
 import { Search, RotateCcw } from 'lucide-react'
 import LogsHistogram from './LogsHistogram'
 import VirtualLogTable from './VirtualLogTable'
+import Editor from 'react-simple-code-editor'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-core'
+import 'prismjs/components/prism-clike'
+import 'prismjs/components/prism-javascript'
+import 'prismjs/themes/prism-tomorrow.css'
+
+// Custom logging filter grammar for Prism based on typical GCP structures + keywords
+Prism.languages.logquery = {
+  keyword: /\b(AND|OR|NOT)\b/i,
+  string: /(["'])(?:\\(?:\r\n|[\s\S])|(?!\1)[^\\\r\n])*\1/,
+  property: /\b[a-zA-Z_][a-zA-Z0-9_\.]*\b(?=\s*(=|!=|>=|<=|>|<|:))/,
+  operator: /=|!=|>=|<=|>|<|:/,
+  boolean: /\b(true|false)\b/i,
+  number: /\b\d+(?:\.\d+)?\b/
+}
 
 interface AgentLogsPageProps {
   /** Time range in hours from the top-level filter */
@@ -62,16 +78,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '8px',
     borderRadius: '8px',
     border: '1px solid #334155',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   searchInput: {
     flex: 1,
     background: 'transparent',
-    border: 'none',
     color: '#E2E8F0',
     fontSize: '13px',
     fontFamily: "'JetBrains Mono', monospace",
-    outline: 'none',
+    minHeight: '36px',
+    border: 'none',
   },
   actionButton: {
     background: '#1E293B',
@@ -167,15 +183,30 @@ export default function AgentLogsPage({ hours, severity = [] }: AgentLogsPagePro
     <div style={styles.container}>
       {/* Query box */}
       <div style={styles.queryBar}>
-        <Search size={16} color="#475569" />
-        <input
-          type="text"
-          value={queryText}
-          onChange={(e) => setQueryText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
-          placeholder="Filter logs (e.g. severity=ERROR AND textPayload:timeout)"
-          style={styles.searchInput}
-        />
+        <Search size={16} color="#475569" style={{ marginTop: '8px' }} />
+        <div style={styles.searchInput}>
+          <Editor
+            value={queryText}
+            onValueChange={setQueryText}
+            highlight={(code) => Prism.highlight(code, Prism.languages.logquery, 'logquery')}
+            padding={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            placeholder='Filter logs (e.g. severity="ERROR" AND textPayload:timeout)'
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '13px',
+              backgroundColor: 'transparent',
+              outline: 'none',
+              minHeight: '32px',
+            }}
+            textareaClassName="log-query-textarea"
+            onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement | HTMLDivElement>) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleLoad()
+              }
+            }}
+          />
+        </div>
         <button
           onClick={handleLoad}
           disabled={logsQuery.isFetching}
