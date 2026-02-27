@@ -33,15 +33,15 @@ interface VirtualLogTableProps {
 function formatTimestamp(ts: string): string {
   const d = new Date(ts)
   if (isNaN(d.getTime())) return ts
-  const base = d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const ms = String(d.getMilliseconds()).padStart(3, '0')
-  return `${base}.${ms}`
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const M = pad(d.getMonth() + 1)
+  const D = pad(d.getDate())
+  const h = pad(d.getHours())
+  const m = pad(d.getMinutes())
+  const s = pad(d.getSeconds())
+
+  return `${M}-${D} ${h}:${m}:${s}`
 }
 
 function getPayloadPreview(entry: LogEntry): string {
@@ -74,7 +74,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   header: {
     display: 'grid',
-    gridTemplateColumns: '28px 80px 140px 1fr',
+    gridTemplateColumns: '28px 120px 70px 1fr',
     alignItems: 'center',
     padding: '0 12px',
     height: '32px',
@@ -93,7 +93,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   row: {
     display: 'grid',
-    gridTemplateColumns: '28px 80px 140px 1fr',
+    gridTemplateColumns: '28px 120px 70px 1fr',
     alignItems: 'center',
     padding: '0 12px',
     height: `${COLLAPSED_HEIGHT}px`,
@@ -213,8 +213,8 @@ export default function VirtualLogTable({
       {/* Header */}
       <div style={styles.header}>
         <span />
-        <span>Severity</span>
         <span>Timestamp</span>
+        <span>Severity</span>
         <span>Message</span>
       </div>
 
@@ -274,11 +274,11 @@ export default function VirtualLogTable({
                       <ChevronRight size={14} color="#475569" />
                     )}
                   </span>
+                  <span style={styles.timestamp}>{formatTimestamp(entry.timestamp)}</span>
                   <span style={{ ...styles.severityBadge, color: sevColor }}>
                     <span style={{ ...styles.severityDot, background: sevColor, marginRight: '6px' }} />
                     {entry.severity}
                   </span>
-                  <span style={styles.timestamp}>{formatTimestamp(entry.timestamp)}</span>
                   <span style={styles.preview}>{getPayloadPreview(entry)}</span>
                 </div>
 

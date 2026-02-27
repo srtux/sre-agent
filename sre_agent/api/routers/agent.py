@@ -456,7 +456,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         )
 
     access_token = creds.token if creds and hasattr(creds, "token") else None
-    effective_project_id = get_current_project_id() or request.project_id
+    effective_project_id = request.project_id or get_current_project_id()
 
     # Log auth context
     logger.info(

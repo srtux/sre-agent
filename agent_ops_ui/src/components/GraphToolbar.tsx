@@ -20,11 +20,11 @@ const styles: Record<string, React.CSSProperties> = {
   bar: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
-    padding: '12px 24px',
+    gap: '12px',
+    padding: '8px 24px',
     background: 'rgba(30, 41, 59, 0.4)',
     backdropFilter: 'blur(10px)',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     borderRadius: '16px',
     margin: '16px 24px',
     border: '1px solid rgba(255, 255, 255, 0.05)',
@@ -134,7 +134,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '8px 12px',
+    padding: '0 12px',
     fontSize: '13px',
     color: '#F0F4F8',
     cursor: 'pointer',
@@ -389,7 +389,6 @@ export default function GraphToolbar({
         }
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#78909C', fontWeight: 500 }}>Severity</span>
             {severities.map((sev) => {
               const isActive = current.includes(sev)
               const c = sevColors[sev]

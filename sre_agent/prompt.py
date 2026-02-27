@@ -13,7 +13,7 @@ STRICT_ENGLISH_INSTRUCTION = """
 
 PROJECT_CONTEXT_INSTRUCTION = """
 <project_context>
-Scope all queries to the `[CURRENT PROJECT: <project_id>]` provided in the user message.
+Scope all queries to the project ID specified in the `[CURRENT PROJECT: ...]` tag provided in the user message.
 If no project ID is provided, check tool outputs or ask for clarification.
 </project_context>
 """
