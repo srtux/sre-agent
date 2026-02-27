@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
-import { useAgentLogs, useLogsHistogram } from '../../hooks/useAgentLogs'
+import { useMemo, useState, useEffect } from 'react'
+import { useAgentLogs, useLogsHistogram, buildFilter } from '../../hooks/useAgentLogs'
 import { useAgentContext } from '../../contexts/AgentContext'
+import { Search, RotateCcw } from 'lucide-react'
 import LogsHistogram from './LogsHistogram'
 import VirtualLogTable from './VirtualLogTable'
 
@@ -23,6 +24,9 @@ const styles: Record<string, React.CSSProperties> = {
     right: 0,
     bottom: 0,
     overflow: 'hidden',
+    padding: '12px',
+    boxSizing: 'border-box',
+    gap: '12px',
   },
   skeleton: {
     background: 'linear-gradient(90deg, #1E293B 25%, #334155 50%, #1E293B 75%)',
@@ -48,9 +52,39 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
-    padding: '4px 0',
     fontSize: '12px',
     color: '#78909C',
+  },
+  queryBar: {
+    display: 'flex',
+    gap: '8px',
+    background: '#0F172A',
+    padding: '8px',
+    borderRadius: '8px',
+    border: '1px solid #334155',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    color: '#E2E8F0',
+    fontSize: '13px',
+    fontFamily: "'JetBrains Mono', monospace",
+    outline: 'none',
+  },
+  actionButton: {
+    background: '#1E293B',
+    border: '1px solid #334155',
+    borderRadius: '4px',
+    padding: '4px 8px',
+    color: '#94A3B8',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '12px',
+    transition: 'all 0.2s',
   },
 }
 
@@ -69,15 +103,54 @@ function hoursToMinutes(hours: number): number {
 }
 
 export default function AgentLogsPage({ hours, severity = [] }: AgentLogsPageProps) {
-  const { projectId, serviceName } = useAgentContext()
+  const { projectId, serviceName, availableAgents } = useAgentContext()
   const minutesAgo = hoursToMinutes(hours)
 
-  // Map serviceName from top-level agent selector to agentId for the hook.
-  // Empty serviceName = 'all' agents.
-  const agentId = serviceName || 'all'
+  // Map serviceName from top-level agent selector to reasoning_engine_id for the filter.
+  // We find the agent in the registry to get its actual engine ID.
+  const selectedAgentId = useMemo(() => {
+    if (!serviceName || serviceName === 'all') return 'all'
+    const agent = availableAgents.find((a) => a.serviceName === serviceName)
+    // Preference actual engine mapping first, but fallback to serviceName for standalone containers
+    return agent?.engineId || agent?.agentId || serviceName
+  }, [serviceName, availableAgents])
 
-  const logsQuery = useAgentLogs({ agentId, severity, projectId, minutesAgo })
-  const histoQuery = useLogsHistogram({ agentId, severity, projectId, minutesAgo })
+  const initialFilter = useMemo(() => {
+    return buildFilter({
+      agentId: selectedAgentId,
+      severity,
+      projectId,
+      minutesAgo,
+    })
+  }, [selectedAgentId, severity, projectId, minutesAgo])
+
+  const [queryText, setQueryText] = useState(initialFilter)
+  const [activeFilter, setActiveFilter] = useState(initialFilter)
+
+  // Update query text when dropdown filters change
+  useEffect(() => {
+    setQueryText(initialFilter)
+    setActiveFilter(initialFilter)
+  }, [initialFilter])
+
+  const handleLoad = () => {
+    setActiveFilter(queryText)
+  }
+
+  const logsQuery = useAgentLogs({
+    agentId: selectedAgentId,
+    severity,
+    projectId,
+    minutesAgo,
+    filterOverride: activeFilter,
+  })
+  const histoQuery = useLogsHistogram({
+    agentId: selectedAgentId,
+    severity,
+    projectId,
+    minutesAgo,
+    filterOverride: activeFilter,
+  })
 
   const entries = useMemo(
     () => logsQuery.data?.pages.flatMap((p) => p.entries) ?? [],
@@ -92,8 +165,46 @@ export default function AgentLogsPage({ hours, severity = [] }: AgentLogsPagePro
 
   return (
     <div style={styles.container}>
+      {/* Query box */}
+      <div style={styles.queryBar}>
+        <Search size={16} color="#475569" />
+        <input
+          type="text"
+          value={queryText}
+          onChange={(e) => setQueryText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLoad()}
+          placeholder="Filter logs (e.g. severity=ERROR AND textPayload:timeout)"
+          style={styles.searchInput}
+        />
+        <button
+          onClick={handleLoad}
+          disabled={logsQuery.isFetching}
+          style={styles.actionButton}
+          onMouseOver={(e) => {
+            if (!logsQuery.isFetching) e.currentTarget.style.borderColor = '#06B6D4'
+          }}
+          onMouseOut={(e) => {
+            if (!logsQuery.isFetching) e.currentTarget.style.borderColor = '#334155'
+          }}
+        >
+          {logsQuery.isFetching ? 'Loading...' : 'Run'}
+        </button>
+        <button
+          onClick={() => {
+            setQueryText(initialFilter)
+            setActiveFilter(initialFilter)
+          }}
+          title="Reset to default filters"
+          style={{ ...styles.actionButton, padding: '4px' }}
+          onMouseOver={(e) => (e.currentTarget.style.borderColor = '#06B6D4')}
+          onMouseOut={(e) => (e.currentTarget.style.borderColor = '#334155')}
+        >
+          <RotateCcw size={14} />
+        </button>
+      </div>
+
       {/* Stats bar */}
-      <div style={styles.statsBar}>
+      <div style={{ ...styles.statsBar, padding: '4px 16px' }}>
         <span>
           {histoTotal > 0
             ? `${histoTotal.toLocaleString()} entries scanned`
@@ -102,6 +213,11 @@ export default function AgentLogsPage({ hours, severity = [] }: AgentLogsPagePro
               : 'No entries'}
         </span>
         {totalLoaded > 0 && <span>{totalLoaded.toLocaleString()} loaded</span>}
+        {activeFilter !== queryText && (
+          <span style={{ color: '#FACC15', marginLeft: 'auto', fontSize: '11px' }}>
+            Query changed. Click Load to refresh.
+          </span>
+        )}
       </div>
 
       {/* Histogram */}
@@ -123,7 +239,7 @@ export default function AgentLogsPage({ hours, severity = [] }: AgentLogsPagePro
 
       {/* Log table */}
       {isInitialLoad ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', padding: '0 16px' }}>
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={{ ...styles.skeleton, height: '36px' }} />
           ))}

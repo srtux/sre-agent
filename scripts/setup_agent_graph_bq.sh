@@ -716,7 +716,8 @@ WITH ParsedAgents AS (
     status_code,
     node_label,
     node_description,
-    node_type
+    node_type,
+    resource_id
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
   WHERE node_type = 'Agent'
 )
@@ -724,6 +725,7 @@ SELECT
   time_bucket,
   service_name,
   logical_node_id AS agent_id,
+  ANY_VALUE(resource_id) AS engine_id,
   ANY_VALUE(node_label) AS agent_name,
   ANY_VALUE(node_description) AS description,
   APPROX_COUNT_DISTINCT(session_id) AS total_sessions,

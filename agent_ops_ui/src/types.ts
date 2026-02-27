@@ -177,6 +177,7 @@ export interface TraceLogsData {
 export interface RegistryAgent {
   serviceName: string
   agentId: string
+  engineId?: string
   agentName: string
   description?: string
   totalSessions: number
@@ -221,6 +222,7 @@ export interface LogEntry {
   trace_id?: string | null
   span_id?: string | null
   http_request?: Record<string, unknown> | null
+  raw?: Record<string, unknown>
 }
 
 export interface QueryLogsParams {

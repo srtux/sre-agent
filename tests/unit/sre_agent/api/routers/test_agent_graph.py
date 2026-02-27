@@ -1453,6 +1453,7 @@ class TestRegistryEndpoints:
         mock_row = MagicMock()
         mock_row.service_name = "test-service"
         mock_row.agent_id = "Agent::test-agent"
+        mock_row.engine_id = "12345"
         mock_row.agent_name = "test-agent"
         mock_row.total_sessions = 10
         mock_row.total_turns = 50
@@ -1476,6 +1477,7 @@ class TestRegistryEndpoints:
         agent = data["agents"][0]
         assert agent["serviceName"] == "test-service"
         assert agent["agentId"] == "Agent::test-agent"
+        assert agent["engineId"] == "12345"
         assert agent["agentName"] == "test-agent"
         assert agent["totalSessions"] == 10
         assert agent["errorRate"] == 0.04

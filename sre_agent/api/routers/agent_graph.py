@@ -1399,6 +1399,7 @@ async def get_agent_registry(
             SELECT
                 service_name,
                 agent_id,
+                ANY_VALUE(engine_id) AS engine_id,
                 ANY_VALUE(agent_name) AS agent_name,
                 ANY_VALUE(description) AS description,
                 SUM(total_sessions) AS total_sessions,
@@ -1426,6 +1427,7 @@ async def get_agent_registry(
                 {
                     "serviceName": row.service_name,
                     "agentId": row.agent_id,
+                    "engineId": row.engine_id,
                     "agentName": row.agent_name,
                     "description": row.description,
                     "totalSessions": row.total_sessions or 0,
