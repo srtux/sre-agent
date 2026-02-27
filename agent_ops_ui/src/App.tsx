@@ -528,8 +528,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                 <>
                   {sankeyData ? (
                     <TrajectorySankey
-                      data={sankeyData}
-                      errorsOnly={filters.errorsOnly}
+                        data={sankeyData}
                       onNodeClick={(nodeId) => setSelected({ kind: 'node', id: nodeId })}
                     />
                   ) : (

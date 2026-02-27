@@ -87,10 +87,16 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
                 _HEALTH_SUCCESS_LOGGED = False
 
         if should_log:
-            logger.info(
+            log_msg = (
                 f"🌐 Request End: {request.method} {request.url.path} - {response.status_code} "
                 f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]{trace_info}"
             )
+            if response.status_code >= 500:
+                logger.error(log_msg)
+            elif response.status_code >= 400:
+                logger.warning(log_msg)
+            else:
+                logger.info(log_msg)
 
         # 5. Inject back into response headers for client visibility
         response.headers["X-Correlation-ID"] = correlation_id

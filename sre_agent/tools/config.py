@@ -407,6 +407,27 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=False,
     ),
     ToolConfig(
+        name="query_historical_trajectories",
+        display_name="Query Historical Trajectories",
+        description="Query historical reasoning trajectories using BigQuery GQL",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="find_successful_strategy",
+        display_name="Find Successful Strategy",
+        description="Query historical BigQuery Graph to find successful investigation paths",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="find_past_mistakes",
+        display_name="Find Past Mistakes",
+        description="Query historical BigQuery Graph to find failed investigation paths",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
         name="compare_time_periods",
         display_name="Compare Time Periods",
         description="Compare metrics between two time periods",

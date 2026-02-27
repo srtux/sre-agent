@@ -58,6 +58,23 @@ vi.mock('./SpanDetailsView', () => ({
   ),
 }))
 
+vi.mock('../graph/ContextGraphViewer', () => ({
+  default: ({ sessionId }: any) => (
+    <div data-testid="context-graph-viewer">
+      ContextGraphViewer for {sessionId}
+    </div>
+  ),
+}))
+
+vi.mock('../graph/ContextInspector', () => ({
+  default: ({ nodeId, onClose }: any) => (
+    <div data-testid="context-inspector">
+      ContextInspector for {nodeId}
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}))
+
 describe('AgentTracesPage', () => {
   const mockPostMessage = vi.fn()
 

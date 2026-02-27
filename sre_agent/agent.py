@@ -174,8 +174,10 @@ from .tools import (
     find_example_traces,
     find_exemplar_traces,
     find_hidden_dependencies,
+    find_past_mistakes,
     find_similar_past_incidents,
     find_structural_differences,
+    find_successful_strategy,
     # Remediation & Postmortem
     generate_postmortem,
     generate_remediation_suggestions,
@@ -216,6 +218,8 @@ from .tools import (
     # SLO prediction
     predict_slo_violation,
     query_data_agent,
+    # BigQuery Graph Tools
+    query_historical_trajectories,
     query_promql,
     reconstruct_agent_interaction,
     # Research tools
@@ -1139,6 +1143,10 @@ TOOL_NAME_MAP = {
     "detect_all_sre_patterns": detect_all_sre_patterns,
     "analyze_log_anomalies": analyze_log_anomalies,
     "analyze_bigquery_log_patterns": analyze_bigquery_log_patterns,
+    # BigQuery Graph
+    "query_historical_trajectories": query_historical_trajectories,
+    "find_successful_strategy": find_successful_strategy,
+    "find_past_mistakes": find_past_mistakes,
     # Root Cause
     "detect_cascading_timeout": detect_cascading_timeout,
     "detect_retry_storm": detect_retry_storm,

@@ -3,6 +3,8 @@
 import logging
 from typing import Annotated, Any
 
+from opentelemetry import trace
+
 from sre_agent.memory.factory import get_memory_manager
 from sre_agent.schema import BaseToolResponse, InvestigationPhase, ToolStatus
 from sre_agent.tools.common.decorators import adk_tool
@@ -106,6 +108,26 @@ async def update_investigation_state(
 
         # Apply updates
         current_state.update(updates)
+
+        # Calculate and inject score into span
+        try:
+            from sre_agent.models.investigation import InvestigationState
+
+            current_state_model = InvestigationState.from_dict(current_state)
+            score = current_state_model.calculate_score()
+            current_state["investigation_score"] = score
+
+            span = trace.get_current_span()
+            if span.is_recording():
+                span.set_attribute("sre.investigation.score", score)
+                span.set_attribute(
+                    "sre.investigation.phase", current_state.get("phase", "")
+                )
+                root_cause = current_state.get("confirmed_root_cause")
+                if root_cause:
+                    span.set_attribute("sre.investigation.root_cause", root_cause)
+        except Exception as e:
+            logger.warning(f"Failed to calculate investigation score: {e}")
 
         # Persist session
         from sre_agent.services import get_session_service

@@ -17,7 +17,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import type { TopologyNode, TopologyEdge, TimeSeriesData, TimeSeriesPoint } from '../types'
+import type { TopologyNode, TimeSeriesData, TimeSeriesPoint } from '../types'
 import Sparkline, { SPARK_H, extractSparkSeries, sparkColor } from './Sparkline'
 import { GraphTopologyHelper } from '../utils/topology'
 import BackEdge from './BackEdge'
@@ -472,12 +472,18 @@ function mapNodeType(nodeType: string, label: string): string {
 }
 
 interface TopologyGraphProps {
-  nodes: TopologyNode[]
-  edges: TopologyEdge[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  nodes: any[] // Accepts both TopologyNode and React Flow Node types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  edges: any[] // Accepts both TopologyEdge and React Flow Edge types
   sparklineData?: TimeSeriesData | null
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
   selectedNodeId?: string | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customNodeTypes?: Record<string, React.ComponentType<any>>
+  children?: React.ReactNode
+  onPaneClick?: () => void
 }
 
 export default function TopologyGraph({
@@ -486,7 +492,10 @@ export default function TopologyGraph({
   sparklineData,
   onNodeClick,
   onEdgeClick,
-  selectedNodeId
+  selectedNodeId,
+  customNodeTypes,
+  children,
+  onPaneClick
 }: TopologyGraphProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('vertical')
@@ -584,7 +593,7 @@ export default function TopologyGraph({
 
       return {
         id: n.id,
-        type: mapNodeType(n.data.nodeType, n.data.label),
+        type: (customNodeTypes && n.type in customNodeTypes) ? n.type : mapNodeType(n.data?.nodeType, n.data?.label || ''),
         data: {
           ...n.data,
           _layoutMode: layoutMode,
@@ -613,7 +622,7 @@ export default function TopologyGraph({
         position: n.position,
       }
     })
-  }, [nodes, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath, layoutMode])
+  }, [nodes, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath, layoutMode, customNodeTypes])
 
   const toReactFlowEdges = useCallback((): Edge[] => {
     const visibleGraph = topology.getVisibleGraph(expandedIds)
@@ -621,16 +630,18 @@ export default function TopologyGraph({
 
     let maxCalls = 1
     for (const e of allVisibleEdges) {
-      if (e.data.callCount > maxCalls) maxCalls = e.data.callCount
+      const calls = e.data?.callCount ?? 1
+      if (calls > maxCalls) maxCalls = calls
     }
 
     return allVisibleEdges.map((e) => {
-      const hasErrors = e.data.errorCount > 0
+      const hasErrors = (e.data?.errorCount ?? 0) > 0
       const isBackEdge = topology.backEdgePairs.has(`${e.source}->${e.target}`)
 
       const isDimmed = selectedNodeId != null && (!highlightedPath.has(e.source) || !highlightedPath.has(e.target))
 
-      const rawThickness = e.data.callCount / maxCalls
+      const calls = e.data?.callCount ?? 1
+      const rawThickness = calls / maxCalls
       const strokeWidth = 1.5 + (rawThickness * 3) // Scale from 1.5px to 4.5px
 
       return {
@@ -646,7 +657,7 @@ export default function TopologyGraph({
           opacity: isDimmed ? 0.2 : 1.0,
           transition: 'opacity 0.3s ease',
         },
-        label: `${e.data.callCount} calls`,
+        label: e.data?.callCount !== undefined ? `${calls} calls` : undefined,
         labelStyle: { fill: '#78909C', fontSize: 11, opacity: isDimmed ? 0.2 : 1.0, fontFamily: "'JetBrains Mono', monospace" },
         labelBgStyle: { fill: '#0F172A', fillOpacity: isDimmed ? 0.2 : 0.8 },
         labelBgPadding: [4, 2] as [number, number],
@@ -701,6 +712,11 @@ export default function TopologyGraph({
     [onEdgeClick],
   )
 
+  // Use merged node types
+  const allNodeTypes = useMemo(() => {
+    return { ...nodeTypes, ...customNodeTypes }
+  }, [customNodeTypes])
+
   return (
     <div style={{ width: '100%', height: '100%', background: '#0F172A', position: 'relative' }}>
       <ReactFlow
@@ -710,13 +726,15 @@ export default function TopologyGraph({
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
-        nodeTypes={nodeTypes}
+        onPaneClick={onPaneClick}
+        nodeTypes={allNodeTypes}
         edgeTypes={edgeTypes}
         onInit={setRfInstance}
         fitView
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
       >
+        {children}
         <Background color="#334155" gap={20} />
         <Panel position="top-left" style={{ margin: 16, background: '#1E293B', border: '1px solid #334155', borderRadius: '8px', padding: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
           <span style={{ fontSize: '13px', color: '#94A3B8', fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: '6px' }}>

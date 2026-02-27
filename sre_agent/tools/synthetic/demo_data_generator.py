@@ -1446,6 +1446,121 @@ class DemoDataGenerator:
 
         return {"series": series}
 
+    def get_context_graph(self, session_id: str) -> dict[str, Any]:
+        """Synthesize a complex Context Graph for the UI from session traces.
+
+        Matches the { nodes: ContextNode[], edges: ContextEdge[] } format expected by ContextGraphViewer.
+        """
+        traces = [t for t in self.get_all_traces() if t["session_id"] == session_id]
+        if not traces:
+            return {"nodes": [], "edges": []}
+
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        # Start with an incident node dynamically located around the beginning of the session
+        session_start = traces[0]["timestamp"]
+        nodes.append(
+            {
+                "id": "inc-0",
+                "type": "INCIDENT",
+                "label": "Incident Detected: Shopping Cart Abandonment Anomaly",
+                "timestamp": (session_start - timedelta(minutes=5)).strftime(
+                    "%Y-%m-%dT%H:%M:%S.%fZ"
+                ),
+                "metadata": {"duration": 0},
+            }
+        )
+
+        last_main_id = "inc-0"
+        node_idx = 1
+
+        # Sort traces by time
+        traces.sort(key=lambda x: x["timestamp"])
+
+        for trace in traces:
+            # Add a THOUGHT node for the turn
+            thought_id = f"thought-{node_idx}"
+            nodes.append(
+                {
+                    "id": thought_id,
+                    "type": "THOUGHT",
+                    "label": f"Analyze telemetry and user journey for {session_id[:8]}",
+                    "timestamp": trace["timestamp"].strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                }
+            )
+            edges.append(
+                {"source": last_main_id, "target": thought_id, "label": "leads to"}
+            )
+            last_main_id = thought_id
+            node_idx += 1
+
+            # Map tools in the trace into the graph
+            # First, find all execute_tool spans
+            tool_spans = []
+            for span in trace["spans"]:
+                if self._span_is_tool(span):
+                    tool_spans.append(span)
+
+            # Order them by start_time
+            tool_spans.sort(key=lambda s: s["start_time"])
+
+            for tool in tool_spans:
+                tool_name = tool.get("attributes", {}).get(
+                    "gen_ai.tool.name", tool["name"]
+                )
+                tool_id = f"tool-{node_idx}"
+                nodes.append(
+                    {
+                        "id": tool_id,
+                        "type": "TOOL_CALL",
+                        "label": tool_name,
+                        "timestamp": tool["start_time"],
+                        "metadata": {
+                            "duration": self._span_duration_ms(tool),
+                            "tokenCount": self._span_tokens(tool),
+                        },
+                    }
+                )
+                edges.append(
+                    {"source": thought_id, "target": tool_id, "label": "calls"}
+                )
+                node_idx += 1
+
+                # Add observation after the tool call
+                obs_id = f"obs-{node_idx}"
+                nodes.append(
+                    {
+                        "id": obs_id,
+                        "type": "OBSERVATION",
+                        "label": f"Result from {tool_name}",
+                        "timestamp": tool["end_time"],
+                    }
+                )
+                edges.append({"source": tool_id, "target": obs_id, "label": "returns"})
+                node_idx += 1
+
+        # Final Action node at the very end
+        if len(traces) > 0:
+            final_trace = traces[-1]
+            action_id = f"action-{node_idx}"
+            nodes.append(
+                {
+                    "id": action_id,
+                    "type": "ACTION",
+                    "label": "Mitigation Applied / Recommendation provided",
+                    "timestamp": (
+                        final_trace["timestamp"] + timedelta(seconds=120)
+                    ).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                    "metadata": {"duration": 1500},
+                }
+            )
+            edges.append(
+                {"source": last_main_id, "target": action_id, "label": "executes"}
+            )
+
+        return {"nodes": nodes, "edges": edges}
+
     # ------------------------------------------------------------------
     # Dashboard endpoints
     # ------------------------------------------------------------------

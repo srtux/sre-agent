@@ -44,6 +44,8 @@ from sre_agent.tools import (
     fetch_web_page,
     find_bottleneck_services,
     find_exemplar_traces,
+    find_past_mistakes,
+    find_successful_strategy,
     # Aggregate / BigQuery tools (shared with trace panel)
     gcp_execute_sql,
     generate_remediation_suggestions,
@@ -69,6 +71,7 @@ from sre_agent.tools import (
     mcp_query_range,
     # Root cause / causal analysis
     perform_causal_analysis,
+    query_historical_trajectories,
     query_promql,
     update_investigation_state,
 )
@@ -317,6 +320,9 @@ ROOT_CAUSE_ANALYST_TOOLS: list[Any] = [
     *SHARED_REMEDIATION_TOOLS,
     # Online Research
     *SHARED_RESEARCH_TOOLS,
+    query_historical_trajectories,
+    find_successful_strategy,
+    find_past_mistakes,
     # GitHub Self-Healing
     *SHARED_GITHUB_TOOLS,
     # State
@@ -343,4 +349,6 @@ ORCHESTRATOR_TOOLS: list[Any] = [
     *SHARED_RESEARCH_TOOLS,
     # State
     *SHARED_STATE_TOOLS,
+    find_successful_strategy,
+    find_past_mistakes,
 ]

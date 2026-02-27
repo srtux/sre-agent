@@ -18,7 +18,6 @@ const getAgentColor = (node: { id: string }) => agentColors[node.id] || '#6366F1
 
 interface TrajectorySankeyProps {
   data: SankeyResponse
-  errorsOnly?: boolean
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
 }
@@ -80,7 +79,7 @@ const CustomLabelsLayer = (props: any) => {
   );
 };
 
-export default function TrajectorySankey({ data, errorsOnly, onNodeClick, onEdgeClick }: TrajectorySankeyProps) {
+export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: TrajectorySankeyProps) {
   // Build a Set of node IDs involved in detected loops
   const loopNodeIds = new Set<string>()
   const loopEdges = new Set<string>()
@@ -161,9 +160,9 @@ export default function TrajectorySankey({ data, errorsOnly, onNodeClick, onEdge
                   linkBlendMode="screen"
                   nodeHoverOthersOpacity={0.2}
                   // @ts-expect-error Nivo types for Sankey links are occasionally outdated
-                  enableLinkLabels={errorsOnly}
-                  linkLabel={(link: { value: number }) => `${link.value} error${link.value !== 1 ? 's' : ''}`}
-                  linkLabelsTextColor="#FF5252"
+                  enableLinkLabels={true}
+                  linkLabel={(link: { value: number }) => `${link.value} token${link.value !== 1 ? 's' : ''}`}
+                  linkLabelsTextColor="#A7F3D0"
                   animate={true}
                   onClick={(datum) => {
                     if ('source' in datum && 'target' in datum) {

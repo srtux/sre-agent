@@ -566,6 +566,7 @@ async def get_trajectories(
                     trace_id,
                     logical_node_id,
                     node_type,
+                    COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) AS step_tokens,
                     ROW_NUMBER() OVER(
                         PARTITION BY trace_id ORDER BY start_time ASC
                     ) AS step_sequence
@@ -579,8 +580,10 @@ async def get_trajectories(
                 SELECT
                     a.logical_node_id AS source_node,
                     a.node_type       AS source_type,
+                    COALESCE(a.step_tokens, 0) AS source_tokens,
                     b.logical_node_id AS target_node,
                     b.node_type       AS target_type,
+                    COALESCE(b.step_tokens, 0) AS target_tokens,
                     a.trace_id
                 FROM sequenced_steps a
                 JOIN sequenced_steps b
@@ -592,7 +595,8 @@ async def get_trajectories(
                 source_type,
                 target_node,
                 target_type,
-                APPROX_COUNT_DISTINCT(trace_id) AS trace_count
+                APPROX_COUNT_DISTINCT(trace_id) AS trace_count,
+                SUM(source_tokens + target_tokens) AS total_tokens
             FROM trajectory_links
             GROUP BY source_node, source_type, target_node, target_type
         """
@@ -2359,4 +2363,192 @@ async def get_dashboard_traces(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to query dashboard traces: {exc!s}",
+        ) from exc
+
+
+@router.get("/context/{session_id}")
+async def get_context_graph(
+    session_id: str,
+    project_id: str,
+    dataset: str = "agentops",
+    trace_dataset: str = "traces",
+) -> dict[str, Any]:
+    """Return context graph nodes and edges for visualizing reasoning.
+
+    This endpoint constructs a detailed, branching view of the agent's context
+    and logic for a specific session.
+
+    Unlike a strictly linear trace array, this method builds a semantic tree:
+    1. It creates a main sequential "backbone" consisting of `THOUGHT` nodes
+       representing discrete trace turns, anchored by an `INCIDENT` start
+       node and terminating in an `ACTION` node.
+    2. During each trace loop, executing tools generate `TOOL_CALL` nodes
+       that branch off their parent `THOUGHT`.
+    3. Tool results generate `OBSERVATION` nodes that return from the tool.
+
+    This structured graph (`nodes` and `edges`) is directly consumed by
+    the frontend's topology layout engine to visualize non-linear investigations.
+    """
+    from datetime import timedelta
+
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_context_graph(session_id=session_id)
+
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                trace_id,
+                span_id,
+                start_time,
+                node_type,
+                node_label,
+                duration_ms,
+                status_code,
+                input_tokens,
+                output_tokens
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE session_id = @session_id
+              AND node_type != 'Glue'
+            ORDER BY start_time ASC
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("session_id", "STRING", session_id),
+            ]
+        )
+
+        rows = list(
+            await anyio.to_thread.run_sync(
+                functools.partial(client.query_and_wait, query, job_config=job_config)
+            )
+        )
+
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        if not rows:
+            return {"nodes": [], "edges": []}
+
+        session_start = rows[0].start_time
+        nodes.append(
+            {
+                "id": "inc-0",
+                "type": "INCIDENT",
+                "label": f"Investigation Started: {session_id[:8]}",
+                "timestamp": (session_start - timedelta(minutes=5)).isoformat()
+                if session_start
+                else None,
+                "metadata": {"duration": 0},
+            }
+        )
+
+        last_main_id = "inc-0"
+        node_idx = 1
+
+        trace_order = []
+        traces: dict[str, list[Any]] = {}
+        for row in rows:
+            if row.trace_id not in traces:
+                traces[row.trace_id] = []
+                trace_order.append(row.trace_id)
+            traces[row.trace_id].append(row)
+
+        for trace_id in trace_order:
+            spans = traces[trace_id]
+            trace_start = min(
+                (s.start_time for s in spans if s.start_time), default=None
+            )
+
+            thought_id = f"thought-{node_idx}"
+            nodes.append(
+                {
+                    "id": thought_id,
+                    "type": "THOUGHT",
+                    "label": f"Analyze telemetry and user journey for {session_id[:8]}",
+                    "timestamp": trace_start.isoformat() if trace_start else None,
+                }
+            )
+            edges.append(
+                {"source": last_main_id, "target": thought_id, "label": "leads to"}
+            )
+            last_main_id = thought_id
+            node_idx += 1
+
+            tool_spans = [s for s in spans if s.node_type == "Tool"]
+            tool_spans.sort(
+                key=lambda s: s.start_time if s.start_time else session_start
+            )
+
+            for tool in tool_spans:
+                tool_id = f"tool-{node_idx}"
+                nodes.append(
+                    {
+                        "id": tool_id,
+                        "type": "TOOL_CALL",
+                        "label": tool.node_label or "Tool",
+                        "timestamp": tool.start_time.isoformat()
+                        if tool.start_time
+                        else None,
+                        "metadata": {
+                            "duration": float(tool.duration_ms)
+                            if tool.duration_ms
+                            else 0,
+                            "tokenCount": (tool.input_tokens or 0)
+                            + (tool.output_tokens or 0),
+                        },
+                    }
+                )
+                edges.append(
+                    {"source": thought_id, "target": tool_id, "label": "calls"}
+                )
+                node_idx += 1
+
+                obs_id = f"obs-{node_idx}"
+                nodes.append(
+                    {
+                        "id": obs_id,
+                        "type": "OBSERVATION",
+                        "label": f"Result from {tool.node_label or 'Tool'}",
+                        "timestamp": tool.start_time.isoformat()
+                        if tool.start_time
+                        else None,
+                    }
+                )
+                edges.append({"source": tool_id, "target": obs_id, "label": "returns"})
+                node_idx += 1
+
+        action_id = f"action-{node_idx}"
+        nodes.append(
+            {
+                "id": action_id,
+                "type": "ACTION",
+                "label": "Mitigation Applied / Recommendation provided",
+                "timestamp": None,
+                "metadata": {"duration": 1500},
+            }
+        )
+        edges.append({"source": last_main_id, "target": action_id, "label": "executes"})
+
+        return {"nodes": nodes, "edges": edges}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent graph is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch context graph from BigQuery")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query context graph data: {exc!s}",
         ) from exc

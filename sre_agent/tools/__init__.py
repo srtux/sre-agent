@@ -197,6 +197,19 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     ),
     # BigQuery CA Data Agent
     "query_data_agent": (".bigquery.ca_data_agent", "query_data_agent"),
+    # BigQuery Graph
+    "query_historical_trajectories": (
+        ".bigquery.query_graph",
+        "query_historical_trajectories",
+    ),
+    "find_successful_strategy": (
+        ".bigquery.query_graph",
+        "find_successful_strategy",
+    ),
+    "find_past_mistakes": (
+        ".bigquery.query_graph",
+        "find_past_mistakes",
+    ),
     # Clients - Alerts
     "get_alert": (".clients.alerts", "get_alert"),
     "list_alert_policies": (".clients.alerts", "list_alert_policies"),

@@ -5,6 +5,8 @@ import { useAgentContext } from '../../contexts/AgentContext'
 import { useDashboardTables, type AgentLogRow, type AgentSessionRow, type AgentTraceRow } from '../../hooks/useDashboardTables'
 import VirtualizedDataTable from '../tables/VirtualizedDataTable'
 import SpanDetailsView from './SpanDetailsView'
+import ContextGraphViewer from '../graph/ContextGraphViewer'
+import ContextInspector from '../graph/ContextInspector'
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -91,6 +93,8 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
   const [sessionFilter, setSessionFilter] = useState<string | null>(null)
   const [traceFilter, setTraceFilter] = useState<string | null>(null)
   const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'log' | 'graph'>('log')
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null)
   const { data, isLoading, isError } = useDashboardTables(hours, serviceName)
 
   const sessionData = useMemo(() => data?.agentSessions ?? [], [data?.agentSessions])
@@ -725,11 +729,11 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           </button>
         </div>
         {activeTab === 'traces' && sessionFilter && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#94A3B8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#94A3B8', flex: 1 }}>
             <span>Filtered by Session:</span>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F0F4F8' }}>{sessionFilter}</span>
             <button
-              onClick={() => setSessionFilter(null)}
+              onClick={() => { setSessionFilter(null); setViewMode('log'); }}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -742,6 +746,20 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             >
               Clear
             </button>
+            <div style={{ ...styles.tabsContainer, marginLeft: 'auto' }}>
+              <button
+                style={{ ...styles.tabButton, ...(viewMode === 'log' ? styles.tabActive : styles.tabInactive) }}
+                onClick={() => setViewMode('log')}
+              >
+                Log View
+              </button>
+              <button
+                style={{ ...styles.tabButton, ...(viewMode === 'graph' ? styles.tabActive : styles.tabInactive) }}
+                onClick={() => { setViewMode('graph'); setExpandedSpanId(null); }}
+              >
+                Graph View
+              </button>
+            </div>
           </div>
         )}
         {activeTab === 'spans' && traceFilter && (
@@ -783,7 +801,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           />
         )}
 
-        {activeTab === 'traces' && (
+        {activeTab === 'traces' && viewMode === 'log' && (
           <VirtualizedDataTable<AgentTraceRow>
             data={traceData}
             columns={traceColumns}
@@ -794,6 +812,20 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             enableSearch
             searchPlaceholder="Search traces..."
           />
+        )}
+
+        {activeTab === 'traces' && viewMode === 'graph' && (
+          <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', flexDirection: 'row' }}>
+            <ContextGraphViewer
+              sessionId={sessionFilter}
+              onNodeSelect={setSelectedGraphNodeId}
+            />
+            <ContextInspector
+              nodeId={selectedGraphNodeId}
+              sessionId={sessionFilter}
+              onClose={() => setSelectedGraphNodeId(null)}
+            />
+          </div>
         )}
 
         {activeTab === 'spans' && (
