@@ -14,15 +14,17 @@ interface UseAgentLogsParams {
 /**
  * Build a Google Cloud Logging filter string from the given parameters.
  */
-function buildFilter(params: UseAgentLogsParams): string {
+export function buildFilter(params: UseAgentLogsParams): string {
   const parts: string[] = [
     'resource.type="aiplatform.googleapis.com/ReasoningEngine"',
   ]
 
   if (params.agentId && params.agentId !== 'all') {
-    parts.push(
-      `resource.labels.reasoning_engine_id="${params.agentId}"`,
-    )
+    // Extract numeric ID from URI (e.g., //aiplatform.../reasoningEngines/12345)
+    // or use it directly if it doesn't contain a slash.
+    const cleanId = params.agentId.split('/').pop() || params.agentId
+
+    parts.push(`resource.labels.reasoning_engine_id="${cleanId}"`)
   }
 
   if (params.severity.length > 0) {
@@ -37,8 +39,8 @@ function buildFilter(params: UseAgentLogsParams): string {
  * Infinite-scroll hook for log entries.
  * Uses cursor-based pagination via timestamp + insertId.
  */
-export function useAgentLogs(params: UseAgentLogsParams) {
-  const filter = buildFilter(params)
+export function useAgentLogs(params: UseAgentLogsParams & { filterOverride?: string }) {
+  const filter = params.filterOverride ?? buildFilter(params)
 
   return useInfiniteQuery<
     LogEntriesResponse,
@@ -47,7 +49,7 @@ export function useAgentLogs(params: UseAgentLogsParams) {
     string[],
     { cursorTimestamp?: string; cursorInsertId?: string }
   >({
-    queryKey: ['agent-logs', params.projectId, params.agentId, ...params.severity, String(params.minutesAgo)],
+    queryKey: ['agent-logs', params.projectId, params.agentId, ...params.severity, String(params.minutesAgo), params.filterOverride || ''],
     queryFn: async ({ pageParam }) => {
       return queryLogs({
         filter,
@@ -80,11 +82,11 @@ export function useAgentLogs(params: UseAgentLogsParams) {
 /**
  * Hook for the logs histogram (time-bucketed severity counts).
  */
-export function useLogsHistogram(params: UseAgentLogsParams) {
-  const filter = buildFilter(params)
+export function useLogsHistogram(params: UseAgentLogsParams & { filterOverride?: string }) {
+  const filter = params.filterOverride ?? buildFilter(params)
 
   return useQuery({
-    queryKey: ['logs-histogram', params.projectId, params.agentId, ...params.severity, String(params.minutesAgo)],
+    queryKey: ['logs-histogram', params.projectId, params.agentId, ...params.severity, String(params.minutesAgo), params.filterOverride || ''],
     queryFn: () =>
       queryLogsHistogram({
         filter,
