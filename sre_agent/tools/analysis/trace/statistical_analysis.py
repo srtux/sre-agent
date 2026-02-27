@@ -37,6 +37,7 @@ def _get_span_duration(span: dict[str, Any]) -> float | None:
 
     return None
 
+
 def _parse_timestamp(start_str: str, end_str: str) -> float | None:
     """Fallback parsing for ISO timestamps."""
     try:
@@ -335,7 +336,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
 
         if start is not None and end is not None:
             start *= 1000  # Convert to ms
-            end *= 1000    # Convert to ms
+            end *= 1000  # Convert to ms
         else:
             try:
                 start = (
@@ -345,7 +346,9 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
                     * 1000
                 )
                 end = (
-                    datetime.fromisoformat(s["end_time"].replace("Z", "+00:00")).timestamp()
+                    datetime.fromisoformat(
+                        s["end_time"].replace("Z", "+00:00")
+                    ).timestamp()
                     * 1000
                 )
             except (ValueError, KeyError, TypeError):
