@@ -28,8 +28,12 @@ export function buildFilter(params: UseAgentLogsParams): string {
   }
 
   if (params.severity.length > 0) {
-    const quoted = params.severity.map((s) => `"${s.toUpperCase()}"`).join(', ')
-    parts.push(`severity IN (${quoted})`)
+    const sevParts = params.severity.map((s) => `severity="${s.toUpperCase()}"`)
+    if (sevParts.length === 1) {
+      parts.push(sevParts[0])
+    } else {
+      parts.push(`(${sevParts.join(' OR ')})`)
+    }
   }
 
   return parts.join(' AND ')

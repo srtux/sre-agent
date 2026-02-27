@@ -163,7 +163,7 @@ describe('useAgentLogs', () => {
 
     const call = vi.mocked(axios.post).mock.calls[0]
     const body = call[1] as Record<string, unknown>
-    expect(body.filter).toContain('severity IN ("ERROR", "WARNING")')
+    expect(body.filter).toContain('(severity="ERROR" OR severity="WARNING")')
   })
 
   it('does not fetch when projectId is empty', () => {
