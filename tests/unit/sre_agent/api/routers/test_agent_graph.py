@@ -2376,3 +2376,83 @@ class TestLogDatasetDiscovery:
         assert "locations/global/buckets/_Default/links" in url
 
         # Verify the URL
+
+
+class TestSessionTrajectoryEndpoint:
+    """Tests for GET /api/v1/graph/session/{session_id}/trajectory."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    @patch("sre_agent.tools.clients.logging._list_log_entries_sync")
+    @patch("sre_agent.tools.clients.trace._fetch_trace_sync")
+    def test_returns_200_with_trajectory(
+        self,
+        mock_fetch_trace: MagicMock,
+        mock_list_logs: MagicMock,
+        mock_bq_client_fn: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Trajectory endpoint should return events, logs, and attributes."""
+        bq = MagicMock()
+        mock_bq_client_fn.return_value = bq
+
+        span_row = _make_row(
+            trace_id="test-trace-1",
+            span_id="span-123",
+            start_time=None,
+            node_type="LLM",
+            node_label="gemini",
+            duration_ms=100.5,
+            status_code=0,
+        )
+
+        bq.query_and_wait.return_value = _mock_query_result([span_row])
+
+        # Mock Cloud Trace response
+        mock_fetch_trace.return_value = {
+            "spans": [
+                {
+                    "span_id": "span-123",
+                    "labels": {
+                        "gen_ai.prompt": "hello world",
+                        "gen_ai.completion": "greetings",
+                    },
+                }
+            ]
+        }
+
+        # Mock Cloud Logging response
+        mock_list_logs.return_value = {
+            "entries": [
+                {
+                    "span_id": "span-123",
+                    "timestamp": "2026-02-27T12:00:00Z",
+                    "severity": "ERROR",
+                    "payload": "Something went wrong",
+                }
+            ]
+        }
+
+        resp = client.get(
+            "/api/v1/graph/session/session-123/trajectory",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["sessionId"] == "session-123"
+        assert len(data["trajectory"]) == 1
+
+        traj = data["trajectory"][0]
+        assert traj["traceId"] == "test-trace-1"
+        assert traj["spanId"] == "span-123"
+        assert traj["prompt"] == "hello world"
+        assert traj["completion"] == "greetings"
+        assert traj["logs"][0]["severity"] == "ERROR"
+        assert len(traj["evaluations"]) == 0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_missing_project_id_returns_422(
+        self, mock_bq: MagicMock, client: TestClient
+    ) -> None:
+        resp = client.get("/api/v1/graph/session/session-123/trajectory")
+        assert resp.status_code == 422

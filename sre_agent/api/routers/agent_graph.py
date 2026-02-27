@@ -2552,3 +2552,166 @@ async def get_context_graph(
             status_code=500,
             detail=f"Failed to query context graph data: {exc!s}",
         ) from exc
+
+
+@router.get("/session/{session_id}/trajectory")
+async def get_session_trajectory(
+    session_id: str,
+    project_id: str,
+    dataset: str = "agentops",
+    trace_dataset: str = "traces",
+) -> dict[str, Any]:
+    """Return the chronological trajectory of spans and logs for a session."""
+    if is_guest_mode():
+        gen = DemoDataGenerator()
+        return gen.get_session_trajectory(session_id=session_id)
+
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    _validate_identifier(trace_dataset, "trace_dataset")
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                r.trace_id,
+                r.span_id,
+                r.start_time,
+                r.node_type,
+                r.node_label,
+                r.duration_ms,
+                r.status_code
+            FROM `{project_id}.{dataset}.agent_spans_raw` r
+            WHERE r.session_id = @session_id
+              AND r.node_type != 'Glue'
+            ORDER BY r.start_time ASC
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("session_id", "STRING", session_id),
+            ]
+        )
+
+        span_rows = list(
+            await anyio.to_thread.run_sync(
+                functools.partial(client.query_and_wait, query, job_config=job_config)
+            )
+        )
+
+        if not span_rows:
+            return {"sessionId": session_id, "trajectory": []}
+
+        trace_ids = list(set([r.trace_id for r in span_rows if r.trace_id]))
+
+        # 1. Fetch trace data from Cloud Trace directly
+        from sre_agent.tools.clients.trace import _fetch_trace_sync
+
+        trace_spans_map = {}
+        for tid in trace_ids:
+            try:
+                t_data = await anyio.to_thread.run_sync(
+                    _fetch_trace_sync, project_id, tid
+                )
+                if isinstance(t_data, dict) and "spans" in t_data:
+                    for s in t_data["spans"]:
+                        trace_spans_map[s["span_id"]] = s.get("labels", {})
+            except Exception as e:
+                logger.warning(f"Failed to fetch trace {tid} from Cloud Trace: {e}")
+
+        # 2. Fetch logs from Cloud Logging directly
+        logs_by_span = defaultdict(list)
+        from sre_agent.tools.clients.logging import _list_log_entries_sync
+
+        try:
+            if trace_ids:
+                # Max 20 trace IDs per filter to avoid expression too long, but usually we have just 1-5 traces
+                # Split traces into batches of 10
+                for i in range(0, len(trace_ids), 10):
+                    batch_traces = trace_ids[i : i + 10]
+                    trace_conditions = " OR ".join(
+                        [
+                            f'trace="projects/{project_id}/traces/{t}"'
+                            for t in batch_traces
+                        ]
+                    )
+
+                    log_res = await anyio.to_thread.run_sync(
+                        _list_log_entries_sync,
+                        project_id,
+                        trace_conditions,
+                        2000,
+                        None,
+                        None,
+                    )
+
+                    if isinstance(log_res, dict) and "entries" in log_res:
+                        for entry in log_res["entries"]:
+                            if entry.get("span_id"):
+                                logs_by_span[entry["span_id"]].append(
+                                    {
+                                        "timestamp": entry.get("timestamp"),
+                                        "severity": entry.get("severity"),
+                                        "payload": entry.get("payload"),
+                                    }
+                                )
+        except Exception as exc:
+            logger.warning(
+                f"Failed to fetch correlated logs for session {session_id} from Cloud Logging: {exc}"
+            )
+
+        trajectory = []
+        for row in span_rows:
+            evaluations: list[dict[str, Any]] = []
+
+            # Since evaluations are recorded as events (gen_ai.evaluation.result) and not extracted into agent_spans_raw,
+            # we default to an empty list here unless we parse timeEvents directly from Cloud Trace in the future.
+
+            labels = trace_spans_map.get(row.span_id, {})
+
+            trajectory.append(
+                {
+                    "traceId": row.trace_id,
+                    "spanId": row.span_id,
+                    "startTime": row.start_time.isoformat() if row.start_time else None,
+                    "nodeType": row.node_type,
+                    "nodeLabel": row.node_label,
+                    "durationMs": row.duration_ms,
+                    "statusCode": row.status_code,
+                    "prompt": labels.get("gen_ai.prompt")
+                    or labels.get("gen_ai.request.message")
+                    or labels.get("gcp.vertex.agent.llm_request"),
+                    "completion": labels.get("gen_ai.completion")
+                    or labels.get("gen_ai.response.message")
+                    or labels.get("gcp.vertex.agent.llm_response"),
+                    "systemMessage": labels.get("gen_ai.system.message")
+                    or labels.get("gen_ai.system"),
+                    "toolInput": labels.get("tool.input")
+                    or labels.get("gen_ai.tool.input")
+                    or labels.get("tool_input")
+                    or labels.get("gcp.vertex.agent.tool_call_args"),
+                    "toolOutput": labels.get("tool.output")
+                    or labels.get("gen_ai.tool.output")
+                    or labels.get("tool_output")
+                    or labels.get("gcp.vertex.agent.tool_response"),
+                    "evaluations": evaluations,
+                    "logs": logs_by_span.get(row.span_id, []),
+                }
+            )
+
+        return {"sessionId": session_id, "trajectory": trajectory}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent graph is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch session trajectory")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch session trajectory: {exc!s}",
+        ) from exc

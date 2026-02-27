@@ -64,3 +64,13 @@ To support non-linear, branching layouts gracefully, the frontend was completely
 
 ## Summary
 By formalizing the trace hierarchy in the backend API and abstracting the powerful `dagre` layout engine on the frontend, the Context Graph now correctly models the agent's thought-action-observation structure exactly as an LLM orchestration loop actually operates.
+
+## Session Trajectory Data Sourcing
+
+While the `get_context_graph` endpoint provides the topological *structure* of interactions, the `get_session_trajectory` endpoint provides the *details* (Prompts, Completions, Tool IO, Logs) rendered in the `SessionLogsView`.
+
+To ensure high data reliability and avoid issues with missing or unparsed JSON columns in BigQuery's `_AllSpans`, the Trajectory API was refactored:
+1. **Direct Cloud Trace API:** When a session is requested, the backend determines the active `trace_id`s from BigQuery, but then directly queries the Google Cloud Trace API (`_fetch_trace_sync`) to extract the exact `gen_ai.*` and `tool.*` attributes.
+2. **Direct Cloud Logging API:** Similarly, error logs correlated with the agent's spans are fetched directly from the Google Cloud Logging API (`_list_log_entries_sync`) via the trace filters, rather than doing complex BigQuery JSON parsing.
+
+This hybrid approach leverages BigQuery for fast, broad timeline discovery and direct APIs for reliable, deep payload extraction.

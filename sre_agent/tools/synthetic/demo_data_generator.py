@@ -2134,3 +2134,123 @@ class DemoDataGenerator:
             return {"traceId": trace_id, "logs": logs}
 
         return {"traceId": trace_id, "logs": []}
+
+    def get_session_trajectory(self, session_id: str) -> dict[str, Any]:
+        """Return the unaggregated chronological trajectory for a session."""
+        spans = []
+        for trace in self.get_all_traces():
+            if trace["session_id"] == session_id:
+                spans.extend(trace["spans"])
+
+        if not spans:
+            return {"sessionId": session_id, "trajectory": []}
+
+        spans.sort(key=lambda s: s["start_time"])
+
+        trajectory = []
+        for s in spans:
+            attrs = s.get("attributes", {})
+            node_type = "Agent"
+            if attrs.get("gen_ai.system"):
+                node_type = "LLM"
+            elif attrs.get("gen_ai.tool.name"):
+                node_type = "Tool"
+
+            prompt = attrs.get("gen_ai.prompt")
+            completion = attrs.get("gen_ai.completion")
+            tool_input = attrs.get("tool.input")
+            tool_output = attrs.get("tool.output")
+            system_message = None
+
+            evaluations = []
+            is_llm = attrs.get("gen_ai.system") is not None
+            if is_llm:
+                rng = self._rng
+                for metric in ["coherence", "groundedness", "fluency", "safety"]:
+                    evaluations.append(
+                        {
+                            "metricName": metric,
+                            "score": round(rng.uniform(0.6, 1.0), 3),
+                            "explanation": f"Demo: {metric} score for this LLM call.",
+                        }
+                    )
+
+            op = attrs.get("gen_ai.operation.name", "")
+            severity = "ERROR" if self._span_has_error(s) else "INFO"
+            payload = None
+
+            if op == "invoke_agent":
+                payload = f"Agent {attrs.get('gen_ai.agent.name', s['name'])} invoked"
+            elif op == "execute_tool":
+                tool = attrs.get("gen_ai.tool.name", s["name"])
+                if self._span_has_error(s):
+                    payload = (
+                        f"Tool {tool} failed: {s['status'].get('message', 'error')}"
+                    )
+                else:
+                    payload = (
+                        f"Tool {tool} executed ({self._span_duration_ms(s):.0f}ms)"
+                    )
+            elif op == "generate_content":
+                tokens = self._span_tokens(s)
+                payload = f"LLM {s['name']} completed ({tokens} tokens)"
+
+            span_logs = []
+
+            start_time = s.get("start_time")
+            start_time_iso = None
+            if start_time:
+                start_time_iso = (
+                    start_time.isoformat()
+                    if hasattr(start_time, "isoformat")
+                    else str(start_time)
+                )
+
+            if payload:
+                span_logs.append(
+                    {
+                        "timestamp": start_time_iso,
+                        "severity": severity,
+                        "payload": payload,
+                    }
+                )
+
+            duration_ms: float = 0.0
+            end_time = s.get("end_time")
+            if end_time and start_time:
+                try:
+                    duration_ms = (end_time - start_time).total_seconds() * 1000
+                except TypeError:
+                    from datetime import datetime
+
+                    try:
+                        e_t = datetime.fromisoformat(
+                            str(end_time).replace("Z", "+00:00")
+                        )
+                        s_t = datetime.fromisoformat(
+                            str(start_time).replace("Z", "+00:00")
+                        )
+                        duration_ms = (e_t - s_t).total_seconds() * 1000
+                    except Exception:
+                        pass
+
+            trajectory.append(
+                {
+                    "traceId": s["trace_id"],
+                    "spanId": s["span_id"],
+                    "startTime": start_time_iso,
+                    "nodeType": node_type,
+                    "nodeLabel": s["name"],
+                    "durationMs": duration_ms,
+                    "statusCode": s["status"]["code"],
+                    "prompt": prompt,
+                    "completion": completion,
+                    "systemMessage": system_message,
+                    "toolInput": tool_input,
+                    "toolOutput": tool_output,
+                    "evaluations": evaluations,
+                    "logs": span_logs,
+                }
+            )
+
+        return {"sessionId": session_id, "trajectory": trajectory}

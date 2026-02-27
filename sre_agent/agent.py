@@ -1588,9 +1588,9 @@ Structure:
 - Stage 2 (Deep Dive): Find root cause and changes using Root Cause Analyst.
 
 Direct Tools:
-- Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
-- Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
-- Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies
+- Observability: fetch_trace, list_log_entries, query_promql, list_time_series, get_golden_signals
+- Analysis: summarize_trace, run_aggregate_analysis, run_triage_analysis, run_deep_dive_analysis
+- Council: run_council_investigation
 - Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory
 - Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
     # OPT-7: Dynamic prompt assembly — timestamp is injected per-turn

@@ -7,6 +7,7 @@ import VirtualizedDataTable from '../tables/VirtualizedDataTable'
 import SpanDetailsView from './SpanDetailsView'
 import ContextGraphViewer from '../graph/ContextGraphViewer'
 import ContextInspector from '../graph/ContextInspector'
+import { SessionLogsView } from './SessionLogsView'
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -93,9 +94,15 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
   const [sessionFilter, setSessionFilter] = useState<string | null>(null)
   const [traceFilter, setTraceFilter] = useState<string | null>(null)
   const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'log' | 'graph'>('log')
+  const [viewMode, setViewMode] = useState<'trace' | 'log' | 'graph'>('trace')
   const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null)
   const { data, isLoading, isError } = useDashboardTables(hours, serviceName)
+
+  React.useEffect(() => {
+    if (!sessionFilter && viewMode !== 'trace') {
+      setViewMode('trace')
+    }
+  }, [sessionFilter, viewMode])
 
   const sessionData = useMemo(() => data?.agentSessions ?? [], [data?.agentSessions])
   const traceData = useMemo(() => {
@@ -733,7 +740,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             <span>Filtered by Session:</span>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F0F4F8' }}>{sessionFilter}</span>
             <button
-              onClick={() => { setSessionFilter(null); setViewMode('log'); }}
+              onClick={() => { setSessionFilter(null); }}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -748,10 +755,16 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             </button>
             <div style={{ ...styles.tabsContainer, marginLeft: 'auto' }}>
               <button
-                style={{ ...styles.tabButton, ...(viewMode === 'log' ? styles.tabActive : styles.tabInactive) }}
-                onClick={() => setViewMode('log')}
+                style={{ ...styles.tabButton, ...(viewMode === 'trace' ? styles.tabActive : styles.tabInactive) }}
+                onClick={() => setViewMode('trace')}
               >
-                Log View
+                Trace View
+              </button>
+              <button
+                style={{ ...styles.tabButton, ...(viewMode === 'log' ? styles.tabActive : styles.tabInactive) }}
+                onClick={() => { setViewMode('log'); setExpandedSpanId(null); }}
+              >
+                Logs View
               </button>
               <button
                 style={{ ...styles.tabButton, ...(viewMode === 'graph' ? styles.tabActive : styles.tabInactive) }}
@@ -801,7 +814,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           />
         )}
 
-        {activeTab === 'traces' && viewMode === 'log' && (
+        {activeTab === 'traces' && viewMode === 'trace' && (
           <VirtualizedDataTable<AgentTraceRow>
             data={traceData}
             columns={traceColumns}
@@ -811,6 +824,14 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             fullHeight
             enableSearch
             searchPlaceholder="Search traces..."
+          />
+        )}
+
+        {activeTab === 'traces' && viewMode === 'log' && (
+          <SessionLogsView
+            sessionId={sessionFilter}
+            activeTab={activeTab}
+            viewMode={viewMode}
           />
         )}
 
