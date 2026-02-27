@@ -57,7 +57,7 @@ def _get_auth_token() -> str:
         raise HTTPException(
             status_code=401, detail="Failed to obtain Google Cloud access token."
         )
-    return token  # type: ignore
+    return token
 
 
 @router.get("/check_bucket")
