@@ -1,14 +1,16 @@
 """Batch evaluation worker for Online GenAI Evaluation Service.
 
-This worker is designed to be triggered periodically by Cloud Scheduler.
-It reads evaluation configurations, fetches un-evaluated traces from
-BigQuery, runs them through Vertex AI evaluations, and logs results
-as OpenTelemetry events.
+This worker is designed to be triggered periodically (via Cloud Scheduler
+or the ``POST /api/v1/evals/run`` endpoint).  It reads evaluation
+configurations, fetches un-evaluated production traces from BigQuery,
+runs them through the Vertex AI Gen AI Evaluation Service, and logs
+results as OpenTelemetry events so they appear in the AgentOps dashboard.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import os
 from datetime import datetime, timezone
@@ -19,13 +21,48 @@ logger = logging.getLogger(__name__)
 # Default BigQuery dataset for OTel spans
 _DEFAULT_BQ_DATASET = "otel_export"
 
-# SQL template for fetching un-evaluated GenAI spans
+# ---------------------------------------------------------------------------
+# SQL template for fetching un-evaluated GenAI spans.
+#
+# The OpenTelemetry GenAI semantic conventions store prompt/completion data
+# in *span events* (``gen_ai.user.message``, ``gen_ai.choice``, etc.) or as
+# JSON-encoded span attributes (``gen_ai.input.messages``,
+# ``gen_ai.output.messages``).  We try both paths and COALESCE so the query
+# works regardless of which instrumentation library wrote the data.
+#
+# The LEFT JOIN excludes spans that already have a sibling
+# ``gen_ai.evaluation`` span in the same trace.
+# ---------------------------------------------------------------------------
 _UNEVALUATED_SPANS_SQL = """\
 SELECT
     t.trace_id,
     t.span_id,
-    JSON_VALUE(t.attributes, '$.gen_ai.prompt') AS input_text,
-    JSON_VALUE(t.attributes, '$.gen_ai.completion') AS output_text,
+    COALESCE(
+        -- Modern OTel GenAI conventions: structured messages attribute
+        JSON_VALUE(t.attributes, '$.gen_ai.input.messages'),
+        -- Legacy attribute name
+        JSON_VALUE(t.attributes, '$.gen_ai.prompt'),
+        -- Fallback: first user message from span events
+        (
+            SELECT JSON_VALUE(evt.attributes, '$.gen_ai.user.message.content')
+            FROM UNNEST(t.events) AS evt
+            WHERE evt.name IN ('gen_ai.user.message', 'gen_ai.content.prompt')
+            LIMIT 1
+        )
+    ) AS input_text,
+    COALESCE(
+        -- Modern OTel GenAI conventions: structured messages attribute
+        JSON_VALUE(t.attributes, '$.gen_ai.output.messages'),
+        -- Legacy attribute name
+        JSON_VALUE(t.attributes, '$.gen_ai.completion'),
+        -- Fallback: first choice from span events
+        (
+            SELECT JSON_VALUE(evt.attributes, '$.gen_ai.choice.message.content')
+            FROM UNNEST(t.events) AS evt
+            WHERE evt.name IN ('gen_ai.choice', 'gen_ai.content.completion')
+            LIMIT 1
+        )
+    ) AS output_text,
     JSON_VALUE(t.attributes, '$.gen_ai.system') AS gen_ai_system,
     t.start_time
 FROM `{project}.{dataset}._AllSpans` AS t
@@ -108,11 +145,58 @@ async def _fetch_unevaluated_spans(
     return await anyio.to_thread.run_sync(_execute)
 
 
+def _extract_text_from_messages(raw: str | None) -> str:
+    """Extract plain text from a GenAI messages JSON attribute.
+
+    The ``gen_ai.input.messages`` / ``gen_ai.output.messages`` attributes are
+    JSON arrays of message objects such as::
+
+        [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
+
+    This helper extracts the concatenated text content.  If the value is
+    already plain text (legacy ``gen_ai.prompt`` attribute), it is returned
+    as-is.
+    """
+    if not raw:
+        return ""
+    # Fast path: not JSON
+    if not raw.startswith("[") and not raw.startswith("{"):
+        return raw
+    try:
+        data = _json.loads(raw)
+    except (ValueError, TypeError):
+        return raw
+
+    parts: list[str] = []
+    messages = data if isinstance(data, list) else [data]
+    for msg in messages:
+        if isinstance(msg, str):
+            parts.append(msg)
+            continue
+        if not isinstance(msg, dict):
+            continue
+        # Handle {"content": "text"} or {"content": [{"text": "..."}]}
+        content = msg.get("content", msg.get("parts", ""))
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    parts.append(item.get("text", ""))
+    return "\n".join(p for p in parts if p)
+
+
 async def _run_vertex_eval(
     spans: list[dict[str, Any]],
     metrics: list[str],
 ) -> dict[str, dict[str, dict[str, Any]]]:
-    """Run Vertex AI batch evaluation on a list of spans.
+    """Run Vertex AI batch evaluation on a list of production trace spans.
+
+    Uses the GA ``vertexai.evaluation.EvalTask`` API with
+    ``MetricPromptTemplateExamples.Pointwise`` metrics (coherence,
+    groundedness, fluency, safety).
 
     Args:
         spans: List of span dicts containing input_text and output_text.
@@ -133,19 +217,22 @@ async def _run_vertex_eval(
     if not spans:
         return {}
 
-    # Build evaluation dataset
+    # Build evaluation dataset — extract plain text from structured messages
     eval_dataset = []
     span_index: dict[int, str] = {}  # row index -> span_id
-    for i, span in enumerate(spans):
-        eval_dataset.append(
-            {
-                "prompt": span.get("input_text", ""),
-                "response": span.get("output_text", ""),
-            }
-        )
-        span_index[i] = span["span_id"]
+    for span in spans:
+        prompt = _extract_text_from_messages(span.get("input_text"))
+        response = _extract_text_from_messages(span.get("output_text"))
+        if not prompt and not response:
+            continue
+        eval_dataset.append({"prompt": prompt, "response": response})
+        span_index[len(eval_dataset) - 1] = span["span_id"]
 
-    # Resolve metric objects
+    if not eval_dataset:
+        logger.info("No spans with extractable text content. Skipping evaluation.")
+        return {}
+
+    # Resolve metric objects from Pointwise templates
     resolved_metrics: list[Any] = []
     for m in metrics:
         template = getattr(MetricPromptTemplateExamples.Pointwise, m.upper(), None)

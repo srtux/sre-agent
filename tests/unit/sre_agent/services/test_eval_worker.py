@@ -1,6 +1,7 @@
 """Tests for the batch evaluation worker (sre_agent/services/eval_worker.py).
 
 Tests the scheduled evaluation worker functions including:
+- _extract_text_from_messages: structured message text extraction
 - _fetch_eval_configs: loading enabled configs from storage
 - _fetch_unevaluated_spans: BigQuery query construction
 - _run_vertex_eval: Vertex AI evaluation and result parsing
@@ -14,11 +15,60 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sre_agent.services.eval_worker import (
+    _extract_text_from_messages,
     _fetch_eval_configs,
     _fetch_unevaluated_spans,
     _update_last_eval_timestamp,
     run_scheduled_evaluations,
 )
+
+# ========== _extract_text_from_messages ==========
+
+
+def test_extract_text_plain_string():
+    """Plain text string is returned as-is."""
+    assert _extract_text_from_messages("Hello world") == "Hello world"
+
+
+def test_extract_text_none_returns_empty():
+    """None input returns empty string."""
+    assert _extract_text_from_messages(None) == ""
+
+
+def test_extract_text_empty_returns_empty():
+    """Empty string returns empty string."""
+    assert _extract_text_from_messages("") == ""
+
+
+def test_extract_text_json_messages_with_content_string():
+    """JSON messages with string content field are extracted."""
+    raw = '[{"role": "user", "content": "What is the weather?"}]'
+    assert _extract_text_from_messages(raw) == "What is the weather?"
+
+
+def test_extract_text_json_messages_with_parts_array():
+    """JSON messages with parts array are extracted."""
+    raw = '[{"role": "user", "content": [{"type": "text", "text": "Hello"}, {"type": "text", "text": "World"}]}]'
+    assert _extract_text_from_messages(raw) == "Hello\nWorld"
+
+
+def test_extract_text_json_messages_multiple_messages():
+    """Multiple messages are concatenated."""
+    raw = '[{"role": "user", "content": "First"}, {"role": "assistant", "content": "Second"}]'
+    assert _extract_text_from_messages(raw) == "First\nSecond"
+
+
+def test_extract_text_invalid_json_returned_as_is():
+    """Invalid JSON that starts with [ is returned as-is."""
+    raw = "[not valid json"
+    assert _extract_text_from_messages(raw) == "[not valid json"
+
+
+def test_extract_text_single_object():
+    """Single JSON object (not array) is handled."""
+    raw = '{"role": "user", "content": "Solo message"}'
+    assert _extract_text_from_messages(raw) == "Solo message"
+
 
 # ========== _fetch_eval_configs ==========
 

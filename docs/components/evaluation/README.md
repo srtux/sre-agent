@@ -239,19 +239,21 @@ The `run_eval.py` script:
 | `/api/v1/evals/config/{agent_name}` | POST | Create or update an eval config |
 | `/api/v1/evals/config/{agent_name}` | GET | Get config for a specific agent |
 | `/api/v1/evals/config/{agent_name}` | DELETE | Delete an eval config |
+| `/api/v1/evals/run` | POST | Trigger an on-demand evaluation run |
 | `/api/v1/evals/metrics/aggregate` | GET | Aggregate eval metrics from BigQuery |
 
 All endpoints support guest mode with synthetic demo data.
 
 ### Eval Worker (`sre_agent/services/eval_worker.py`)
 
-The worker runs on a schedule (Cloud Scheduler) and:
+The worker runs on a schedule (Cloud Scheduler) or on-demand via `POST /api/v1/evals/run`:
 1. Fetches enabled eval configs from storage
-2. Queries BigQuery for un-evaluated GenAI spans (via `_UNEVALUATED_SPANS_SQL`)
-3. Applies sampling rate filtering
-4. Runs Vertex AI batch evaluation with configured metrics
-5. Logs results as OTel events via `log_evaluation_result()`
-6. Updates `last_eval_timestamp` to avoid re-processing
+2. Queries BigQuery for un-evaluated production GenAI spans (multi-format: modern `gen_ai.input.messages`/`gen_ai.output.messages`, legacy `gen_ai.prompt`/`gen_ai.completion`, and event-based `gen_ai.user.message`/`gen_ai.choice`)
+3. Extracts plain text from structured JSON message attributes
+4. Applies sampling rate filtering
+5. Runs Vertex AI batch evaluation via `vertexai.evaluation.EvalTask` with `MetricPromptTemplateExamples.Pointwise` metric templates
+6. Logs results as OTel events via `log_evaluation_result()`
+7. Updates `last_eval_timestamp` to avoid re-processing
 
 ### Supported Online Metrics
 
@@ -281,10 +283,13 @@ From `vertexai.evaluation.MetricPromptTemplateExamples.Pointwise`:
 | Rubric-based scoring | Done | 3 rubrics (precision, causality, actionability) |
 | Hallucination detection | Done | `hallucinations_v1` metric in failure mode tests |
 | Safety checks | Done | `safety_v1` metric in failure mode tests |
-| Online eval worker | Done | BigQuery span fetch + Vertex AI evaluation |
-| Eval config API | Done | CRUD endpoints with guest mode support |
+| Online eval worker | Done | BigQuery production trace fetch + Vertex AI evaluation |
+| Eval config API | Done | CRUD + trigger endpoints with guest mode support |
+| On-demand eval trigger | Done | `POST /api/v1/evals/run` triggers worker from UI |
 | Aggregate metrics API | Done | BigQuery time-bucketed metric aggregation |
 | Vertex AI cloud sync | Done | `run_eval.py --sync` uploads to GenAI Eval Service |
+| AgentOps UI Evals tab | Done | Setup wizard, agent cards, score trend charts |
+| Multi-format span extraction | Done | Supports modern, legacy, and event-based OTel GenAI conventions |
 | Multi-turn conversation evals | Planned | Evaluate multi-turn investigation dialogues |
 | Council mode eval scenarios | Planned | Test council orchestration quality |
 | Regression detection | Planned | Automatic alerting on score degradation |
