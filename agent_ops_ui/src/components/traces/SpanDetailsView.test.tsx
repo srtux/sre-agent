@@ -84,11 +84,73 @@ describe('SpanDetailsView', () => {
       expect(screen.getByText(/He is dead, Jim/)).toBeInTheDocument()
       expect(screen.getByText(/Warp core breach/)).toBeInTheDocument()
       expect(screen.getByText(/Attempting containment/)).toBeInTheDocument()
-      expect(screen.getByText(/"ship.name": "Enterprise"/)).toBeInTheDocument()
     })
   })
 
-  it('renders fallback when no metrics/logs exist', async () => {
+  it('renders LLM span with model info and token usage', async () => {
+    const mockData = {
+      traceId: mockTraceId,
+      spanId: mockSpanId,
+      statusCode: 'OK',
+      statusMessage: '',
+      exceptions: [],
+      attributes: {
+        'gen_ai.operation.name': 'generate_content',
+        'gen_ai.request.model': 'gemini-2.5-flash',
+        'gen_ai.usage.input_tokens': 1500,
+        'gen_ai.usage.output_tokens': 500,
+        'gen_ai.prompt': '{"messages": [{"role": "user", "content": "hello"}]}',
+        'gen_ai.completion': '{"response": "Hi there!"}',
+      },
+      logs: []
+    }
+
+    vi.mocked(axios.get).mockResolvedValue({ data: mockData })
+    render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
+
+    await waitFor(() => {
+      // LLM Call badge
+      expect(screen.getByText('LLM Call')).toBeInTheDocument()
+      // Model badge
+      expect(screen.getByText('gemini-2.5-flash')).toBeInTheDocument()
+      // Token usage
+      expect(screen.getByText('Token Usage')).toBeInTheDocument()
+      expect(screen.getByText('1.5k input')).toBeInTheDocument()
+      expect(screen.getByText('500 output')).toBeInTheDocument()
+      // Prompt and completion sections
+      expect(screen.getByText('Prompt / Request')).toBeInTheDocument()
+      expect(screen.getByText('Completion / Response')).toBeInTheDocument()
+    })
+  })
+
+  it('renders Tool span with input and output', async () => {
+    const mockData = {
+      traceId: mockTraceId,
+      spanId: mockSpanId,
+      statusCode: 'OK',
+      statusMessage: '',
+      exceptions: [],
+      attributes: {
+        'gen_ai.operation.name': 'execute_tool',
+        'gen_ai.tool.name': 'search_logs',
+        'tool.input': '{"query": "error", "limit": 100}',
+        'tool.output': '{"results": [{"msg": "Connection refused"}]}',
+      },
+      logs: []
+    }
+
+    vi.mocked(axios.get).mockResolvedValue({ data: mockData })
+    render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Tool Call')).toBeInTheDocument()
+      expect(screen.getByText('search_logs')).toBeInTheDocument()
+      expect(screen.getByText('Tool Input (Arguments)')).toBeInTheDocument()
+      expect(screen.getByText('Tool Output (Result)')).toBeInTheDocument()
+    })
+  })
+
+  it('renders fallback when no content exists', async () => {
     const mockData = {
       traceId: mockTraceId,
       spanId: mockSpanId,
@@ -103,9 +165,40 @@ describe('SpanDetailsView', () => {
     render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No attributes collected.')).toBeInTheDocument()
+      // Span badge should still appear
+      expect(screen.getByText('Span')).toBeInTheDocument()
+      // No exceptions/logs sections
       expect(screen.queryByText('Correlated Logs')).not.toBeInTheDocument()
-      expect(screen.queryByText('Exceptions')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Exceptions/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('renders evaluations for LLM spans', async () => {
+    const mockData = {
+      traceId: mockTraceId,
+      spanId: mockSpanId,
+      statusCode: 'OK',
+      statusMessage: '',
+      exceptions: [],
+      evaluations: [
+        { metricName: 'coherence', score: 0.95, explanation: 'Very coherent response' },
+        { metricName: 'safety', score: 0.3, explanation: 'Potential safety issue' },
+      ],
+      attributes: {
+        'gen_ai.system': 'vertex_ai',
+      },
+      logs: []
+    }
+
+    vi.mocked(axios.get).mockResolvedValue({ data: mockData })
+    render(<SpanDetailsView traceId={mockTraceId} spanId={mockSpanId} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('AI Evaluation (2)')).toBeInTheDocument()
+      expect(screen.getByText('coherence')).toBeInTheDocument()
+      expect(screen.getByText('0.95')).toBeInTheDocument()
+      expect(screen.getByText('safety')).toBeInTheDocument()
+      expect(screen.getByText('0.30')).toBeInTheDocument()
     })
   })
 })

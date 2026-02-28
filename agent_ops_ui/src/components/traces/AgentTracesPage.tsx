@@ -163,6 +163,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             <div
               onClick={() => {
                 setSessionFilter(session.sessionId)
+                setViewMode('log')
                 setActiveTab('traces')
               }}
               style={{
@@ -178,7 +179,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
                 display: 'flex',
                 alignItems: 'center',
               }}
-              title="Open session traces in Trace Explorer"
+              title="Open session execution trace (waterfall view)"
               onMouseOver={(e) => {
                 e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'
               }}
@@ -755,22 +756,22 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             </button>
             <div style={{ ...styles.tabsContainer, marginLeft: 'auto' }}>
               <button
-                style={{ ...styles.tabButton, ...(viewMode === 'trace' ? styles.tabActive : styles.tabInactive) }}
-                onClick={() => setViewMode('trace')}
-              >
-                Trace View
-              </button>
-              <button
                 style={{ ...styles.tabButton, ...(viewMode === 'log' ? styles.tabActive : styles.tabInactive) }}
                 onClick={() => { setViewMode('log'); setExpandedSpanId(null); }}
               >
-                Logs View
+                Waterfall
+              </button>
+              <button
+                style={{ ...styles.tabButton, ...(viewMode === 'trace' ? styles.tabActive : styles.tabInactive) }}
+                onClick={() => setViewMode('trace')}
+              >
+                Table
               </button>
               <button
                 style={{ ...styles.tabButton, ...(viewMode === 'graph' ? styles.tabActive : styles.tabInactive) }}
                 onClick={() => { setViewMode('graph'); setExpandedSpanId(null); }}
               >
-                Graph View
+                Graph
               </button>
             </div>
           </div>

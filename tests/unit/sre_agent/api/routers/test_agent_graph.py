@@ -2398,11 +2398,16 @@ class TestSessionTrajectoryEndpoint:
         span_row = _make_row(
             trace_id="test-trace-1",
             span_id="span-123",
+            parent_id="parent-span-0",
             start_time=None,
             node_type="LLM",
             node_label="gemini",
             duration_ms=100.5,
             status_code=0,
+            status_desc=None,
+            input_tokens=500,
+            output_tokens=200,
+            request_model="gemini-2.5-flash",
         )
 
         bq.query_and_wait.return_value = _mock_query_result([span_row])
@@ -2445,8 +2450,13 @@ class TestSessionTrajectoryEndpoint:
         traj = data["trajectory"][0]
         assert traj["traceId"] == "test-trace-1"
         assert traj["spanId"] == "span-123"
+        assert traj["parentSpanId"] == "parent-span-0"
         assert traj["prompt"] == "hello world"
         assert traj["completion"] == "greetings"
+        assert traj["inputTokens"] == 500
+        assert traj["outputTokens"] == 200
+        assert traj["totalTokens"] == 700
+        assert traj["model"] == "gemini-2.5-flash"
         assert traj["logs"][0]["severity"] == "ERROR"
         assert len(traj["evaluations"]) == 0
 
