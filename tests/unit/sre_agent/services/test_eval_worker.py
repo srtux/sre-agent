@@ -281,18 +281,17 @@ async def test_run_vertex_eval_successful():
     mock_metric_templates = MagicMock()
     mock_metric_templates.COHERENCE = "coherence_template"
 
-    with patch("vertexai.evaluation.EvalTask", mock_eval_task_cls):
-        with patch("vertexai.evaluation.MetricPromptTemplateExamples") as mock_mpt:
-            mock_mpt.Pointwise = mock_metric_templates
+    mock_eval_module = MagicMock()
+    mock_eval_module.EvalTask = mock_eval_task_cls
+    mock_eval_module.MetricPromptTemplateExamples.Pointwise = mock_metric_templates
 
-            from sre_agent.services.eval_worker import _run_vertex_eval
+    with patch.dict("sys.modules", {"vertexai.evaluation": mock_eval_module}):
+        from sre_agent.services.eval_worker import _run_vertex_eval
 
-            result = await _run_vertex_eval(
-                spans=[
-                    {"span_id": "span-1", "input_text": "hi", "output_text": "hello"}
-                ],
-                metrics=["coherence"],
-            )
+        result = await _run_vertex_eval(
+            spans=[{"span_id": "span-1", "input_text": "hi", "output_text": "hello"}],
+            metrics=["coherence"],
+        )
 
     assert "span-1" in result
     assert "coherence" in result["span-1"]
@@ -307,19 +306,17 @@ async def test_run_vertex_eval_no_valid_metrics():
     mock_metric_templates = MagicMock()
     mock_metric_templates.NONEXISTENT_METRIC = None
 
-    with patch("vertexai.evaluation.EvalTask", MagicMock()):
-        with patch("vertexai.evaluation.MetricPromptTemplateExamples") as mock_mpt:
-            mock_mpt.Pointwise = mock_metric_templates
-            # getattr(MagicMock(), "NONEXISTENT_METRIC") returns a new MagicMock
-            # which is truthy. We need to make it return None.
-            mock_metric_templates.configure_mock(**{"NONEXISTENT_METRIC": None})
+    mock_eval_module = MagicMock()
+    mock_eval_module.EvalTask = MagicMock()
+    mock_eval_module.MetricPromptTemplateExamples.Pointwise = mock_metric_templates
 
-            from sre_agent.services.eval_worker import _run_vertex_eval
+    with patch.dict("sys.modules", {"vertexai.evaluation": mock_eval_module}):
+        from sre_agent.services.eval_worker import _run_vertex_eval
 
-            result = await _run_vertex_eval(
-                spans=[{"span_id": "s1", "input_text": "a", "output_text": "b"}],
-                metrics=["nonexistent_metric"],
-            )
+        result = await _run_vertex_eval(
+            spans=[{"span_id": "s1", "input_text": "a", "output_text": "b"}],
+            metrics=["nonexistent_metric"],
+        )
 
     assert result == {}
 
@@ -334,16 +331,17 @@ async def test_run_vertex_eval_evaluation_exception():
     mock_metric_templates = MagicMock()
     mock_metric_templates.COHERENCE = "coherence_template"
 
-    with patch("vertexai.evaluation.EvalTask", mock_eval_task_cls):
-        with patch("vertexai.evaluation.MetricPromptTemplateExamples") as mock_mpt:
-            mock_mpt.Pointwise = mock_metric_templates
+    mock_eval_module = MagicMock()
+    mock_eval_module.EvalTask = mock_eval_task_cls
+    mock_eval_module.MetricPromptTemplateExamples.Pointwise = mock_metric_templates
 
-            from sre_agent.services.eval_worker import _run_vertex_eval
+    with patch.dict("sys.modules", {"vertexai.evaluation": mock_eval_module}):
+        from sre_agent.services.eval_worker import _run_vertex_eval
 
-            result = await _run_vertex_eval(
-                spans=[{"span_id": "s1", "input_text": "a", "output_text": "b"}],
-                metrics=["coherence"],
-            )
+        result = await _run_vertex_eval(
+            spans=[{"span_id": "s1", "input_text": "a", "output_text": "b"}],
+            metrics=["coherence"],
+        )
 
     assert result == {}
 
