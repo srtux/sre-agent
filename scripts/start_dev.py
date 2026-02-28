@@ -61,9 +61,11 @@ def cleanup_port(port: int) -> None:
 def start_backend() -> bool:
     """Start the Python backend."""
     global backend_proc
-    
+
     if not check_command("uv"):
-        print("❌ 'uv' command not found! Please install uv (https://github.com/astral-sh/uv).")
+        print(
+            "❌ 'uv' command not found! Please install uv (https://github.com/astral-sh/uv)."
+        )
         return False
 
     print("🚀 Cleaning up port 8001...")
@@ -103,11 +105,13 @@ def start_backend() -> bool:
 def start_frontend() -> bool:
     """Start the Flutter frontend."""
     global frontend_proc
-    
+
     if not check_command("flutter"):
         print("⚠️  'flutter' command not found! Skipping Flutter frontend.")
-        print("   If you need it, please install Flutter: https://docs.flutter.dev/get-started/install")
-        return True # Return True to continue with other services
+        print(
+            "   If you need it, please install Flutter: https://docs.flutter.dev/get-started/install"
+        )
+        return True  # Return True to continue with other services
 
     print("🚀 Starting Frontend (Flutter)...")
 
@@ -157,11 +161,11 @@ def start_frontend() -> bool:
 def start_react() -> bool:
     """Start the React Agent Graph UI."""
     global react_proc
-    
+
     if not check_command("npm"):
         print("⚠️  'npm' command not found! Skipping React UI.")
         print("   If you need it, please install Node.js and npm: https://nodejs.org/")
-        return True # Return True to continue
+        return True  # Return True to continue
 
     print("🚀 Starting React UI (Vite)...")
 
