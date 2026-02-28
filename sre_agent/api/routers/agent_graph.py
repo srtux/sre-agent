@@ -2609,10 +2609,13 @@ async def get_session_trajectory(
         trace_ids = list(set([r.trace_id for r in span_rows if r.trace_id]))
 
         # 1. Fetch trace data from Cloud Trace directly
+        import asyncio
+
         from sre_agent.tools.clients.trace import _fetch_trace_sync
 
         trace_spans_map = {}
-        for tid in trace_ids:
+
+        async def fetch_one_trace(tid: str):
             try:
                 t_data = await anyio.to_thread.run_sync(
                     _fetch_trace_sync, project_id, tid
@@ -2623,6 +2626,9 @@ async def get_session_trajectory(
             except Exception as e:
                 logger.warning(f"Failed to fetch trace {tid} from Cloud Trace: {e}")
 
+        if trace_ids:
+            await asyncio.gather(*(fetch_one_trace(tid) for tid in trace_ids))
+
         # 2. Fetch logs from Cloud Logging directly
         logs_by_span = defaultdict(list)
         from sre_agent.tools.clients.logging import _list_log_entries_sync
@@ -2631,34 +2637,39 @@ async def get_session_trajectory(
             if trace_ids:
                 # Max 20 trace IDs per filter to avoid expression too long, but usually we have just 1-5 traces
                 # Split traces into batches of 10
-                for i in range(0, len(trace_ids), 10):
-                    batch_traces = trace_ids[i : i + 10]
-                    trace_conditions = " OR ".join(
-                        [
-                            f'trace="projects/{project_id}/traces/{t}"'
-                            for t in batch_traces
-                        ]
-                    )
+                async def fetch_log_batch(batch_traces: list[str]):
+                    try:
+                        trace_conditions = " OR ".join(
+                            [
+                                f'trace="projects/{project_id}/traces/{t}"'
+                                for t in batch_traces
+                            ]
+                        )
 
-                    log_res = await anyio.to_thread.run_sync(
-                        _list_log_entries_sync,
-                        project_id,
-                        trace_conditions,
-                        2000,
-                        None,
-                        None,
-                    )
+                        log_res = await anyio.to_thread.run_sync(
+                            _list_log_entries_sync,
+                            project_id,
+                            trace_conditions,
+                            2000,
+                            None,
+                            None,
+                        )
 
-                    if isinstance(log_res, dict) and "entries" in log_res:
-                        for entry in log_res["entries"]:
-                            if entry.get("span_id"):
-                                logs_by_span[entry["span_id"]].append(
-                                    {
-                                        "timestamp": entry.get("timestamp"),
-                                        "severity": entry.get("severity"),
-                                        "payload": entry.get("payload"),
-                                    }
-                                )
+                        if isinstance(log_res, dict) and "entries" in log_res:
+                            for entry in log_res["entries"]:
+                                if entry.get("span_id"):
+                                    logs_by_span[entry["span_id"]].append(
+                                        {
+                                            "timestamp": entry.get("timestamp"),
+                                            "severity": entry.get("severity"),
+                                            "payload": entry.get("payload"),
+                                        }
+                                    )
+                    except Exception as exc:
+                        logger.warning(f"Failed to fetch log batch: {exc}")
+
+                batches = [trace_ids[i : i + 10] for i in range(0, len(trace_ids), 10)]
+                await asyncio.gather(*(fetch_log_batch(b) for b in batches))
         except Exception as exc:
             logger.warning(
                 f"Failed to fetch correlated logs for session {session_id} from Cloud Logging: {exc}"
