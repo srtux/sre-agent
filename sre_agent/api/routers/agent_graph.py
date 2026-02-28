@@ -2589,7 +2589,6 @@ async def get_session_trajectory(
                 r.request_model
             FROM `{project_id}.{dataset}.agent_spans_raw` r
             WHERE r.session_id = @session_id
-              AND r.node_type != 'Glue'
             ORDER BY r.start_time ASC
         """
         job_config = bigquery.QueryJobConfig(
