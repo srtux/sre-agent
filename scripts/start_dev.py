@@ -44,14 +44,31 @@ def cleanup(signum: int | None, frame: object) -> None:
     sys.exit(0)
 
 
-def check_command(cmd: list[str]) -> bool:
+def check_command(cmd_name: str) -> bool:
     """Check if a command exists in path."""
-    return shutil.which(cmd[0]) is not None
+    return shutil.which(cmd_name) is not None
+
+
+def cleanup_port(port: int) -> None:
+    """Kill any process using the specified port."""
+    try:
+        # Try to use fuser to kill the port
+        subprocess.run(["fuser", "-k", f"{port}/tcp"], check=False, capture_output=True)
+    except Exception:
+        pass
 
 
 def start_backend() -> bool:
     """Start the Python backend."""
     global backend_proc
+    
+    if not check_command("uv"):
+        print("❌ 'uv' command not found! Please install uv (https://github.com/astral-sh/uv).")
+        return False
+
+    print("🚀 Cleaning up port 8001...")
+    cleanup_port(8001)
+
     print("🚀 Starting Backend (ADK Agent)...")
 
     # Use unbuffered output for Python to see logs immediately
@@ -72,8 +89,6 @@ def start_backend() -> bool:
         ["uv", "run", "poe", "web"],
         cwd=os.getcwd(),
         env=env,
-        # We don't pipe stdout/stderr so they go to terminal directly
-        # If we wanted to prefix them, we'd need to thread reading pipes
     )
 
     print("⏳ Waiting for Backend to initialize (5s)...")
@@ -88,6 +103,12 @@ def start_backend() -> bool:
 def start_frontend() -> bool:
     """Start the Flutter frontend."""
     global frontend_proc
+    
+    if not check_command("flutter"):
+        print("⚠️  'flutter' command not found! Skipping Flutter frontend.")
+        print("   If you need it, please install Flutter: https://docs.flutter.dev/get-started/install")
+        return True # Return True to continue with other services
+
     print("🚀 Starting Frontend (Flutter)...")
 
     frontend_dir = os.path.join(os.getcwd(), "autosre")
@@ -118,10 +139,14 @@ def start_frontend() -> bool:
         print("🔑 Passing Google Client ID to Flutter via --dart-define...")
         flutter_cmd.append(f"--dart-define=GOOGLE_CLIENT_ID={client_id}")
 
-    frontend_proc = subprocess.Popen(
-        flutter_cmd,
-        cwd=frontend_dir,
-    )
+    try:
+        frontend_proc = subprocess.Popen(
+            flutter_cmd,
+            cwd=frontend_dir,
+        )
+    except Exception as e:
+        print(f"❌ Failed to spawn flutter: {e}")
+        return False
 
     if frontend_proc and frontend_proc.poll() is not None:
         print("❌ Frontend failed to start!")
@@ -132,14 +157,24 @@ def start_frontend() -> bool:
 def start_react() -> bool:
     """Start the React Agent Graph UI."""
     global react_proc
+    
+    if not check_command("npm"):
+        print("⚠️  'npm' command not found! Skipping React UI.")
+        print("   If you need it, please install Node.js and npm: https://nodejs.org/")
+        return True # Return True to continue
+
     print("🚀 Starting React UI (Vite)...")
 
     react_dir = os.path.join(os.getcwd(), "agent_ops_ui")
 
-    react_proc = subprocess.Popen(
-        ["npm", "run", "dev"],
-        cwd=react_dir,
-    )
+    try:
+        react_proc = subprocess.Popen(
+            ["npm", "run", "dev"],
+            cwd=react_dir,
+        )
+    except Exception as e:
+        print(f"❌ Failed to spawn npm: {e}")
+        return False
 
     if react_proc and react_proc.poll() is not None:
         print("❌ React UI failed to start!")
@@ -169,8 +204,10 @@ def main() -> None:
         return
 
     print("\n✅ API running at http://127.0.0.1:8001")
-    print("✅ Web UI starting in Chrome (Flutter)")
-    print("✅ React UI starting via Vite")
+    if frontend_proc:
+        print("✅ Web UI starting in Chrome (Flutter)")
+    if react_proc:
+        print("✅ React UI starting via Vite")
     print("\nPRESS CTRL+C TO STOP ALL SERVICES\n")
 
     # Keep main thread alive
