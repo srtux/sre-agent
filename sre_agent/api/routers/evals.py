@@ -229,6 +229,45 @@ async def delete_eval_config(agent_name: str) -> Response:
 
 
 # ---------------------------------------------------------------------------
+# Run evaluations (trigger)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/run")
+async def trigger_eval_run() -> dict[str, Any]:
+    """Trigger an on-demand evaluation run.
+
+    Executes the same logic as the Cloud Scheduler-driven worker:
+    fetches active eval configs, queries BigQuery for un-evaluated
+    production traces, runs Vertex AI evaluations, and logs results
+    as OTel events.
+
+    Returns:
+        Summary dict with ``agents_processed``, ``total_spans_evaluated``,
+        and per-agent ``details``.
+    """
+    if is_guest_mode():
+        return {
+            "agents_processed": 2,
+            "total_spans_evaluated": 42,
+            "details": {
+                "support-agent": {"spans_fetched": 30, "spans_evaluated": 28},
+                "code-review-agent": {"spans_fetched": 15, "spans_evaluated": 14},
+            },
+        }
+    try:
+        from sre_agent.services.eval_worker import run_scheduled_evaluations
+
+        result = await run_scheduled_evaluations()
+        return result
+    except (HTTPException, UserFacingError):
+        raise
+    except Exception as e:
+        logger.exception("Error running evaluation")
+        raise UserFacingError(f"Evaluation run failed: {e}") from e
+
+
+# ---------------------------------------------------------------------------
 # Aggregate metrics endpoint
 # ---------------------------------------------------------------------------
 

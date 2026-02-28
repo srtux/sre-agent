@@ -525,3 +525,47 @@ async def test_aggregate_metrics_bq_error(mock_bq_mod, mock_no_guest):
     )
     assert response.status_code == 500
     assert "aggregate eval metrics" in response.json()["detail"].lower()
+
+
+# ========== TRIGGER eval run ==========
+
+
+@pytest.mark.asyncio
+async def test_trigger_eval_run_guest_mode(mock_guest_mode):
+    """Guest mode returns synthetic run summary."""
+    response = client.post("/api/v1/evals/run")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["agents_processed"] == 2
+    assert data["total_spans_evaluated"] == 42
+    assert "support-agent" in data["details"]
+
+
+@pytest.mark.asyncio
+async def test_trigger_eval_run_calls_worker(mock_no_guest):
+    """Trigger endpoint delegates to run_scheduled_evaluations."""
+    expected = {
+        "agents_processed": 1,
+        "total_spans_evaluated": 5,
+        "details": {"my-agent": {"spans_fetched": 10, "spans_evaluated": 5}},
+    }
+    with patch(
+        "sre_agent.services.eval_worker.run_scheduled_evaluations",
+        return_value=expected,
+    ):
+        response = client.post("/api/v1/evals/run")
+
+    assert response.status_code == 200
+    assert response.json() == expected
+
+
+@pytest.mark.asyncio
+async def test_trigger_eval_run_worker_error(mock_no_guest):
+    """Worker exception returns error via UserFacingError."""
+    with patch(
+        "sre_agent.services.eval_worker.run_scheduled_evaluations",
+        side_effect=RuntimeError("BQ connection failed"),
+    ):
+        response = client.post("/api/v1/evals/run")
+
+    assert response.status_code == 500
