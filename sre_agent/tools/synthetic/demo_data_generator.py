@@ -2234,15 +2234,24 @@ class DemoDataGenerator:
                     except Exception:
                         pass
 
+            input_tokens = int(attrs.get("gen_ai.usage.input_tokens", 0))
+            output_tokens = int(attrs.get("gen_ai.usage.output_tokens", 0))
+
             trajectory.append(
                 {
                     "traceId": s["trace_id"],
                     "spanId": s["span_id"],
+                    "parentSpanId": s.get("parent_span_id"),
                     "startTime": start_time_iso,
                     "nodeType": node_type,
                     "nodeLabel": s["name"],
                     "durationMs": duration_ms,
                     "statusCode": s["status"]["code"],
+                    "statusMessage": s["status"].get("message"),
+                    "inputTokens": input_tokens,
+                    "outputTokens": output_tokens,
+                    "totalTokens": input_tokens + output_tokens,
+                    "model": attrs.get("gen_ai.request.model"),
                     "prompt": prompt,
                     "completion": completion,
                     "systemMessage": system_message,

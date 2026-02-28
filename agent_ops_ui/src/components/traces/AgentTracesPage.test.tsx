@@ -58,6 +58,14 @@ vi.mock('./SpanDetailsView', () => ({
   ),
 }))
 
+vi.mock('./SessionLogsView', () => ({
+  SessionLogsView: ({ sessionId }: any) => (
+    <div data-testid="session-logs-view">
+      SessionLogsView for {sessionId}
+    </div>
+  ),
+}))
+
 vi.mock('../graph/ContextGraphViewer', () => ({
   default: ({ sessionId }: any) => (
     <div data-testid="context-graph-viewer">
@@ -131,25 +139,39 @@ describe('AgentTracesPage', () => {
     expect(screen.getByText('session-123')).toBeInTheDocument()
   })
 
-  it('switches to traces tab and handles deep link', () => {
+  it('switches to traces tab with waterfall view by default on session click', () => {
     render(<AgentTracesPage hours={24} />)
 
-    // Check session click filters traces
+    // Check session click filters traces and opens waterfall view
     fireEvent.click(screen.getByText('session-123'))
 
     expect(screen.getByText('Filtered by Session:')).toBeInTheDocument()
     expect(screen.getAllByText('session-123').length).toBeGreaterThan(0)
 
+    // The Waterfall tab should be visible (new default when session is selected)
+    expect(screen.getByText('Waterfall')).toBeInTheDocument()
+    expect(screen.getByText('Table')).toBeInTheDocument()
+    expect(screen.getByText('Graph')).toBeInTheDocument()
+  })
+
+  it('switches to table view and navigates traces', () => {
+    render(<AgentTracesPage hours={24} />)
+
+    // Select a session
+    fireEvent.click(screen.getByText('session-123'))
+
+    // Switch to table view
+    fireEvent.click(screen.getByText('Table'))
+
     const traceLink = screen.getByText('trace-456...')
     expect(traceLink).toBeInTheDocument()
 
-    // Check trace click (waterfall explorer)
+    // Check trace click (external explorer)
     const traceRow = screen.getByText('trace-456...').closest('div')
     const explorerBtn = traceRow?.querySelector('button')
     if (explorerBtn) {
       fireEvent.click(explorerBtn)
     } else {
-      // Fallback click on the link itself if button not found by querySelector
       fireEvent.click(traceLink)
     }
 

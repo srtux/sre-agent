@@ -17,11 +17,17 @@ export interface TrajectoryLog {
 export interface TrajectoryEvent {
   traceId: string
   spanId: string
+  parentSpanId: string | null
   startTime: string | null
   nodeType: string
   nodeLabel: string
   durationMs: number
   statusCode: number
+  statusMessage: string | null
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  model: string | null
   prompt: string | null
   completion: string | null
   systemMessage: string | null

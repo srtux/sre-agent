@@ -2577,11 +2577,16 @@ async def get_session_trajectory(
             SELECT
                 r.trace_id,
                 r.span_id,
+                r.parent_id,
                 r.start_time,
                 r.node_type,
                 r.node_label,
                 r.duration_ms,
-                r.status_code
+                r.status_code,
+                r.status_desc,
+                r.input_tokens,
+                r.output_tokens,
+                r.request_model
             FROM `{project_id}.{dataset}.agent_spans_raw` r
             WHERE r.session_id = @session_id
               AND r.node_type != 'Glue'
@@ -2669,15 +2674,25 @@ async def get_session_trajectory(
 
             labels = trace_spans_map.get(row.span_id, {})
 
+            input_tokens = int(row.input_tokens) if row.input_tokens else 0
+            output_tokens = int(row.output_tokens) if row.output_tokens else 0
+            status_desc = str(row.status_desc) if row.status_desc else None
+
             trajectory.append(
                 {
                     "traceId": row.trace_id,
                     "spanId": row.span_id,
+                    "parentSpanId": row.parent_id or None,
                     "startTime": row.start_time.isoformat() if row.start_time else None,
                     "nodeType": row.node_type,
                     "nodeLabel": row.node_label,
                     "durationMs": row.duration_ms,
                     "statusCode": row.status_code,
+                    "statusMessage": status_desc,
+                    "inputTokens": input_tokens,
+                    "outputTokens": output_tokens,
+                    "totalTokens": input_tokens + output_tokens,
+                    "model": row.request_model or None,
                     "prompt": labels.get("gen_ai.prompt")
                     or labels.get("gen_ai.request.message")
                     or labels.get("gcp.vertex.agent.llm_request"),
