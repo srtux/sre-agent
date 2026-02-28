@@ -2615,7 +2615,7 @@ async def get_session_trajectory(
 
         trace_spans_map = {}
 
-        async def fetch_one_trace(tid: str):
+        async def fetch_one_trace(tid: str) -> None:
             try:
                 t_data = await anyio.to_thread.run_sync(
                     _fetch_trace_sync, project_id, tid
@@ -2637,7 +2637,7 @@ async def get_session_trajectory(
             if trace_ids:
                 # Max 20 trace IDs per filter to avoid expression too long, but usually we have just 1-5 traces
                 # Split traces into batches of 10
-                async def fetch_log_batch(batch_traces: list[str]):
+                async def fetch_log_batch(batch_traces: list[str]) -> None:
                     try:
                         trace_conditions = " OR ".join(
                             [
