@@ -357,7 +357,7 @@ interface Props {
 
 export const SessionLogsView: React.FC<Props> = ({ sessionId, activeTab, viewMode }) => {
   const { data, loading, error } = useSessionTrajectory(sessionId, activeTab, viewMode)
-  const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
+  const [expandedSpans, setExpandedSpans] = useState<Set<string> | null>(null)
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
@@ -367,19 +367,23 @@ export const SessionLogsView: React.FC<Props> = ({ sessionId, activeTab, viewMod
     return buildTree(data.trajectory)
   }, [data?.trajectory])
 
-  // Flatten for display
-  const flatNodes = useMemo(() => {
-    // Start with all nodes expanded
-    const allIds = new Set<string>()
+  // Get all node IDs that have children for default expansion
+  const allParentIds = useMemo(() => {
+    const ids = new Set<string>()
     function collect(nodes: TrajectoryTreeNode[]) {
       for (const n of nodes) {
-        if (n.children.length > 0) allIds.add(n.spanId)
+        if (n.children.length > 0) ids.add(n.spanId)
         collect(n.children)
       }
     }
     collect(tree)
-    return flattenTree(tree, expandedSpans.size > 0 ? expandedSpans : allIds)
-  }, [tree, expandedSpans])
+    return ids
+  }, [tree])
+
+  // Flatten for display
+  const flatNodes = useMemo(() => {
+    return flattenTree(tree, expandedSpans ?? allParentIds)
+  }, [tree, expandedSpans, allParentIds])
 
   // Compute waterfall metrics
   const { minTime, maxTime, totalDuration } = useMemo(() => {
@@ -412,7 +416,7 @@ export const SessionLogsView: React.FC<Props> = ({ sessionId, activeTab, viewMod
 
   const toggleExpand = (spanId: string) => {
     setExpandedSpans(prev => {
-      const next = new Set(prev)
+      const next = new Set(prev ?? allParentIds)
       if (next.has(spanId)) next.delete(spanId)
       else next.add(spanId)
       return next
@@ -518,7 +522,7 @@ export const SessionLogsView: React.FC<Props> = ({ sessionId, activeTab, viewMod
         {flatNodes.map((node) => {
           const config = getNodeTypeConfig(node.nodeType)
           const hasChildren = node.children.length > 0
-          const isExpanded = expandedSpans.has(node.spanId) || expandedSpans.size === 0
+          const isExpanded = (expandedSpans ?? allParentIds).has(node.spanId)
           const isSelected = selectedSpanId === node.spanId
           const isHovered = hoveredRow === node.spanId
           const isError = String(node.statusCode) === '2' || String(node.statusCode) === 'ERROR'
