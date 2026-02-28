@@ -88,6 +88,43 @@ async def test_mcp_list_timeseries():
 
 
 @pytest.mark.asyncio
+async def test_mcp_list_timeseries_relative_time():
+    mock_context = MagicMock()
+    with patch(
+        "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
+    ) as mock_call:
+        mock_call.return_value = {
+            "status": ToolStatus.SUCCESS,
+            "result": {"timeSeries": []},
+        }
+
+        # Test valid relative time strings
+        result = await mcp_list_timeseries(
+            filter='metric.type="m1"',
+            interval_start_time="-1440m",
+            interval_end_time="now-1h",
+            project_id="p1",
+            tool_context=mock_context,
+        )
+        assert result.status == ToolStatus.SUCCESS
+
+
+@pytest.mark.asyncio
+async def test_mcp_list_timeseries_invalid_time():
+    mock_context = MagicMock()
+    # Test invalid time format that fails the fallback datetime parse
+    result = await mcp_list_timeseries(
+        filter='metric.type="m1"',
+        interval_start_time="invalid-date",
+        interval_end_time="invalid-date",
+        project_id="p1",
+        tool_context=mock_context,
+    )
+    assert result.status == ToolStatus.ERROR
+    assert "Invalid format for interval time" in result.error
+
+
+@pytest.mark.asyncio
 async def test_mcp_query_range():
     mock_context = MagicMock()
     with patch(

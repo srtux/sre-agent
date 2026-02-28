@@ -729,21 +729,50 @@ async def mcp_list_timeseries(
         - 'metric.labels.response_code="500"' - Filter by metric label
     """
     import json
+    import re
 
     pid = project_id or get_project_id_with_fallback()
 
-    # Build time interval
-    if interval_end_time:
-        end_str = interval_end_time
-    else:
-        end_str = datetime.now(timezone.utc).isoformat()
+    def parse_time(ts_str: str) -> str:
+        if not ts_str:
+            return ts_str
+        m = re.match(r"^(?:now)?-?(\d+)([mhd])$", ts_str.strip().lower())
+        if m:
+            val = int(m.group(1))
+            unit = m.group(2)
+            if unit == "m":
+                td = timedelta(minutes=val)
+            elif unit == "h":
+                td = timedelta(hours=val)
+            else:
+                td = timedelta(days=val)
+            return (datetime.now(timezone.utc) - td).isoformat()
 
-    if interval_start_time:
-        start_str = interval_start_time
-    else:
-        end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-        start_dt = end_dt - timedelta(minutes=minutes_ago)
-        start_str = start_dt.isoformat()
+        # Validate that it is a valid ISO format
+        try:
+            datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        except ValueError as e:
+            raise ValueError(f"Invalid time format: '{ts_str}'") from e
+        return ts_str
+
+    try:
+        # Build time interval
+        if interval_end_time:
+            end_str = parse_time(interval_end_time)
+        else:
+            end_str = datetime.now(timezone.utc).isoformat()
+
+        if interval_start_time:
+            start_str = parse_time(interval_start_time)
+        else:
+            end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+            start_dt = end_dt - timedelta(minutes=minutes_ago)
+            start_str = start_dt.isoformat()
+    except ValueError as e:
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=f"Invalid format for interval time: {e}. Must be ISO format (e.g. '2024-01-01T00:00:00Z') or relative time (e.g. '-60m').",
+        )
 
     args = {
         "name": f"projects/{pid}" if pid else "",
