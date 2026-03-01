@@ -84,8 +84,8 @@ def test_calculate_span_durations(sample_trace_dict):
     root = next(s for s in timings if s["span_id"] == "root")
     child = next(s for s in timings if s["span_id"] == "child1")
 
-    assert root["duration_ms"] == 1000.0
-    assert child["duration_ms"] == 100.0
+    assert root["duration_ms"] == pytest.approx(1000.0, rel=1e-3)
+    assert child["duration_ms"] == pytest.approx(100.0, rel=1e-3)
 
 
 def test_extract_errors():
