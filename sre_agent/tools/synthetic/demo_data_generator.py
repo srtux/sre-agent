@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 import random
-import statistics
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -1129,7 +1128,9 @@ class DemoDataGenerator:
 
         nodes = []
         for nid, ns in node_stats.items():
-            avg_dur = statistics.mean(ns["durations"]) if ns["durations"] else 0.0
+            avg_dur = (
+                sum(ns["durations"]) / len(ns["durations"]) if ns["durations"] else 0.0
+            )
             nodes.append(
                 {
                     "id": nid,
@@ -1148,7 +1149,9 @@ class DemoDataGenerator:
 
         edges = []
         for (src, tgt), es in edge_stats.items():
-            avg_dur = statistics.mean(es["durations"]) if es["durations"] else 0.0
+            avg_dur = (
+                sum(es["durations"]) / len(es["durations"]) if es["durations"] else 0.0
+            )
             edges.append(
                 {
                     "id": f"{src}->{tgt}",
@@ -1372,7 +1375,9 @@ class DemoDataGenerator:
             "callCount": call_count,
             "errorCount": error_count,
             "errorRate": round(error_rate, 4),
-            "avgDurationMs": round(statistics.mean(durations), 2) if durations else 0.0,
+            "avgDurationMs": round((sum(durations) / len(durations)), 2)
+            if durations
+            else 0.0,
             "p95DurationMs": round(_percentile(durations, 95), 2),
             "p99DurationMs": round(_percentile(durations, 99), 2),
             "totalTokens": input_tokens + output_tokens,
@@ -1430,7 +1435,7 @@ class DemoDataGenerator:
                 durations = [self._span_duration_ms(s) for s in spans]
                 tokens = sum(self._span_tokens(s) for s in spans)
                 errors = sum(1 for s in spans if self._span_has_error(s))
-                avg_dur = statistics.mean(durations) if durations else 0.0
+                avg_dur = (sum(durations) / len(durations)) if durations else 0.0
                 points.append(
                     {
                         "bucket": key,
@@ -1575,7 +1580,9 @@ class DemoDataGenerator:
 
         # Current period
         total_sessions = len(sessions)
-        avg_turns = statistics.mean([s["turns"] for s in sessions]) if sessions else 0.0
+        avg_turns = (
+            (sum(s["turns"] for s in sessions) / len(sessions)) if sessions else 0.0
+        )
         root_invocations = len(traces)
         error_traces = sum(
             1 for t in traces if any(s["status"]["code"] == 2 for s in t["spans"])
@@ -1597,7 +1604,9 @@ class DemoDataGenerator:
             sid = t["session_id"]
             prev_session_turns[sid] = prev_session_turns.get(sid, 0) + 1
         prev_avg_turns = (
-            statistics.mean(prev_session_turns.values()) if prev_session_turns else 0.0
+            (sum(prev_session_turns.values()) / len(prev_session_turns))
+            if prev_session_turns
+            else 0.0
         )
 
         def _trend(current: float, previous: float) -> float:
@@ -1867,7 +1876,7 @@ class DemoDataGenerator:
                     "latestTraceId": st[-1]["trace_id"],
                     "totalTokens": total_tokens,
                     "errorCount": error_count,
-                    "avgLatencyMs": round(statistics.mean(latencies), 2)
+                    "avgLatencyMs": round((sum(latencies) / len(latencies)), 2)
                     if latencies
                     else 0.0,
                     "p95LatencyMs": round(_percentile(latencies, 95), 2),
@@ -2029,7 +2038,9 @@ class DemoDataGenerator:
                     "executionCount": ts["calls"],
                     "errorCount": ts["errors"],
                     "errorRate": round(err_rate, 4),
-                    "avgDurationMs": round(statistics.mean(ts["durations"]), 2)
+                    "avgDurationMs": round(
+                        (sum(ts["durations"]) / len(ts["durations"])), 2
+                    )
                     if ts["durations"]
                     else 0.0,
                     "p95DurationMs": round(_percentile(ts["durations"], 95), 2),
