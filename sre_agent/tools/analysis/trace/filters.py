@@ -24,7 +24,7 @@ class TraceSelector:
             return []
 
         latencies = [trace.get("latency", 0) for trace in traces]
-        mean_latency = statistics.mean(latencies)
+        mean_latency = sum(latencies) / len(latencies) if latencies else 0.0
         std_dev_latency = statistics.stdev(latencies) if len(latencies) > 1 else 0
 
         threshold = mean_latency + 2 * std_dev_latency
