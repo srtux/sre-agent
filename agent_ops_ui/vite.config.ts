@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
   },
-  base: '/graph/',
+  base: '/',
   server: {
     port: 5174,
     strictPort: true,
@@ -27,7 +27,9 @@ export default defineConfig({
           'vendor-xyflow': ['@xyflow/react'],
           'vendor-nivo': ['@nivo/sankey'],
           'vendor-icons': ['lucide-react'],
-          'vendor-syntax': ['react-syntax-highlighter']
+          'vendor-syntax': ['react-syntax-highlighter'],
+          'vendor-d3': ['d3'],
+          'vendor-zustand': ['zustand']
         }
       }
     }

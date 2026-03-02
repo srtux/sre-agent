@@ -22,6 +22,7 @@ import AgentTracesPage from './components/traces/AgentTracesPage'
 import AgentLogsPage from './components/logs/AgentLogsPage'
 import EvalsPage from './components/evals/EvalsPage'
 import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
+import InvestigationLayout from './layouts/InvestigationLayout'
 
 /** Check if the app is running in guest/demo mode (passed via URL param from Flutter). */
 function isGuestMode(): boolean {
@@ -362,6 +363,12 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
 
       <div style={styles.tabBar}>
         <button
+          style={activeTab === 'investigate' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('investigate')}
+        >
+          Investigate
+        </button>
+        <button
           style={activeTab === 'agents' ? styles.tabActive : styles.tab}
           onClick={() => {
             setActiveTab('agents')
@@ -439,6 +446,18 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         >
           Evals
         </button>
+        <button
+          style={activeTab === 'help' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('help')}
+        >
+          Help
+        </button>
+        <button
+          style={activeTab === 'settings' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('settings')}
+        >
+          Settings
+        </button>
       </div>
 
       <GraphToolbar
@@ -465,6 +484,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         ) : (
           <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {activeTab === 'investigate' && (
+                <InvestigationLayout />
+              )}
+
               {activeTab === 'agents' && (
                 <RegistryPage
                   filters={{ ...filters, serviceName }}
@@ -547,6 +570,14 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   initialAgent={new URLSearchParams(window.location.search).get('agent') ?? undefined}
                 />
               )}
+
+              {activeTab === 'help' && (
+                <div style={styles.placeholder}>Help page coming soon</div>
+              )}
+
+              {activeTab === 'settings' && (
+                <div style={styles.placeholder}>Settings page coming soon</div>
+              )}
             </div>
 
             <SidePanel
@@ -571,7 +602,7 @@ function App() {
     const urlTab = params.get('tab')
 
     if (urlTraceId) return 'trajectory'
-    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces' || urlTab === 'logs' || urlTab === 'evals') {
+    if (urlTab === 'investigate' || urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces' || urlTab === 'logs' || urlTab === 'evals' || urlTab === 'help' || urlTab === 'settings') {
       return urlTab as Tab
     }
     return 'agents'
