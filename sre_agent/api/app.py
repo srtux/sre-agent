@@ -105,20 +105,50 @@ def create_app(
     if include_adk_routes:
         _mount_adk_routes(app)
 
-    # Mount React Agent Graph UI at /graph (before Flutter catch-all)
-    if os.path.exists("agent_graph_web"):
-        app.mount(
-            "/graph",
-            StaticFiles(directory="agent_graph_web", html=True),
-            name="agent_graph",
-        )
-        logger.info("Mounted Agent Graph UI from 'agent_graph_web' at /graph")
+    # Mount frontend static files based on SRE_FRONTEND env var
+    # Values: "flutter" (default), "react", "both"
+    sre_frontend = os.environ.get("SRE_FRONTEND", "both").lower()
 
-    # Mount static files for the frontend if they exist
-    # In Cloud Run, the build artifacts are copied to /app/web
-    if os.path.exists("web"):
-        app.mount("/", StaticFiles(directory="web", html=True), name="web")
-        logger.info("Mounted static files from 'web' directory")
+    if sre_frontend == "react":
+        # React is primary at /, Flutter demoted to /flutter
+        if os.path.exists("web"):
+            app.mount(
+                "/flutter",
+                StaticFiles(directory="web", html=True),
+                name="web",
+            )
+            logger.info("Mounted Flutter UI at /flutter")
+        # Try react_web first (new path), fall back to agent_graph_web (legacy)
+        if os.path.exists("react_web"):
+            app.mount(
+                "/",
+                StaticFiles(directory="react_web", html=True),
+                name="react",
+            )
+            logger.info("Mounted React UI from 'react_web' at /")
+        elif os.path.exists("agent_graph_web"):
+            app.mount(
+                "/",
+                StaticFiles(directory="agent_graph_web", html=True),
+                name="react",
+            )
+            logger.info("Mounted React UI from 'agent_graph_web' at /")
+    else:
+        # "flutter" or "both": Flutter is primary at /, React at /graph
+        if os.path.exists("agent_graph_web"):
+            app.mount(
+                "/graph",
+                StaticFiles(directory="agent_graph_web", html=True),
+                name="agent_graph",
+            )
+            logger.info("Mounted React UI from 'agent_graph_web' at /graph")
+        if os.path.exists("web"):
+            app.mount(
+                "/",
+                StaticFiles(directory="web", html=True),
+                name="web",
+            )
+            logger.info("Mounted Flutter UI at /")
 
     return app
 

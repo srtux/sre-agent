@@ -52,7 +52,9 @@ RUN uv pip install --system --no-cache . uvicorn fastapi google-adk google-cloud
 COPY --from=builder /app/autosre/build/web ./web/
 
 # 3. Setup React AgentOps UI (from react-builder)
+# Available at both paths: agent_graph_web (legacy /graph) and react_web (for SRE_FRONTEND=react)
 COPY --from=react-builder /app/agent_ops_ui/dist ./agent_graph_web/
+COPY --from=react-builder /app/agent_ops_ui/dist ./react_web/
 
 # 4. Startup Script
 COPY scripts/start_unified.sh .

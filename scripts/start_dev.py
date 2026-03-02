@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 import signal
@@ -186,26 +187,49 @@ def start_react() -> bool:
     return True
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="SRE Agent Development Environment")
+    parser.add_argument(
+        "--frontend",
+        choices=["flutter", "react", "both"],
+        default="both",
+        help="Which frontend to start (default: both)",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     """Run the development environment."""
+    args = parse_args()
+
     # Register signal handlers
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
+    frontend_label = {
+        "both": "Flutter + React frontends",
+        "flutter": "Flutter frontend only",
+        "react": "React frontend only",
+    }[args.frontend]
+
     print("🔥 Starting SRE Agent Development Environment...")
+    print(f"   Frontend mode: {frontend_label}")
     print("===============================================")
 
     if not start_backend():
         cleanup(None, None)
         return
 
-    if not start_frontend():
-        cleanup(None, None)
-        return
+    if args.frontend in ("flutter", "both"):
+        if not start_frontend():
+            cleanup(None, None)
+            return
 
-    if not start_react():
-        cleanup(None, None)
-        return
+    if args.frontend in ("react", "both"):
+        if not start_react():
+            cleanup(None, None)
+            return
 
     print("\n✅ API running at http://127.0.0.1:8001")
     if frontend_proc:
