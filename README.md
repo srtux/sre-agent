@@ -305,8 +305,14 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### 3. Running Locally
 
 ```bash
-# Full stack: FastAPI backend + Flutter web frontend
+# Full stack: FastAPI backend + Flutter + React frontends
 uv run poe dev
+
+# React frontend only (+ backend)
+uv run poe dev-react
+
+# Flutter frontend only (+ backend)
+uv run poe dev-flutter
 
 # Backend API server only (FastAPI on port 8001)
 uv run poe web
@@ -315,7 +321,7 @@ uv run poe web
 uv run poe run
 ```
 
-The full stack starts the FastAPI backend and the Flutter web frontend together. The agent runs in-process for fast iteration -- no Vertex AI deployment required.
+The full stack starts the FastAPI backend and both web frontends together. The agent runs in-process for fast iteration -- no Vertex AI deployment required. In production, set `SRE_FRONTEND=react` to serve the React UI at `/` instead of Flutter. See the [Frontend Selection guide](docs/guides/frontend_selection.md) for details.
 
 > [!TIP]
 > To enable local Cloud Trace export, set `OTEL_TO_CLOUD=true` in your `.env` file.
