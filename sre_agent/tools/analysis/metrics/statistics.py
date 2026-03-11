@@ -31,7 +31,7 @@ def calculate_series_stats(
         "count": float(count),
         "min": points_sorted[0],
         "max": points_sorted[-1],
-        "mean": statistics.mean(points_sorted),
+        "mean": sum(points_sorted) / count,
         "median": statistics.median(points_sorted),
     }
 
