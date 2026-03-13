@@ -54,10 +54,11 @@ if __name__ == "__main__":
     is_dev = workers == 1
 
     uvicorn.run(
-        "server:app",
+        "sre_agent.api.app:create_app",
         host=host,
         port=port,
         log_config=None,
         workers=workers,
         reload=is_dev,
+        factory=True,
     )
