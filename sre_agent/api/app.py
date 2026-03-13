@@ -114,6 +114,28 @@ def create_app(
         )
         logger.info("Mounted Agent Graph UI from 'agent_graph_web' at /graph")
 
+    from fastapi.responses import HTMLResponse
+
+    @app.get("/", response_class=HTMLResponse)
+    async def serve_index():
+        path = "web/index.html"
+        if not os.path.exists(path):
+            return HTMLResponse(
+                "Frontend not built. Please run build setup.", status_code=404
+            )
+        with open(path) as f:
+            content = f.read()
+
+        client_id = os.getenv("GOOGLE_CLIENT_ID") or ""
+        import re
+
+        content = re.sub(
+            r'<meta name="google-signin-client_id" content=".*?">',
+            f'<meta name="google-signin-client_id" content="{client_id}">',
+            content,
+        )
+        return HTMLResponse(content)
+
     # Mount static files for the frontend if they exist
     # In Cloud Run, the build artifacts are copied to /app/web
     if os.path.exists("web"):
