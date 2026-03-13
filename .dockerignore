@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / Frontend
+node_modules/
+agent_ops_ui/node_modules/
+.svelte-kit/
+build/
+.dart_tool/
+
+# IDE / System
+.idea/
+.vscode/
+.DS_Store
+
+# Git
+.git/
+
+# Agent
+.agent/
+.gemini/

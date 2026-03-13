@@ -7,6 +7,97 @@ import sys
 from dotenv import load_dotenv
 
 
+def configure_iap_iam(args, project_id):
+    import json
+    import tempfile
+
+    # Read IAP members from environment
+    iap_members = os.getenv("IAP_AUTHORIZED_MEMBERS")
+    if not iap_members:
+        return
+
+    print("\n🔐 Configuring IAP End-User Permissions...")
+    members_list = [m.strip() for m in iap_members.split(",") if m.strip()]
+    if not members_list:
+        print("   No valid members found in IAP_AUTHORIZED_MEMBERS.")
+        return
+
+    # 1. Fetch current policy
+    try:
+        cmd_get = [
+            "gcloud",
+            "iap",
+            "web",
+            "get-iam-policy",
+            "--resource-type=cloud-run",
+            f"--service={args.service_name}",
+            f"--region={args.region}",
+            f"--project={project_id}",
+            "--format=json",
+        ]
+        result = subprocess.run(cmd_get, capture_output=True, text=True, check=True)
+        policy = json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to fetch current IAP policy: {e.stderr}")
+        return
+    except json.JSONDecodeError:
+        print("❌ Failed to parse IAP policy JSON.")
+        return
+
+    # 2. Update bindings
+    updated = False
+    bindings = policy.get("bindings", [])
+    accessor_binding = None
+    for b in bindings:
+        if b.get("role") == "roles/iap.httpsResourceAccessor" and not b.get(
+            "condition"
+        ):
+            accessor_binding = b
+            break
+
+    if not accessor_binding:
+        accessor_binding = {"role": "roles/iap.httpsResourceAccessor", "members": []}
+        bindings.append(accessor_binding)
+
+    current_members = accessor_binding.get("members", [])
+    for member in members_list:
+        if member not in current_members:
+            current_members.append(member)
+            updated = True
+            print(f"   Adding {member}...")
+
+    if not updated:
+        print("   ✅ IAP permissions are already up-to-date.")
+        return
+
+    accessor_binding["members"] = current_members
+    policy["bindings"] = bindings
+
+    # 3. Apply policy
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(policy, f)
+        temp_path = f.name
+
+    try:
+        cmd_set = [
+            "gcloud",
+            "iap",
+            "web",
+            "set-iam-policy",
+            temp_path,
+            "--resource-type=cloud-run",
+            f"--service={args.service_name}",
+            f"--region={args.region}",
+            f"--project={project_id}",
+        ]
+        subprocess.run(cmd_set, check=True, capture_output=True, text=True)
+        print("✅ Successfully updated IAP policy.")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to set IAP policy: {e.stderr}")
+    finally:
+        os.remove(temp_path)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Deploy SRE Mission Control to Cloud Run"
@@ -151,6 +242,9 @@ def main():
 
         subprocess.run(cmd, check=True)
         print("\n✅ Successfully deployed to Cloud Run!")
+
+        # Configure IAP permissions if specified
+        configure_iap_iam(args, project_id)
         print(
             f"🔗 View service details: https://console.cloud.google.com/run/detail/{args.region}/{args.service_name}/revisions?project={project_id}"
         )

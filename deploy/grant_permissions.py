@@ -102,6 +102,7 @@ def main():
                 f"--member=serviceAccount:{agent}",
                 "--role=roles/iam.serviceAccountUser",
                 "--condition=None",
+                f"--project={project_id}",
             ],
             exit_on_fail=False,
         )
