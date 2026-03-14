@@ -27,12 +27,19 @@ def calculate_series_stats(
     points_sorted = sorted(points)
     count = len(points_sorted)
 
+    mid = count // 2
+    median_val = (
+        (points_sorted[mid - 1] + points_sorted[mid]) / 2.0
+        if count % 2 == 0
+        else float(points_sorted[mid])
+    )
+
     stats = {
         "count": float(count),
         "min": points_sorted[0],
         "max": points_sorted[-1],
-        "mean": statistics.mean(points_sorted),
-        "median": statistics.median(points_sorted),
+        "mean": sum(points_sorted) / count,
+        "median": median_val,
     }
 
     if count > 1:
