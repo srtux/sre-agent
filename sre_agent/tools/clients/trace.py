@@ -725,9 +725,14 @@ async def find_example_traces(
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
-            p50 = statistics.median(latencies)
-            mean = statistics.mean(latencies)
-            stdev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+            n = len(latencies)
+            p50 = (
+                latencies[n // 2]
+                if n % 2 == 1
+                else (latencies[n // 2 - 1] + latencies[n // 2]) / 2.0
+            )
+            mean = sum(latencies) / n
+            stdev = statistics.stdev(latencies) if n > 1 else 0
 
             for trace in valid_traces:
                 has_err = (
