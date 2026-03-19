@@ -337,6 +337,9 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
             start_unix = s.get("start_time_unix")
             end_unix = s.get("end_time_unix")
 
+            start: float | None = None
+            end: float | None = None
+
             if start_unix is not None and end_unix is not None:
                 start = float(start_unix) * 1000
                 end = float(end_unix) * 1000
