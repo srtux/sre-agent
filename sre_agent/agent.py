@@ -70,6 +70,7 @@ from .auth import (
     get_credentials_from_session,
     get_current_project_id,
     get_project_id_from_session,
+    set_auth_source,
     set_current_credentials,
     set_current_project_id,
     set_current_user_id,
@@ -246,6 +247,7 @@ from .tools.mcp.gcp import (
     mcp_list_timeseries,
     mcp_query_range,
 )
+from .tools.registry import get_tool_registry
 from .tools.reporting import synthesize_report
 
 # Sandbox Processing Tools
@@ -421,6 +423,7 @@ def emojify_agent(agent: LlmAgent | BaseAgent | Any) -> LlmAgent | BaseAgent | A
             user_creds = get_credentials_from_session(session_state)
             if user_creds:
                 set_current_credentials(user_creds)
+                set_auth_source("RemoteSession")
 
             sess_project_id = get_project_id_from_session(session_state)
             if sess_project_id:
@@ -1238,6 +1241,9 @@ TOOL_NAME_MAP = {
     "get_sandbox_status": get_sandbox_status,
 }
 
+# Register the tool map for dynamic instruction generation
+get_tool_registry().set_tool_map(TOOL_NAME_MAP)
+
 # Common tools for all agents
 base_tools: list[Any] = [
     # Observability
@@ -1604,6 +1610,7 @@ Direct Tools:
         f"When route_request returns tier='greeting', use this persona:\n"
         f"{GREETING_PROMPT}\n"
         f"</greeting_persona>\n\n"
+        f"{get_tool_registry().generate_dynamic_tool_descriptions([getattr(t, '__name__', str(t)) for t in _agent_tools])}\n\n"
         f"<current_time>{datetime.now(timezone.utc).isoformat()}</current_time>"
     ),
     tools=_agent_tools,

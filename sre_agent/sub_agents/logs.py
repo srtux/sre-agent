@@ -21,6 +21,7 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -71,6 +72,8 @@ log_analyst = LlmAgent(
     name="log_analyst",
     model=get_model_name("fast"),  # OPT-5: Flash handles log pattern extraction well
     description="Analyzes log patterns to find anomalies and new errors.",
-    instruction=LOG_ANALYST_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        LOG_ANALYST_PROMPT, list(LOG_ANALYST_TOOLS)
+    ),
     tools=list(LOG_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

@@ -19,6 +19,7 @@ from ..prompt import (
     STRICT_ENGLISH_INSTRUCTION,
 )
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -100,7 +101,9 @@ metrics_analyzer = LlmAgent(
         "Detects anomalies, statistical outliers, and uses exemplars to find "
         "specific traces corresponding to metric spikes."
     ),
-    instruction=METRICS_ANALYZER_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        METRICS_ANALYZER_PROMPT, list(METRICS_ANALYZER_TOOLS)
+    ),
     tools=list(METRICS_ANALYZER_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
 

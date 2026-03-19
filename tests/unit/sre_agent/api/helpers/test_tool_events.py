@@ -60,6 +60,38 @@ class TestCreateToolCallEvents:
         assert pending[0]["tool_name"] == "list_logs"
         assert pending[0]["args"] == {"filter": "severity>=ERROR"}
 
+    def test_emits_trace_id_when_available(self) -> None:
+        """Test that trace_id is included in event when available in context."""
+        from unittest.mock import patch
+
+        from opentelemetry import trace
+        from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
+        valid_ctx = SpanContext(
+            trace_id=0x1234567890ABCDEF1234567890ABCDEF,
+            span_id=0x1234567890ABCDEF,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+        span = NonRecordingSpan(valid_ctx)
+
+        pending: list[dict] = []
+        with patch.object(trace, "get_current_span", return_value=span):
+            _call_id, events = create_tool_call_events("fetch_trace", {}, pending)
+
+        assert len(events) == 1
+        event = json.loads(events[0])
+        assert event["trace_id"] == "1234567890abcdef1234567890abcdef"
+        assert pending[0]["trace_id"] == "1234567890abcdef1234567890abcdef"
+
+        # Verify response also has it
+        _resp_id, resp_events = create_tool_response_events(
+            "fetch_trace", {"result": "ok"}, pending
+        )
+        assert len(resp_events) == 1
+        resp_event = json.loads(resp_events[0])
+        assert resp_event["trace_id"] == "1234567890abcdef1234567890abcdef"
+
 
 class TestCreateToolResponseEvents:
     """Tests for create_tool_response_events function."""

@@ -10,6 +10,7 @@ This module builds on the existing ToolCategory enum from config.py
 and provides a runtime query layer on top of the tool configurations.
 """
 
+import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Callable
@@ -81,6 +82,44 @@ class ToolRegistry:
             tool_map: Dict mapping tool name -> function.
         """
         self._tool_map = tool_map
+
+    def generate_dynamic_tool_descriptions(self, tool_names: list[str]) -> str:
+        """Generate a concise yet complete summary of tool docstrings for LLM instructions.
+
+        Injects docstrings from the tool functions themselves into a formatted
+        XML block. This helps prevent hallucination by providing the precise
+        description the agent needs at runtime.
+
+        Args:
+            tool_names: List of tool names to include.
+
+        Returns:
+            Formatted XML-tagged block with tool descriptions.
+        """
+        if not self._tool_map:
+            logger.warning(
+                "ToolRegistry._tool_map is empty. No dynamic descriptions generated."
+            )
+            return ""
+
+        lines: list[str] = ["<available_tools_detailed>"]
+
+        for name in sorted(tool_names):
+            func = self._tool_map.get(name)
+            if not func:
+                continue
+
+            # Extract docstring and take only the first paragraph (summary)
+            # This balances information depth with context window efficiency.
+            full_doc = inspect.getdoc(func) or "No description available."
+            summary = full_doc.split("\n\n")[0].replace("\n", " ").strip()
+
+            lines.append(f"  <tool name='{name}'>")
+            lines.append(f"    {summary}")
+            lines.append("  </tool>")
+
+        lines.append("</available_tools_detailed>")
+        return "\n".join(lines)
 
     def get_tools_by_category(
         self, category: ToolCategory, enabled_only: bool = True
@@ -213,3 +252,23 @@ def get_tool_registry() -> ToolRegistry:
     if _registry is None:
         _registry = ToolRegistry()
     return _registry
+
+
+def wrap_instruction_with_dynamic_tools(
+    base_instruction: str, tools: list[Callable[..., Any]]
+) -> Callable[[Any], str]:
+    """Wraps a base instruction with dynamic tool descriptions.
+
+    Args:
+        base_instruction: The static part of the prompt.
+        tools: List of tool functions available to the agent.
+
+    Returns:
+        A lambda that generates the full instruction at runtime.
+    """
+    registry = get_tool_registry()
+    tool_names = [getattr(t, "__name__", str(t)) for t in tools]
+    return lambda ctx: (
+        f"{base_instruction}\n\n"
+        f"{registry.generate_dynamic_tool_descriptions(tool_names)}"
+    )

@@ -17,6 +17,7 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -78,6 +79,8 @@ Capabilities:
 Tools: perform_causal_analysis, build_cross_signal_timeline, detect_trend_changes
 
 Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""",
-    instruction=ROOT_CAUSE_ANALYST_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        ROOT_CAUSE_ANALYST_PROMPT, list(ROOT_CAUSE_ANALYST_TOOLS)
+    ),
     tools=list(ROOT_CAUSE_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

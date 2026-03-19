@@ -357,3 +357,60 @@ class TestSingleton:
         """get_tool_registry should return a ToolRegistry."""
         registry = get_tool_registry()
         assert isinstance(registry, ToolRegistry)
+
+
+class TestDynamicToolDescriptions:
+    """Tests for dynamic tool description generation."""
+
+    def test_generate_dynamic_descriptions(self) -> None:
+        """Should generate XML-tagged descriptions from docstrings."""
+
+        def my_test_tool():
+            """This is a test tool.
+
+            It does amazing things.
+            """
+            pass
+
+        registry = ToolRegistry(_make_config_manager())
+        registry.set_tool_map({"my_test_tool": my_test_tool})
+
+        description = registry.generate_dynamic_tool_descriptions(["my_test_tool"])
+        assert "<available_tools_detailed>" in description
+        assert "<tool name='my_test_tool'>" in description
+        assert "This is a test tool." in description
+        # Should only take the first paragraph
+        assert "It does amazing things." not in description
+
+    def test_missing_tool_map_warning(self, caplog) -> None:
+        """Should return empty string and log warning if tool map is missing."""
+        registry = ToolRegistry(_make_config_manager())
+        description = registry.generate_dynamic_tool_descriptions(["any_tool"])
+        assert description == ""
+        assert "ToolRegistry._tool_map is empty" in caplog.text
+
+    def test_missing_tool_in_map(self) -> None:
+        """Should skip tools not found in the tool map."""
+        registry = ToolRegistry(_make_config_manager())
+        registry.set_tool_map({})
+        description = registry.generate_dynamic_tool_descriptions(["missing_tool"])
+        assert "missing_tool" not in description
+
+    def test_wrap_instruction(self) -> None:
+        """Should return a lambda that generates full instruction."""
+        from sre_agent.tools.registry import wrap_instruction_with_dynamic_tools
+
+        def my_tool():
+            """Tool doc."""
+            pass
+
+        # We need to use the global registry for this helper
+        registry = get_tool_registry()
+        registry.set_tool_map({"my_tool": my_tool})
+
+        wrapper = wrap_instruction_with_dynamic_tools("Base prompt", [my_tool])
+        result = wrapper(None)
+
+        assert result.startswith("Base prompt")
+        assert "<tool name='my_tool'>" in result
+        assert "Tool doc." in result

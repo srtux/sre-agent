@@ -15,6 +15,7 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -114,7 +115,9 @@ Capabilities:
 Tools: analyze_trace_comprehensive, compare_span_timings, analyze_critical_path
 
 Use when: You need detailed analysis of one or more traces, or need to compare them.""",
-    instruction=TRACE_ANALYST_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        TRACE_ANALYST_PROMPT, list(TRACE_ANALYST_TOOLS)
+    ),
     tools=list(TRACE_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
 
@@ -126,6 +129,8 @@ aggregate_analyzer = LlmAgent(
         "Analyzes trace data at scale using BigQuery to identify trends, patterns, "
         "and select exemplar traces for investigation. Includes cross-signal correlation."
     ),
-    instruction=AGGREGATE_ANALYZER_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        AGGREGATE_ANALYZER_PROMPT, list(AGGREGATE_ANALYZER_TOOLS)
+    ),
     tools=list(AGGREGATE_ANALYZER_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

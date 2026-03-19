@@ -27,6 +27,7 @@ from ..tools.analysis.agent_trace.tools import (
     list_agent_traces,
     reconstruct_agent_interaction,
 )
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -96,7 +97,23 @@ agent_debugger = LlmAgent(
         "analyzing token usage, finding agent anti-patterns, or investigating "
         "Vertex Agent Engine reasoning engine behavior."
     ),
-    instruction=AGENT_DEBUGGER_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        AGENT_DEBUGGER_PROMPT,
+        [
+            list_agent_traces,
+            reconstruct_agent_interaction,
+            analyze_agent_token_usage,
+            detect_agent_anti_patterns,
+            fetch_trace,
+            list_log_entries,
+            list_traces,
+            gcp_execute_sql,
+            discover_telemetry_sources,
+            get_current_time,
+            get_investigation_summary,
+            update_investigation_state,
+        ],
+    ),
     tools=[
         list_agent_traces,
         reconstruct_agent_interaction,

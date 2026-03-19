@@ -277,11 +277,15 @@ Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** 
     - **Enhanced Details Panel**: Cost metric card, token breakdown, P95 latency, sub-call distribution, edge cost/tokens, User Entry badge.
     - **Documentation**: Updated BQ setup guide with pre-aggregation architecture, table schema, performance characteristics, and metric approximation methodology.
     - (73 Flutter tests: 16 notifier + 11 repository + 39 domain + 7 presentation)
-- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace via deep links, leveraging native ADK instrumentation.
-- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner. (Foundation in `core/approval.py` is ready.)
-- [ ] **Zero-Trust Identity Propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
+- [x] **Observability-on-Self**: Fully linked the agent's own trace IDs to the UI.
+    - Enabled `GoogleADKInstrumentor` and `VertexAIInstrumentor` for native ADK instrumentation.
+    - Wrapped agent turns in named OTel spans for consistent trace ID capture across local and remote modes.
+    - Propagated `trace_url` and `project_id` in tool call/response events for deep linking.
+    - Updated Flutter UI to support direct deep links to Cloud Trace for reasoning traces.
+- [x] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner. Highlighted high-impact operations with `impact_level: HIGH` in state delta.
+- [x] **Zero-Trust Identity Propagation (Phase 1)**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity with source tracking and enhanced audit logging.
 - [ ] **System Instruction Optimization**:
-    - [ ] **Dynamic Tool Descriptions**: Inject tool docstrings at runtime to prevent hallucination drift and reduce maintenance.
+    - [x] **Dynamic Tool Descriptions**: Inject tool docstrings at runtime to prevent hallucination drift and reduce maintenance.
     - [ ] **Dynamic Few-Shot Examples (RAG)**: Inject past successful investigations from Memory Bank into the prompt context to boost problem-solving.
     - [ ] **Token Efficiency**: Move critical invariants (constraints) to the end of the prompt to combat "lost in the middle" phenomenon.
     - [ ] **Documentation Snapshot**: [Captured current state](../docs/architecture/system_instruction_snapshot_v1.md) for future comparison.

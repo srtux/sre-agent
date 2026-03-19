@@ -18,6 +18,7 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
+from ..tools.registry import wrap_instruction_with_dynamic_tools
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -57,6 +58,8 @@ alert_analyst = LlmAgent(
     name="alert_analyst",
     model=get_model_name("fast"),
     description="Analyzes active alerts and incidents from Cloud Monitoring.",
-    instruction=ALERT_ANALYST_PROMPT,
+    instruction=wrap_instruction_with_dynamic_tools(
+        ALERT_ANALYST_PROMPT, list(ALERT_ANALYST_TOOLS)
+    ),
     tools=list(ALERT_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
