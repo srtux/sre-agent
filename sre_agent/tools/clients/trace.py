@@ -150,7 +150,9 @@ def get_current_time() -> str:
 
 def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:
     """Gets a Cloud Trace API client."""
-    return trace_v1.TraceServiceClient(credentials=credentials)
+    # OPT-12: Zero-Trust Identity Propagation
+    creds = credentials or GLOBAL_CONTEXT_CREDENTIALS
+    return trace_v1.TraceServiceClient(credentials=creds)
 
 
 def _get_ts_val(ts_proto: Any) -> float:

@@ -233,7 +233,16 @@ def _build_adk_tool_wrapper(
                     f"Circuit breaker check failed for '{tool_name}': {cb_err}"
                 )
 
+        auth_tokens = []
         try:
+            # OPT-12: Zero-Trust Identity Propagation
+            # Propagate end-user IAM identity and trace context from tool_context
+            tool_context = kwargs.get("tool_context")
+            if tool_context:
+                from sre_agent.auth import set_auth_context_from_tool_context
+
+                auth_tokens = set_auth_context_from_tool_context(tool_context)
+
             result = await func(*args, **kwargs)
             duration_ms = (time.time() - start_time) * 1000
 
@@ -250,7 +259,7 @@ def _build_adk_tool_wrapper(
             else:
                 if not should_skip_logging():
                     logger.info(
-                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                        f"✨ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
                     )
                 # Record success in circuit breaker
                 if use_cb and registry:
@@ -283,16 +292,25 @@ def _build_adk_tool_wrapper(
             if not is_failed:
                 _queue_tool_result(tool_name, final_result)
             return final_result
+
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
+                f"💥 Tool Crashed: '{tool_name}' | Error: {e} | Duration: {duration_ms:.2f}ms",
                 exc_info=True,
             )
-            # Record exception in circuit breaker
+
+            # Record crash in circuit breaker
             if use_cb and registry:
                 registry.record_failure(tool_name)
-            raise  # bare raise preserves the original traceback
+
+            raise e
+        finally:
+            # Always reset auth context to prevent identity leakage between tasks
+            if auth_tokens:
+                from sre_agent.auth import reset_auth_context
+
+                reset_auth_context(auth_tokens)
 
     @functools.wraps(func)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -315,7 +333,16 @@ def _build_adk_tool_wrapper(
         if not should_skip_logging():
             logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
+        auth_tokens = []
         try:
+            # OPT-12: Zero-Trust Identity Propagation
+            # Propagate end-user IAM identity and trace context from tool_context
+            tool_context = kwargs.get("tool_context")
+            if tool_context:
+                from sre_agent.auth import set_auth_context_from_tool_context
+
+                auth_tokens = set_auth_context_from_tool_context(tool_context)
+
             result = func(*args, **kwargs)
             duration_ms = (time.time() - start_time) * 1000
 
@@ -361,6 +388,12 @@ def _build_adk_tool_wrapper(
                 exc_info=True,
             )
             raise  # bare raise preserves the original traceback
+        finally:
+            # Always reset auth context to prevent identity leakage between tasks
+            if auth_tokens:
+                from sre_agent.auth import reset_auth_context
+
+                reset_auth_context(auth_tokens)
 
     if inspect.iscoroutinefunction(func):
         async_wrapper._skip_summarization = skip_summarization  # type: ignore[attr-defined]

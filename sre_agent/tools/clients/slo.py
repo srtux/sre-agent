@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 
 def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
-    credentials = get_credentials_from_tool_context(tool_context)
-    if not credentials:
-        auth_obj: Any = get_current_credentials()
-        credentials, _ = auth_obj
-    return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+    from ...auth import GLOBAL_CONTEXT_CREDENTIALS
+
+    # OPT-12: Zero-Trust Identity Propagation
+    creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    return AuthorizedSession(creds)  # type: ignore[no-untyped-call]
 
 
 @adk_tool
@@ -72,11 +72,11 @@ async def list_slos(
             )
 
     try:
-        credentials = get_credentials_from_tool_context(tool_context)
-        if not credentials:
-            auth_obj: Any = get_current_credentials()
-            credentials, _ = auth_obj
-        client = monitoring_v3.ServiceMonitoringServiceClient(credentials=credentials)
+        from ...auth import GLOBAL_CONTEXT_CREDENTIALS
+
+        # OPT-12: Zero-Trust Identity Propagation
+        creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+        client = monitoring_v3.ServiceMonitoringServiceClient(credentials=creds)
 
         if service_id:
             # List SLOs for a specific service

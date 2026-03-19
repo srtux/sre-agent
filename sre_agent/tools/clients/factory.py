@@ -22,6 +22,7 @@ from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
 from ...auth import (
+    GLOBAL_CONTEXT_CREDENTIALS,
     get_credentials_from_tool_context,
     get_current_credentials_or_none,
 )
@@ -44,8 +45,8 @@ def _get_client(
 ) -> T:
     """Helper for thread-safe lazy initialization of clients.
 
-    Supports End User Identity Credential (EIC) propagation by checking
-    both ContextVar and session state for user credentials.
+    Supports End User Identity Credential (EIC) propagation by using
+    GLOBAL_CONTEXT_CREDENTIALS which dynamically resolves identity.
 
     Args:
         name: Unique name/key for the client instance.
@@ -55,47 +56,22 @@ def _get_client(
     Returns:
         The initialized client instance.
     """
+    # OPT-12: Zero-Trust Identity Propagation
+    # If tool_context is provided explicitly, ensure it is propagated to ContextVars.
+    # The @adk_tool decorator does this automatically, but we handle it here for
+    # standalone usage or direct factory calls.
+    if tool_context is not None:
+        from ...auth import set_auth_context_from_tool_context
+
+        set_auth_context_from_tool_context(tool_context)
+
     with _lock:
         if name not in _clients:
-            # Note: We provide a default client ONLY if explicitly allowed by environment.
-            # In production/strictly-EUC mode, we want this to be empty to catch missing creds.
-            if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
-                logger.info(
-                    f"Strict EUC enforcement enabled: no default client for {name}"
-                )
-                _clients[name] = None
-            else:
-                # Use actual Application Default Credentials for the fallback.
-                # This enables Playground testing with service account identity.
-                logger.info(
-                    f"Initializing default {name} client with ADC (Playground/service account mode)"
-                )
-                adc_creds, _ = google.auth.default()
-                _clients[name] = client_class(credentials=adc_creds)  # type: ignore[call-arg]
+            logger.debug(f"Initializing context-aware {name} client")
+            # All clients use the same context-aware credentials proxy
+            _clients[name] = client_class(credentials=GLOBAL_CONTEXT_CREDENTIALS)  # type: ignore[call-arg]
 
-    # First, check for user credentials from tool_context (session state)
-    # This is the EIC path for Agent Engine execution
-    if tool_context is not None:
-        user_creds = get_credentials_from_tool_context(tool_context)
-        if user_creds:
-            logger.debug(f"Using user credentials from tool_context for {name} client")
-            return client_class(credentials=user_creds)  # type: ignore[call-arg]
-
-    # Second, check for user-specific credentials from ContextVar (local execution)
-    user_creds = get_current_credentials_or_none()
-    if user_creds:
-        logger.debug(f"Using user credentials from ContextVar for {name} client")
-        # Create a new client with these credentials
-        # We don't cache these in the global cache to avoid mixing user sessions.
-        return client_class(credentials=user_creds)  # type: ignore[call-arg]
-
-    client = _clients.get(name)
-    if client is None:
-        raise PermissionError(
-            f"Authentication failed: EUC not found for {name} client and ADC fallback is disabled. "
-            "Please ensure you are logged in."
-        )
-    return cast(T, client)
+    return cast(T, _clients[name])
 
 
 def get_trace_client(

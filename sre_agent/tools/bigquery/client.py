@@ -33,7 +33,13 @@ class BigQueryClient:
 
     def _get_direct_client(self) -> bigquery.Client:
         """Create a direct BigQuery client using current credentials."""
-        creds = get_credentials_from_tool_context(self.tool_context)
+        from ...auth import GLOBAL_CONTEXT_CREDENTIALS
+
+        # OPT-12: Zero-Trust Identity Propagation
+        creds = (
+            get_credentials_from_tool_context(self.tool_context)
+            or GLOBAL_CONTEXT_CREDENTIALS
+        )
         return bigquery.Client(project=self.project_id, credentials=creds)
 
     async def execute_query(self, query: str) -> list[dict[str, Any]]:

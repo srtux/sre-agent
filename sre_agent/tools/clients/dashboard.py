@@ -62,23 +62,28 @@ async def list_cloud_dashboards(
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
+def _get_dashboards_client(tool_context: Any = None) -> Any:
+    """Gets a context-aware DashboardsServiceClient."""
+    from google.cloud.monitoring_dashboard_v1 import DashboardsServiceClient
+
+    from ...auth import GLOBAL_CONTEXT_CREDENTIALS
+
+    # OPT-12: Zero-Trust Identity Propagation
+    creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    return DashboardsServiceClient(credentials=creds)
+
+
 def _list_dashboards_sync(
     project_id: str,
     tool_context: Any = None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_dashboards."""
     try:
-        from google.cloud.monitoring_dashboard_v1 import DashboardsServiceClient
         from google.cloud.monitoring_dashboard_v1.types import (
             ListDashboardsRequest,
         )
 
-        credentials = get_credentials_from_tool_context(tool_context)
-        client_kwargs: dict[str, Any] = {}
-        if credentials:
-            client_kwargs["credentials"] = credentials
-
-        client = DashboardsServiceClient(**client_kwargs)
+        client = _get_dashboards_client(tool_context)
         parent = f"projects/{project_id}"
 
         request = ListDashboardsRequest(parent=parent)
@@ -189,20 +194,12 @@ def _get_dashboard_sync(
 ) -> dict[str, Any]:
     """Synchronous implementation of get_dashboard."""
     try:
-        from google.cloud.monitoring_dashboard_v1 import (
-            DashboardsServiceClient,
-        )
         from google.cloud.monitoring_dashboard_v1.types import (
             GetDashboardRequest,
         )
         from google.protobuf.json_format import MessageToDict
 
-        credentials = get_credentials_from_tool_context(tool_context)
-        client_kwargs: dict[str, Any] = {}
-        if credentials:
-            client_kwargs["credentials"] = credentials
-
-        client = DashboardsServiceClient(**client_kwargs)
+        client = _get_dashboards_client(tool_context)
         request = GetDashboardRequest(name=dashboard_name)
         dashboard = client.get_dashboard(request=request)
 
@@ -288,21 +285,13 @@ def _create_dashboard_sync(
 ) -> dict[str, Any]:
     """Synchronous implementation of create_dashboard."""
     try:
-        from google.cloud.monitoring_dashboard_v1 import (
-            DashboardsServiceClient,
-        )
         from google.cloud.monitoring_dashboard_v1.types import (
             CreateDashboardRequest,
             Dashboard,
         )
         from google.protobuf.json_format import MessageToDict, ParseDict
 
-        credentials = get_credentials_from_tool_context(tool_context)
-        client_kwargs: dict[str, Any] = {}
-        if credentials:
-            client_kwargs["credentials"] = credentials
-
-        client = DashboardsServiceClient(**client_kwargs)
+        client = _get_dashboards_client(tool_context)
         parent = f"projects/{project_id}"
 
         dashboard_dict: dict[str, Any] = {
@@ -391,19 +380,11 @@ def _delete_dashboard_sync(
 ) -> dict[str, Any]:
     """Synchronous implementation of delete_dashboard."""
     try:
-        from google.cloud.monitoring_dashboard_v1 import (
-            DashboardsServiceClient,
-        )
         from google.cloud.monitoring_dashboard_v1.types import (
             DeleteDashboardRequest,
         )
 
-        credentials = get_credentials_from_tool_context(tool_context)
-        client_kwargs: dict[str, Any] = {}
-        if credentials:
-            client_kwargs["credentials"] = credentials
-
-        client = DashboardsServiceClient(**client_kwargs)
+        client = _get_dashboards_client(tool_context)
         request = DeleteDashboardRequest(name=dashboard_name)
         client.delete_dashboard(request=request)
 

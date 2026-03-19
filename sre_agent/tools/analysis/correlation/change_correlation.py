@@ -279,16 +279,18 @@ async def correlate_changes_with_incident(
             from google.cloud import logging as cloud_logging
 
             from sre_agent.auth import (
+                GLOBAL_CONTEXT_CREDENTIALS,
                 get_credentials_from_tool_context,
-                get_current_credentials,
             )
 
-            credentials = get_credentials_from_tool_context(tool_context)
-            if not credentials:
-                auth_obj: Any = get_current_credentials()
-                credentials, _ = auth_obj
-
-            client = cloud_logging.Client(project=project_id, credentials=credentials)  # type: ignore[no-untyped-call]
+            # OPT-12: Zero-Trust Identity Propagation
+            creds = (
+                get_credentials_from_tool_context(tool_context)
+                or GLOBAL_CONTEXT_CREDENTIALS
+            )
+            client = cloud_logging.Client(
+                project=project_id, credentials=creds
+            )  # type: ignore[no-untyped-call]
 
             entries = list(
                 client.list_entries(  # type: ignore[no-untyped-call]

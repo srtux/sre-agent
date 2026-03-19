@@ -38,8 +38,15 @@ def _get_ca_clients() -> tuple[Any, Any]:
     """
     from google.cloud import geminidataanalytics
 
-    agent_client = geminidataanalytics.DataAgentServiceClient()
-    chat_client = geminidataanalytics.DataChatServiceClient()
+    from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS
+
+    # OPT-12: Zero-Trust Identity Propagation
+    agent_client = geminidataanalytics.DataAgentServiceClient(
+        credentials=GLOBAL_CONTEXT_CREDENTIALS
+    )
+    chat_client = geminidataanalytics.DataChatServiceClient(
+        credentials=GLOBAL_CONTEXT_CREDENTIALS
+    )
     return agent_client, chat_client
 
 

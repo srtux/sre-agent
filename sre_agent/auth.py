@@ -118,6 +118,14 @@ _trace_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "trace_id_context", default=None
 )
 
+_span_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "span_id_context", default=None
+)
+
+_trace_flags_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "trace_flags_context", default=None
+)
+
 _guest_mode_context: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "guest_mode_context", default=False
 )
@@ -611,15 +619,22 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
     def token(self) -> str | None:
         """Dynamically retrieve the token from the current context, or fall back to ADC."""
         creds = _credentials_context.get()
+        user_id = get_current_user_id()
+        trace_id = get_trace_id()
+
+        identity_str = f"user={user_id or 'unknown'}, trace={trace_id or 'none'}"
+
         if creds:
             t = getattr(creds, "token", None)
             logger.debug(
-                f"🔑 ContextAwareCredentials: Using token from context (exists: {t is not None})"
+                f"🔑 ContextAwareCredentials: Using token from context ({identity_str})"
             )
             return cast(str, t)
 
         if self._token:
-            logger.debug("🔑 ContextAwareCredentials: Using explicitly set token")
+            logger.debug(
+                f"🔑 ContextAwareCredentials: Using explicitly set token ({identity_str})"
+            )
             return self._token
 
         # Fallback to ADC token
@@ -632,7 +647,7 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 from google.auth.transport.requests import Request
 
                 logger.info(
-                    "🔑 ContextAwareCredentials: ADC token missing or expired, refreshing..."
+                    f"🔑 ContextAwareCredentials: ADC token missing or expired, refreshing... ({identity_str})"
                 )
                 from typing import Any
 
@@ -640,7 +655,7 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 t = getattr(adc, "token", None)
 
             logger.debug(
-                f"🔑 ContextAwareCredentials: Using token from ADC (exists: {t is not None}, type: {type(adc).__name__})"
+                f"🔑 ContextAwareCredentials: Using token from ADC ({identity_str}, type: {type(adc).__name__})"
             )
             return t
         except Exception as e:
@@ -942,3 +957,167 @@ def clear_current_credentials() -> None:
     _project_id_context.set(None)
     _user_id_context.set(None)
     _correlation_id_context.set(None)
+
+# =============================================================================
+# Zero-Trust Identity Propagation Logic
+# =============================================================================
+
+
+@dataclass
+class AuthContext:
+    """Consolidated authentication and trace context."""
+
+    credentials: Credentials | None = None
+    project_id: str | None = None
+    user_id: str | None = None
+    trace_id: str | None = None
+    span_id: str | None = None
+    trace_flags: str | None = None
+
+
+def get_auth_context_from_tool_context(
+    tool_context: "ToolContext | None",
+) -> AuthContext:
+    """Extracts a full AuthContext from the provided ToolContext or global vars."""
+    # 1. Start with values from ContextVars (local)
+    ctx = AuthContext(
+        credentials=get_current_credentials_or_none(),
+        project_id=get_current_project_id_or_none(),
+        user_id=get_current_user_id(),
+        trace_id=get_trace_id(),
+        span_id=_span_id_context.get(),
+        trace_flags=_trace_flags_context.get(),
+    )
+
+    # 2. Override with values from session state (Agent Engine)
+    if tool_context and hasattr(tool_context, "invocation_context"):
+        state = tool_context.invocation_context.session.state
+
+        # Credentials
+        session_creds = get_credentials_from_session(state)
+        if session_creds:
+            ctx.credentials = session_creds
+
+        # Project ID
+        session_project = get_project_id_from_session(state)
+        if session_project:
+            ctx.project_id = session_project
+
+        # User ID (usually not in session state, but we check anyway)
+        session_user = state.get("_user_id")
+        if session_user:
+            ctx.user_id = session_user
+
+        # Trace info
+        if SESSION_STATE_TRACE_ID_KEY in state:
+            ctx.trace_id = state[SESSION_STATE_TRACE_ID_KEY]
+        if SESSION_STATE_SPAN_ID_KEY in state:
+            ctx.span_id = state[SESSION_STATE_SPAN_ID_KEY]
+        if SESSION_STATE_TRACE_FLAGS_KEY in state:
+            ctx.trace_flags = state[SESSION_STATE_TRACE_FLAGS_KEY]
+
+    return ctx
+
+
+def set_auth_context(ctx: AuthContext) -> list[Any]:
+    """Sets the authentication context and returns tokens for resetting."""
+    tokens: list[Any] = []
+    if ctx.credentials:
+        tokens.append(_credentials_context.set(ctx.credentials))
+    if ctx.project_id:
+        tokens.append(_project_id_context.set(ctx.project_id))
+    if ctx.user_id:
+        tokens.append(_user_id_context.set(ctx.user_id))
+    if ctx.trace_id:
+        tokens.append(_trace_id_context.set(ctx.trace_id))
+    if ctx.span_id:
+        tokens.append(_span_id_context.set(ctx.span_id))
+    if ctx.trace_flags:
+        tokens.append(_trace_flags_context.set(ctx.trace_flags))
+
+    # Attempt OTel rehydration if trace context is available
+    otel_token = rehydrate_otel_context(ctx)
+    if otel_token:
+        tokens.append(("otel", otel_token))
+
+    return tokens
+
+
+def set_auth_context_from_tool_context(
+    tool_context: "ToolContext | None",
+) -> list[Any]:
+    """Extracts and sets the auth context from tool context in one go."""
+    ctx = get_auth_context_from_tool_context(tool_context)
+    return set_auth_context(ctx)
+
+
+def reset_auth_context(tokens: list[Any]) -> None:
+    """Resets the authentication context using the provided tokens."""
+    for token in reversed(tokens):
+        if isinstance(token, tuple) and token[0] == "otel":
+            from opentelemetry import context
+
+            context.detach(token[1])
+        else:
+            token.var.reset(token)
+
+
+def rehydrate_otel_context(ctx: AuthContext) -> Any | None:
+    """Rehydrates the OpenTelemetry context from the provided AuthContext.
+
+    This is useful in Agent Engine where the original OTel context is lost.
+    Returns an OTel context token if rehydration occurred, None otherwise.
+    """
+    if not ctx.trace_id:
+        return None
+
+    try:
+        from opentelemetry import context, trace
+        from opentelemetry.trace import SpanContext, TraceFlags
+
+        # Check if we already have a valid span context
+        current_span = trace.get_current_span()
+        if current_span and current_span.get_span_context().is_valid:
+            # OPT-12: If we already have a valid span, we don't override it
+            # to preserve local tracing hierarchy.
+            return None
+
+        # Create a new SpanContext from the IDs
+        span_context = SpanContext(
+            trace_id=int(ctx.trace_id, 16),
+            span_id=int(ctx.span_id, 16) if ctx.span_id else 0,
+            is_remote=True,
+            trace_flags=TraceFlags(int(ctx.trace_flags, 16))
+            if ctx.trace_flags
+            else TraceFlags.SAMPLED,
+        )
+
+        from opentelemetry.trace.span import NonRecordingSpan
+
+        remote_span = NonRecordingSpan(span_context)
+
+        # Make this span context active for the current task
+        new_context = trace.set_span_in_context(remote_span)
+        return context.attach(new_context)
+
+    except Exception as e:
+        logger.debug(f"Failed to rehydrate OTel context: {e}")
+        return None
+
+
+def get_auth_header(ctx: AuthContext | None = None) -> dict[str, str]:
+    """Gets the Authorization header for the current or provided context.
+
+    Useful for manual HTTP requests using httpx or requests.
+    """
+    if ctx is None:
+        # Avoid circular dependency by using local imports if needed,
+        # but here we are in the same module.
+        creds = get_current_credentials_or_none()
+        token = creds.token if creds else None
+    else:
+        token = ctx.credentials.token if ctx.credentials else None
+
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
