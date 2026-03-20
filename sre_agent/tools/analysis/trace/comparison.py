@@ -73,7 +73,7 @@ def compare_span_timings(
                         else:
                             if len(current_run) >= 3:
                                 duration_sum = sum(
-                                    s.get("duration_ms") or 0 for s in current_run
+                                    [s.get("duration_ms") or 0 for s in current_run]
                                 )
                                 if duration_sum > 50:
                                     patterns.append(
@@ -92,7 +92,7 @@ def compare_span_timings(
 
                 # Check last run
                 if len(current_run) >= 3:
-                    duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
+                    duration_sum = sum([s.get("duration_ms") or 0 for s in current_run])
                     if duration_sum > 50:
                         patterns.append(
                             {
@@ -160,7 +160,7 @@ def compare_span_timings(
                 sequential_chains.append(current_chain[:])
 
             for chain in sequential_chains:
-                chain_duration = sum(s.get("duration_ms") or 0 for s in chain)
+                chain_duration = sum([s.get("duration_ms") or 0 for s in chain])
 
                 if chain_duration > 100:
                     span_names = [s.get("name") for s in chain]
@@ -204,11 +204,11 @@ def compare_span_timings(
 
             if baseline_spans and target_spans:
                 baseline_avg = sum(
-                    s.get("duration_ms") or 0 for s in baseline_spans
+                    [s.get("duration_ms") or 0 for s in baseline_spans]
                 ) / len(baseline_spans)
-                target_avg = sum(s.get("duration_ms") or 0 for s in target_spans) / len(
-                    target_spans
-                )
+                target_avg = sum(
+                    [s.get("duration_ms") or 0 for s in target_spans]
+                ) / len(target_spans)
 
                 diff_ms = target_avg - baseline_avg
                 diff_pct = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
@@ -238,8 +238,8 @@ def compare_span_timings(
             name for name in target_by_name if name not in baseline_by_name
         ]
 
-        baseline_total = sum(s.get("duration_ms") or 0 for s in baseline_timings)
-        target_total = sum(s.get("duration_ms") or 0 for s in target_timings)
+        baseline_total = sum([s.get("duration_ms") or 0 for s in baseline_timings])
+        target_total = sum([s.get("duration_ms") or 0 for s in target_timings])
 
         result = {
             "slower_spans": slower_spans,
