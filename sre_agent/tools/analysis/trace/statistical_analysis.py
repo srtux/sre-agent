@@ -123,12 +123,19 @@ def _compute_latency_statistics_impl(
     latencies.sort()
     count = len(latencies)
 
+    mid = count // 2
+    median = (
+        latencies[mid]
+        if count % 2 != 0
+        else (latencies[mid - 1] + latencies[mid]) / 2.0
+    )
+
     stats: dict[str, Any] = {
         "count": count,
         "min": latencies[0],
         "max": latencies[-1],
-        "mean": statistics.mean(latencies),
-        "median": statistics.median(latencies),
+        "mean": sum(latencies) / count,
+        "median": median,
         "p90": latencies[int(count * 0.9)] if count > 0 else latencies[0],
         "p95": latencies[int(count * 0.95)] if count > 0 else latencies[0],
         "p99": latencies[int(count * 0.99)] if count > 0 else latencies[0],
@@ -148,7 +155,7 @@ def _compute_latency_statistics_impl(
             continue
         durs.sort()
         c = len(durs)
-        span_mean = statistics.mean(durs)
+        span_mean = sum(durs) / c
         per_span_stats[name] = {
             "count": c,
             "mean": span_mean,
@@ -583,7 +590,7 @@ def perform_causal_analysis(
 
         if not baseline_durations:
             continue
-        baseline_avg = statistics.mean(baseline_durations)
+        baseline_avg = sum(baseline_durations) / len(baseline_durations)
         diff_ms = target_duration - baseline_avg
         diff_percent = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
 
@@ -701,7 +708,7 @@ def analyze_trace_patterns(
         if perf["occurrences"] < 2:
             continue
         durs = perf["durations"]
-        mean_dur = statistics.mean(durs)
+        mean_dur = sum(durs) / len(durs)
         stdev_dur: float = statistics.stdev(durs) if len(durs) > 1 else 0.0
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
@@ -737,8 +744,10 @@ def analyze_trace_patterns(
 
     trend = "stable"
     if len(trace_durations) >= 3:
-        first = statistics.mean(trace_durations[: len(trace_durations) // 2])
-        second = statistics.mean(trace_durations[len(trace_durations) // 2 :])
+        half1 = trace_durations[: len(trace_durations) // 2]
+        half2 = trace_durations[len(trace_durations) // 2 :]
+        first = sum(half1) / len(half1)
+        second = sum(half2) / len(half2)
         diff = ((second - first) / first * 100) if first > 0 else 0
         if diff > 15:
             trend = "degrading"
