@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Offload Synchronous OAuth Verification]
+**Learning:** `google.oauth2.id_token.verify_oauth2_token` is synchronous and can perform network I/O to fetch Google's public keys. When called directly within an `async def` FastAPI endpoint (or middleware like `validate_id_token`), it can block the entire async event loop.
+**Action:** Always wrap synchronous functions that might perform I/O (like auth library calls) in `fastapi.concurrency.run_in_threadpool` to maintain concurrent performance in async contexts.

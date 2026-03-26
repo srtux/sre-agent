@@ -841,7 +841,17 @@ async def validate_id_token(id_token_str: str) -> TokenInfo:
         # Local signature verification and claim extraction
         # SECURITY: Specifying audience (GOOGLE_CLIENT_ID) prevents ID token substitution attacks
         client_id = os.environ.get("GOOGLE_CLIENT_ID")
-        idinfo = id_token.verify_oauth2_token(id_token_str, request, audience=client_id)  # type: ignore[no-untyped-call]
+
+        from fastapi.concurrency import run_in_threadpool
+
+        # Offload synchronous token verification to threadpool to prevent blocking event loop
+        # when fetching Google's public keys
+        idinfo = await run_in_threadpool(
+            id_token.verify_oauth2_token,
+            id_token_str,
+            request,
+            audience=client_id,
+        )
 
         info = TokenInfo(
             valid=True,
