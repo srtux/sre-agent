@@ -41,7 +41,7 @@ async def test_adk_tool_detects_success_in_basetool_response(caplog):
         result = await successful_tool()
 
     assert result.status == ToolStatus.SUCCESS
-    assert "✅ Tool Success: 'successful_tool'" in caplog.text
+    assert "✨ Tool Success: 'successful_tool'" in caplog.text
 
 
 def test_adk_tool_sync_detects_logical_error_in_dict(caplog):
@@ -92,7 +92,7 @@ async def test_adk_tool_does_not_flag_dict_with_none_error_as_failure(caplog):
         result = await tool_with_null_error()
 
     assert result == {"result": {"entries": [{"id": "1"}]}, "error": None}
-    assert "✅ Tool Success: 'tool_with_null_error'" in caplog.text
+    assert "✨ Tool Success: 'tool_with_null_error'" in caplog.text
     assert "❌ Tool Failed" not in caplog.text
 
 
@@ -110,7 +110,7 @@ async def test_adk_tool_does_not_flag_dict_with_empty_error_as_failure(caplog):
     ):
         await tool_with_empty_error()
 
-    assert "✅ Tool Success: 'tool_with_empty_error'" in caplog.text
+    assert "✨ Tool Success: 'tool_with_empty_error'" in caplog.text
     assert "❌ Tool Failed" not in caplog.text
 
 
@@ -128,7 +128,7 @@ async def test_adk_tool_does_not_flag_json_string_with_null_error_as_failure(cap
     ):
         await tool_json_null_error()
 
-    assert "✅ Tool Success: 'tool_json_null_error'" in caplog.text
+    assert "✨ Tool Success: 'tool_json_null_error'" in caplog.text
     assert "❌ Tool Failed" not in caplog.text
 
 
@@ -238,4 +238,4 @@ async def test_adk_tool_skips_instrumentation_when_enabled(caplog):
         assert result == "skipped"
         # Verify NO tool logs were emitted
         assert "🛠️  Tool Call" not in caplog.text
-        assert "✅ Tool Success" not in caplog.text
+        assert "✨ Tool Success" not in caplog.text

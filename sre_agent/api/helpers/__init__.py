@@ -150,14 +150,26 @@ def create_tool_call_events(
     }
     if fc_id:
         pending_entry["fc_id"] = fc_id
+
+    trace_info = get_current_trace_info()
+    if trace_info:
+        pending_entry["trace_id"] = trace_info["trace_id"]
+
     pending_tool_calls.append(pending_entry)
 
-    event = {
+    event: dict[str, Any] = {
         "type": "tool_call",
         "call_id": call_id,
         "tool_name": tool_name,
         "args": args,
     }
+    if trace_info:
+        event["trace_id"] = trace_info["trace_id"]
+
+    _debug_log(
+        "[TOOL_CALL_CREATED] Tool call event created",
+        {"call_id": call_id, "tool_name": tool_name, "trace_id": event.get("trace_id")},
+    )
 
     return call_id, [json.dumps(event, default=str)]
 
@@ -193,10 +205,12 @@ def create_tool_response_events(
     )
 
     # Prefer exact match by fc_id when available
+    trace_id: str | None = None
     if fr_id:
         for i, pending in enumerate(pending_tool_calls):
             if pending.get("fc_id") == fr_id:
                 call_id = pending["call_id"]
+                trace_id = pending.get("trace_id")
                 pending_tool_calls.pop(i)
                 _debug_log(
                     f"[TOOL_RESPONSE_MATCHED_BY_ID] Exact fc_id match at index {i}",
@@ -209,6 +223,7 @@ def create_tool_response_events(
         for i, pending in enumerate(pending_tool_calls):
             if pending["tool_name"] == tool_name:
                 call_id = pending["call_id"]
+                trace_id = pending.get("trace_id")
                 pending_tool_calls.pop(i)
                 _debug_log(
                     f"[TOOL_RESPONSE_MATCHED] Found pending call at index {i}",
@@ -251,13 +266,15 @@ def create_tool_response_events(
 
     result = fully_normalize(result)
 
-    event = {
+    event: dict[str, Any] = {
         "type": "tool_response",
         "call_id": call_id,
         "tool_name": tool_name,
         "result": result,
         "status": status,
     }
+    if trace_id:
+        event["trace_id"] = trace_id
 
     return call_id, [json.dumps(event, default=str)]
 
