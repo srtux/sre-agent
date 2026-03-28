@@ -9,3 +9,6 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+## 2026-03-08 - [Replace Expensive Datetime and Statistics Operations]
+**Learning:** In heavily nested loops processing large datasets (like trace spans), using `datetime.fromisoformat` and `statistics.mean` can be a major performance bottleneck due to excessive string parsing and fractional exactness arithmetic.
+**Action:** Always prefer Unix timestamp floats for arithmetic and `sum(lst)/len(lst)` over `statistics.mean` when performance is critical. Use a pre-calculated fast path where possible.
