@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 SpanData = dict[str, Any]
 
 
+def _parse_timestamp(ts: str) -> float | None:
+    """Parse ISO timestamp to milliseconds since epoch."""
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() * 1000
+    except (ValueError, TypeError):
+        return None
+
+
 @adk_tool
 def compare_span_timings(
     baseline_trace_id: str,
@@ -119,18 +129,20 @@ def compare_span_timings(
                     continue
 
                 try:
-                    curr_end = (
-                        datetime.fromisoformat(
-                            curr_span["end_time"].replace("Z", "+00:00")
-                        ).timestamp()
-                        * 1000
-                    )
-                    next_start = (
-                        datetime.fromisoformat(
-                            next_span["start_time"].replace("Z", "+00:00")
-                        ).timestamp()
-                        * 1000
-                    )
+                    curr_end = curr_span.get("end_time_unix")
+                    if curr_end is not None:
+                        curr_end *= 1000
+                    else:
+                        curr_end = _parse_timestamp(curr_span.get("end_time"))
+
+                    next_start = next_span.get("start_time_unix")
+                    if next_start is not None:
+                        next_start *= 1000
+                    else:
+                        next_start = _parse_timestamp(next_span.get("start_time"))
+
+                    if curr_end is None or next_start is None:
+                        continue
 
                     is_parent_child = curr_span.get("span_id") == next_span.get(
                         "parent_span_id"
