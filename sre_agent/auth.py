@@ -1002,7 +1002,7 @@ def get_auth_context_from_tool_context(
 
     # 2. Override with values from session state (Agent Engine)
     if tool_context and getattr(tool_context, "invocation_context", None):
-        state = tool_context.invocation_context.session.state
+        state = tool_context.invocation_context.session.state  # type: ignore[attr-defined]
 
         # Credentials
         session_creds = get_credentials_from_session(state)
@@ -1098,7 +1098,7 @@ def rehydrate_otel_context(ctx: AuthContext) -> Any | None:
             trace_id=int(ctx.trace_id, 16),
             span_id=int(ctx.span_id, 16) if ctx.span_id else 0,
             is_remote=True,
-            trace_flags=TraceFlags(int(ctx.trace_flags, 16))
+            trace_flags=TraceFlags(int(ctx.trace_flags, 16))  # type: ignore[arg-type]
             if ctx.trace_flags
             else TraceFlags.SAMPLED,
         )
