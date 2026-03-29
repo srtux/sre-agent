@@ -25,18 +25,15 @@ def test_get_authorized_session():
     with patch(
         "sre_agent.tools.clients.gke.get_credentials_from_tool_context"
     ) as mock_tool_cred:
-        with patch(
-            "sre_agent.tools.clients.gke.get_current_credentials"
-        ) as mock_curr_cred:
-            # Case 1: Tool context credentials
-            mock_tool_cred.return_value = MagicMock()
-            _get_authorized_session(tool_context=MagicMock())
-            mock_tool_cred.assert_called()
+        # Case 1: Tool context credentials
+        mock_tool_cred.return_value = MagicMock()
+        _get_authorized_session(tool_context=MagicMock())
+        mock_tool_cred.assert_called_once()
 
-            # Case 2: Fallback to current credentials
-            mock_tool_cred.return_value = None
-            _get_authorized_session()
-            # mock_curr_cred is no longer called synchronously as it's replaced by lazy GLOBAL_CONTEXT_CREDENTIALS
+        # Case 2: Fallback to current credentials
+        mock_tool_cred.return_value = None
+        _get_authorized_session()
+        # mock_curr_cred is no longer called synchronously as it's replaced by lazy GLOBAL_CONTEXT_CREDENTIALS
 
 
 @pytest.mark.asyncio

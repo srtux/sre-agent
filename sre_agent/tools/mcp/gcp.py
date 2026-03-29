@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 import httpx
-from google.adk.tools.api_registry import ApiRegistry
+from google.adk.tools.api_registry import ApiRegistry  # type: ignore[attr-defined]
 
 from ...auth import (
     get_credentials_from_tool_context,

@@ -2,7 +2,7 @@
 
 import concurrent.futures
 import logging
-import statistics
+import math
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, cast
@@ -123,20 +123,31 @@ def _compute_latency_statistics_impl(
     latencies.sort()
     count = len(latencies)
 
+    # Optimization: Native sum() and math operations are significantly faster
+    # than the statistics module due to internal precision tracking overhead.
+    mean_val = sum(latencies) / count
+    median_val = (
+        latencies[count // 2]
+        if count % 2 != 0
+        else (latencies[count // 2 - 1] + latencies[count // 2]) / 2.0
+    )
+
     stats: dict[str, Any] = {
         "count": count,
         "min": latencies[0],
         "max": latencies[-1],
-        "mean": statistics.mean(latencies),
-        "median": statistics.median(latencies),
+        "mean": mean_val,
+        "median": median_val,
         "p90": latencies[int(count * 0.9)] if count > 0 else latencies[0],
         "p95": latencies[int(count * 0.95)] if count > 0 else latencies[0],
         "p99": latencies[int(count * 0.99)] if count > 0 else latencies[0],
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(latencies)
-        stats["variance"] = statistics.variance(latencies)
+        # Optimization: Manual sample variance calculation is faster
+        variance_val = sum([(x - mean_val) ** 2 for x in latencies]) / (count - 1)
+        stats["stdev"] = math.sqrt(variance_val)
+        stats["variance"] = variance_val
     else:
         stats["stdev"] = 0
         stats["variance"] = 0
@@ -148,7 +159,7 @@ def _compute_latency_statistics_impl(
             continue
         durs.sort()
         c = len(durs)
-        span_mean = statistics.mean(durs)
+        span_mean = sum(durs) / c
         per_span_stats[name] = {
             "count": c,
             "mean": span_mean,
@@ -158,8 +169,9 @@ def _compute_latency_statistics_impl(
         }
         # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
         if c > 1:
-            per_span_stats[name]["stdev"] = statistics.stdev(durs)
-            per_span_stats[name]["variance"] = statistics.variance(durs)
+            span_var = sum([(x - span_mean) ** 2 for x in durs]) / (c - 1)
+            per_span_stats[name]["stdev"] = math.sqrt(span_var)
+            per_span_stats[name]["variance"] = span_var
         else:
             per_span_stats[name]["stdev"] = 0
             per_span_stats[name]["variance"] = 0
@@ -583,7 +595,8 @@ def perform_causal_analysis(
 
         if not baseline_durations:
             continue
-        baseline_avg = statistics.mean(baseline_durations)
+        # Optimization: Native sum() is faster than statistics.mean()
+        baseline_avg = sum(baseline_durations) / len(baseline_durations)
         diff_ms = target_duration - baseline_avg
         diff_percent = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
 
@@ -701,8 +714,14 @@ def analyze_trace_patterns(
         if perf["occurrences"] < 2:
             continue
         durs = perf["durations"]
-        mean_dur = statistics.mean(durs)
-        stdev_dur: float = statistics.stdev(durs) if len(durs) > 1 else 0.0
+        c = len(durs)
+        # Optimization: Fast native math instead of statistics module
+        mean_dur = sum(durs) / c
+        if c > 1:
+            span_var = sum([(x - mean_dur) ** 2 for x in durs]) / (c - 1)
+            stdev_dur = math.sqrt(span_var)
+        else:
+            stdev_dur = 0.0
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
         if mean_dur > 100 and cv < 0.3:
@@ -737,8 +756,10 @@ def analyze_trace_patterns(
 
     trend = "stable"
     if len(trace_durations) >= 3:
-        first = statistics.mean(trace_durations[: len(trace_durations) // 2])
-        second = statistics.mean(trace_durations[len(trace_durations) // 2 :])
+        first_half = trace_durations[: len(trace_durations) // 2]
+        first = sum(first_half) / len(first_half) if first_half else 0.0
+        second_half = trace_durations[len(trace_durations) // 2 :]
+        second = sum(second_half) / len(second_half) if second_half else 0.0
         diff = ((second - first) / first * 100) if first > 0 else 0
         if diff > 15:
             trend = "degrading"
