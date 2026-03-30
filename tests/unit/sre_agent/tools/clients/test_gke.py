@@ -27,7 +27,7 @@ def test_get_authorized_session():
     ) as mock_tool_cred:
         with patch(
             "sre_agent.tools.clients.gke.get_current_credentials"
-        ) as mock_curr_cred:
+        ) as _:
             # Case 1: Tool context credentials
             mock_tool_cred.return_value = MagicMock()
             _get_authorized_session(tool_context=MagicMock())
