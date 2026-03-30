@@ -43,10 +43,7 @@ def test_get_trace_client_default():
 def test_get_trace_client_with_context():
     mock_context = MagicMock()
     mock_creds = MagicMock()
-    with patch(
-        "sre_agent.tools.clients.factory.get_credentials_from_tool_context",
-        return_value=mock_creds,
-    ):
+    with patch("sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", mock_creds):
         with patch("google.cloud.trace_v1.TraceServiceClient") as mock_class:
             client = get_trace_client(tool_context=mock_context)
             assert client is not None
@@ -55,10 +52,7 @@ def test_get_trace_client_with_context():
 
 def test_get_trace_client_with_contextvar():
     mock_creds = MagicMock()
-    with patch(
-        "sre_agent.tools.clients.factory.get_current_credentials_or_none",
-        return_value=mock_creds,
-    ):
+    with patch("sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", mock_creds):
         with patch("google.cloud.trace_v1.TraceServiceClient") as mock_class:
             client = get_trace_client()
             assert client is not None

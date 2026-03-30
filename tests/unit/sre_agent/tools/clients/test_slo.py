@@ -22,11 +22,9 @@ with patch("google.cloud.monitoring_v3.TimeInterval", MagicMock()):
 
 @pytest.fixture(autouse=True)
 def mock_auth():
-    with patch("sre_agent.tools.clients.slo.get_current_credentials") as mock_current:
-        mock_current.return_value = (MagicMock(), "test-project")
-        with patch(
-            "sre_agent.tools.clients.slo.get_credentials_from_tool_context"
-        ) as mock_context:
+    with patch("sre_agent.tools.clients.slo.get_credentials_from_tool_context") as mock_context:
+        with patch("google.auth.default") as mock:
+            mock.return_value = (MagicMock(), "test-project")
             mock_context.return_value = None
             yield
 
