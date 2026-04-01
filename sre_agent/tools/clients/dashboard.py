@@ -69,7 +69,9 @@ def _get_dashboards_client(tool_context: Any = None) -> Any:
     from ...auth import GLOBAL_CONTEXT_CREDENTIALS
 
     # OPT-12: Zero-Trust Identity Propagation
-    creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    creds = (
+        get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    )
     return DashboardsServiceClient(credentials=creds)
 
 

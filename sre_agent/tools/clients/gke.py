@@ -22,7 +22,6 @@ from google.cloud import monitoring_v3
 
 from ...auth import (
     get_credentials_from_tool_context,
-    get_current_credentials,
     get_current_project_id,
 )
 from ...schema import BaseToolResponse, ToolStatus
@@ -37,7 +36,9 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     from ...auth import GLOBAL_CONTEXT_CREDENTIALS
 
     # OPT-12: Zero-Trust Identity Propagation
-    creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    creds = (
+        get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
+    )
     return AuthorizedSession(creds)  # type: ignore[no-untyped-call]
 
 
