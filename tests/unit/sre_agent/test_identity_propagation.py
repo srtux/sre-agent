@@ -1,6 +1,8 @@
+import contextvars
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.oauth2.credentials import Credentials
 
 from sre_agent.auth import (
     SESSION_STATE_ACCESS_TOKEN_KEY,
@@ -8,8 +10,8 @@ from sre_agent.auth import (
     SESSION_STATE_TRACE_ID_KEY,
     _credentials_context,
     _trace_id_context,
-    get_current_credentials_or_none,
     get_trace_id,
+    get_current_credentials_or_none,
 )
 from sre_agent.tools.common.decorators import adk_tool
 
@@ -30,9 +32,7 @@ async def mock_tool(arg: str, tool_context: MagicMock | None = None):
     return {
         "arg": arg,
         "current_trace_id": get_trace_id(),
-        "current_creds_token": getattr(
-            get_current_credentials_or_none(), "token", None
-        ),
+        "current_creds_token": getattr(get_current_credentials_or_none(), "token", None),
     }
 
 
@@ -61,8 +61,8 @@ async def test_identity_propagation_decorator():
 @pytest.mark.anyio
 async def test_identity_propagation_to_factory():
     """Verify that clients from factory use the propagated identity."""
-    from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS
     from sre_agent.tools.clients.factory import get_trace_client
+    from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS
 
     # Setup mock tool context
     mock_tool_context = MagicMock()
@@ -118,7 +118,6 @@ async def test_otel_rehydration():
 
     # We use a clean OTel context for this test
     from opentelemetry import context
-
     # Clear any existing context
     token = context.attach(context.Context())
     try:
