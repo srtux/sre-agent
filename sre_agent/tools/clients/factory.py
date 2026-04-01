@@ -13,18 +13,14 @@ The credential resolution order is:
 """
 
 import logging
-import os
 import threading
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import google.auth
 from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
 from ...auth import (
     GLOBAL_CONTEXT_CREDENTIALS,
-    get_credentials_from_tool_context,
-    get_current_credentials_or_none,
 )
 
 if TYPE_CHECKING:

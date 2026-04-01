@@ -232,7 +232,7 @@ def set_current_credentials(creds: Credentials) -> None:
 
 def set_auth_source(source: str) -> None:
     """Sets the authentication source (e.g. 'RemoteSession').
-    
+
     This is used to track where credentials came from for debugging.
     Currently a stub to resolve test regressions.
     """
@@ -968,6 +968,7 @@ def clear_current_credentials() -> None:
     _user_id_context.set(None)
     _correlation_id_context.set(None)
 
+
 # =============================================================================
 # Zero-Trust Identity Propagation Logic
 # =============================================================================
@@ -1000,31 +1001,39 @@ def get_auth_context_from_tool_context(
     )
 
     # 2. Override with values from session state (Agent Engine)
-    if tool_context and getattr(tool_context, "invocation_context", None):
-        state = tool_context.invocation_context.session.state
+    inv_ctx = (
+        getattr(tool_context, "invocation_context", None)
+        or getattr(tool_context, "_invocation_context", None)
+        if tool_context
+        else None
+    )
 
-        # Credentials
-        session_creds = get_credentials_from_session(state)
-        if session_creds:
-            ctx.credentials = session_creds
+    if inv_ctx:
+        session_obj = getattr(inv_ctx, "session", None)
+        state = getattr(session_obj, "state", {}) if session_obj else {}
+        if isinstance(state, dict):
+            # Credentials
+            session_creds = get_credentials_from_session(state)
+            if session_creds:
+                ctx.credentials = session_creds
 
-        # Project ID
-        session_project = get_project_id_from_session(state)
-        if session_project:
-            ctx.project_id = session_project
+            # Project ID
+            session_project = get_project_id_from_session(state)
+            if session_project:
+                ctx.project_id = session_project
 
-        # User ID (usually not in session state, but we check anyway)
-        session_user = state.get("_user_id")
-        if session_user:
-            ctx.user_id = session_user
+            # User ID (usually not in session state, but we check anyway)
+            session_user = state.get("_user_id")
+            if session_user:
+                ctx.user_id = session_user
 
-        # Trace info
-        if SESSION_STATE_TRACE_ID_KEY in state:
-            ctx.trace_id = state[SESSION_STATE_TRACE_ID_KEY]
-        if SESSION_STATE_SPAN_ID_KEY in state:
-            ctx.span_id = state[SESSION_STATE_SPAN_ID_KEY]
-        if SESSION_STATE_TRACE_FLAGS_KEY in state:
-            ctx.trace_flags = state[SESSION_STATE_TRACE_FLAGS_KEY]
+            # Trace info
+            if SESSION_STATE_TRACE_ID_KEY in state:
+                ctx.trace_id = state[SESSION_STATE_TRACE_ID_KEY]
+            if SESSION_STATE_SPAN_ID_KEY in state:
+                ctx.span_id = state[SESSION_STATE_SPAN_ID_KEY]
+            if SESSION_STATE_TRACE_FLAGS_KEY in state:
+                ctx.trace_flags = state[SESSION_STATE_TRACE_FLAGS_KEY]
 
     return ctx
 
@@ -1093,13 +1102,21 @@ def rehydrate_otel_context(ctx: AuthContext) -> Any | None:
             return None
 
         # Create a new SpanContext from the IDs
+        if ctx.trace_flags is not None:
+            flags_int = (
+                int(ctx.trace_flags, 16)
+                if isinstance(ctx.trace_flags, str)
+                else int(ctx.trace_flags)
+            )
+            tf = TraceFlags(flags_int)
+        else:
+            tf = TraceFlags(TraceFlags.SAMPLED)
+
         span_context = SpanContext(
             trace_id=int(ctx.trace_id, 16),
             span_id=int(ctx.span_id, 16) if ctx.span_id else 0,
             is_remote=True,
-            trace_flags=TraceFlags(int(ctx.trace_flags, 16))
-            if ctx.trace_flags
-            else TraceFlags.SAMPLED,
+            trace_flags=tf,
         )
 
         from opentelemetry.trace.span import NonRecordingSpan
