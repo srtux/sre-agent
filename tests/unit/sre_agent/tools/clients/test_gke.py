@@ -33,7 +33,7 @@ def test_get_authorized_session():
         # Case 2: Fallback to current credentials
         mock_tool_cred.return_value = None
         _get_authorized_session()
-            # mock_curr_cred is no longer called synchronously as it's replaced by lazy GLOBAL_CONTEXT_CREDENTIALS
+        # mock_curr_cred is no longer called synchronously as it's replaced by lazy GLOBAL_CONTEXT_CREDENTIALS
 
 
 @pytest.mark.asyncio

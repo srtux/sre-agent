@@ -44,7 +44,9 @@ def test_get_trace_client_with_context():
     mock_context = MagicMock()
     # In factory.py, get_trace_client no longer receives tool_context directly
     # and instead relies on GLOBAL_CONTEXT_CREDENTIALS.
-    with patch("sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", new=MagicMock()):
+    with patch(
+        "sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", new=MagicMock()
+    ):
         with patch("google.cloud.trace_v1.TraceServiceClient") as mock_class:
             client = get_trace_client(tool_context=mock_context)
             assert client is not None
@@ -52,7 +54,9 @@ def test_get_trace_client_with_context():
 
 
 def test_get_trace_client_with_contextvar():
-    with patch("sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", new=MagicMock()):
+    with patch(
+        "sre_agent.tools.clients.factory.GLOBAL_CONTEXT_CREDENTIALS", new=MagicMock()
+    ):
         with patch("google.cloud.trace_v1.TraceServiceClient") as mock_class:
             client = get_trace_client()
             assert client is not None
