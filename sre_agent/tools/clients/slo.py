@@ -16,7 +16,7 @@ from typing import Any, cast
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_credentials_from_tool_context
+from ...auth import get_credentials_from_tool_context, get_current_credentials
 from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 from .factory import get_monitoring_client
@@ -29,9 +29,7 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     from ...auth import GLOBAL_CONTEXT_CREDENTIALS
 
     # OPT-12: Zero-Trust Identity Propagation
-    creds = (
-        get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
-    )
+    creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
     return AuthorizedSession(creds)  # type: ignore[no-untyped-call]
 
 
@@ -77,10 +75,7 @@ async def list_slos(
         from ...auth import GLOBAL_CONTEXT_CREDENTIALS
 
         # OPT-12: Zero-Trust Identity Propagation
-        creds = (
-            get_credentials_from_tool_context(tool_context)
-            or GLOBAL_CONTEXT_CREDENTIALS
-        )
+        creds = get_credentials_from_tool_context(tool_context) or GLOBAL_CONTEXT_CREDENTIALS
         client = monitoring_v3.ServiceMonitoringServiceClient(credentials=creds)
 
         if service_id:

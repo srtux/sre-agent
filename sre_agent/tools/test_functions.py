@@ -268,7 +268,6 @@ async def check_list_slos() -> ToolTestResult:
             )
 
         from google.cloud import monitoring_v3
-
         from ..auth import GLOBAL_CONTEXT_CREDENTIALS
 
         client = monitoring_v3.ServiceMonitoringServiceClient(

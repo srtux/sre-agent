@@ -968,7 +968,6 @@ def clear_current_credentials() -> None:
     _user_id_context.set(None)
     _correlation_id_context.set(None)
 
-
 # =============================================================================
 # Zero-Trust Identity Propagation Logic
 # =============================================================================

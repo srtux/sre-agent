@@ -125,11 +125,7 @@ def _compute_latency_statistics_impl(
 
     mean_val = sum(latencies) / count
     mid = count // 2
-    median_val = (
-        latencies[mid]
-        if count % 2 != 0
-        else (latencies[mid - 1] + latencies[mid]) / 2.0
-    )
+    median_val = latencies[mid] if count % 2 != 0 else (latencies[mid - 1] + latencies[mid]) / 2.0
 
     stats: dict[str, Any] = {
         "count": count,
