@@ -82,14 +82,14 @@ async def test_identity_propagation_to_factory():
         # Configure the mock instance to have a transport with credentials
         mock_instance = MagicMock()
         mock_client_cls.return_value = mock_instance
-        
+
         # When get_trace_client() is called, it initializes with credentials=GLOBAL_CONTEXT_CREDENTIALS
         # and returns the mock_instance.
         # We simulate the transport credentials.
         mock_instance.transport.credentials = GLOBAL_CONTEXT_CREDENTIALS
-        
+
         token = await tool_using_factory(tool_context=mock_tool_context)
-        
+
         assert token == "factory-token"
 
 
@@ -97,7 +97,7 @@ async def test_identity_propagation_to_factory():
 async def test_otel_rehydration():
     """Verify that OTel context is rehydrated from trace ID."""
     from opentelemetry import trace
-    
+
     mock_tool_context = MagicMock()
     # Trace ID must be 32 chars hex for OTel
     trace_id_hex = "1234567890abcdef1234567890abcdef"
@@ -107,7 +107,7 @@ async def test_otel_rehydration():
         SESSION_STATE_SPAN_ID_KEY: span_id_hex,
         SESSION_STATE_ACCESS_TOKEN_KEY: "token",
     }
-    
+
     @adk_tool
     async def tool_checking_otel(tool_context: MagicMock | None = None):
         current_span = trace.get_current_span()

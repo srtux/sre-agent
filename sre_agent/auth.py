@@ -232,7 +232,7 @@ def set_current_credentials(creds: Credentials) -> None:
 
 def set_auth_source(source: str) -> None:
     """Sets the authentication source (e.g. 'RemoteSession').
-    
+
     This is used to track where credentials came from for debugging.
     Currently a stub to resolve test regressions.
     """

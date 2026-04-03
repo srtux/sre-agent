@@ -1,0 +1,38 @@
+--- sre_agent/tools/analysis/trace/statistical_analysis.py
++++ sre_agent/tools/analysis/trace/statistical_analysis.py
+@@ -584,7 +584,7 @@
+
+         if not baseline_durations:
+             continue
+-        baseline_avg = statistics.mean(baseline_durations)
++        baseline_avg = sum(baseline_durations) / len(baseline_durations)
+         diff_ms = target_duration - baseline_avg
+         diff_percent = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
+
+@@ -702,8 +702,10 @@
+             continue
+         durs = perf["durations"]
+-        mean_dur = statistics.mean(durs)
+-        stdev_dur: float = statistics.stdev(durs) if len(durs) > 1 else 0.0
++        mean_dur = sum(durs) / len(durs)
++        stdev_dur: float = 0.0
++        if len(durs) > 1:
++            variance = sum((x - mean_dur) ** 2 for x in durs) / (len(durs) - 1)
++            stdev_dur = math.sqrt(variance)
+         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
+
+         if mean_dur > 100 and cv < 0.3:
+@@ -738,8 +740,11 @@
+
+     trend = "stable"
+     if len(trace_durations) >= 3:
+-        first = statistics.mean(trace_durations[: len(trace_durations) // 2])
+-        second = statistics.mean(trace_durations[len(trace_durations) // 2 :])
++        half_len = len(trace_durations) // 2
++        first_half = trace_durations[:half_len]
++        second_half = trace_durations[half_len:]
++        first = sum(first_half) / len(first_half) if first_half else 0.0
++        second = sum(second_half) / len(second_half) if second_half else 0.0
+         diff = ((second - first) / first * 100) if first > 0 else 0
+         if diff > 15:
+             trend = "degrading"
