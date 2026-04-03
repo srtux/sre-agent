@@ -232,7 +232,7 @@ def set_current_credentials(creds: Credentials) -> None:
 
 def set_auth_source(source: str) -> None:
     """Sets the authentication source (e.g. 'RemoteSession').
-    
+
     This is used to track where credentials came from for debugging.
     Currently a stub to resolve test regressions.
     """
@@ -967,6 +967,7 @@ def clear_current_credentials() -> None:
     _project_id_context.set(None)
     _user_id_context.set(None)
     _correlation_id_context.set(None)
+
 
 # =============================================================================
 # Zero-Trust Identity Propagation Logic

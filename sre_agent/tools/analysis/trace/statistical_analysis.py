@@ -712,11 +712,10 @@ def analyze_trace_patterns(
             continue
         durs = perf["durations"]
         mean_dur = sum(durs) / len(durs)
+        stdev_dur: float = 0.0
         if len(durs) > 1:
             variance = sum((x - mean_dur) ** 2 for x in durs) / (len(durs) - 1)
-            stdev_dur: float = math.sqrt(variance)
-        else:
-            stdev_dur: float = 0.0
+            stdev_dur = math.sqrt(variance)
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
         if mean_dur > 100 and cv < 0.3:
