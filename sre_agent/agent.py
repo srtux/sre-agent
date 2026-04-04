@@ -51,6 +51,7 @@ if os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
 from google.adk.features import FeatureName, override_feature_enabled
 
 override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
+override_feature_enabled(FeatureName.SNAKE_CASE_SKILL_NAME, True)
 
 import asyncio
 import functools
@@ -1564,7 +1565,7 @@ async def composite_after_tool_callback(
     return working_response
 
 
-# Build the full tool set: base tools + ADK memory tools + Research
+# Build the full tool set: base tools + ADK memory tools + Research + Skills
 # Research must be a tool in ADK because it requires a dedicated LlmAgent internally limit bypass
 _agent_tools: list[Any] = [
     *get_enabled_base_tools(),
@@ -1572,6 +1573,21 @@ _agent_tools: list[Any] = [
     load_memory_tool,
     get_research_agent_tool(),
 ]
+
+# ADK Skills: structured, discoverable SRE workflows (env: SRE_AGENT_SKILLS)
+if os.environ.get("SRE_AGENT_SKILLS", "true").lower() == "true":
+    try:
+        from google.adk.tools.skill_toolset import SkillToolset
+
+        from .skills import load_all_skills
+
+        _loaded_skills = load_all_skills()
+        if _loaded_skills:
+            _skill_toolset = SkillToolset(skills=_loaded_skills)
+            _agent_tools.append(_skill_toolset)
+            logger.info("Registered %d SRE skills with SkillToolset", len(_loaded_skills))
+    except Exception:
+        logger.warning("Failed to load ADK skills — continuing without skills", exc_info=True)
 
 # Create the main SRE Agent
 sre_agent = LlmAgent(
