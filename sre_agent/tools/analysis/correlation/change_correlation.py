@@ -288,9 +288,7 @@ async def correlate_changes_with_incident(
                 get_credentials_from_tool_context(tool_context)
                 or GLOBAL_CONTEXT_CREDENTIALS
             )
-            client = cloud_logging.Client(
-                project=project_id, credentials=creds
-            )  # type: ignore[no-untyped-call]
+            client = cloud_logging.Client(project=project_id, credentials=creds)  # type: ignore[no-untyped-call]
 
             entries = list(
                 client.list_entries(  # type: ignore[no-untyped-call]
