@@ -4,6 +4,14 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['echarts', 'echarts-for-react']
+  },
+  resolve: {
+    alias: {
+      echarts: 'echarts/dist/echarts.esm.mjs'
+    }
+  },
   test: {
     environment: 'jsdom',
     globals: true,

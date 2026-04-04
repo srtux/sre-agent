@@ -132,7 +132,7 @@ def start_frontend() -> bool:
         "flutter",
         "run",
         "-d",
-        "chrome",
+        "web-server",
         "--web-hostname",
         "localhost",
         "--web-port",
