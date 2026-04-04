@@ -182,7 +182,7 @@ Tools live in `sre_agent/tools/` (158+ files). Key conventions:
     *   `SRE_AGENT_DEPLOYMENT_MODE=true`
 *   **Naming**: `test_<function>_<condition>_<expected>` (e.g., `test_fetch_trace_not_found_returns_error`).
 
-See [Testing Guide](testing.md) for comprehensive details.
+See [Testing Guide](../testing/testing.md) for comprehensive details.
 
 ---
 

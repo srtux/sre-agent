@@ -23,7 +23,7 @@ It is designed to be served by the unified SRE Agent server, but can also be run
 
 - **Flutter SDK** (Dart SDK ^3.10.7): [Install Flutter](https://docs.flutter.dev/get-started/install)
 - **SRE Agent Backend**: Run via `uv run poe dev` (unified) or `uv run poe web` (backend only).
-- **Troubleshooting**: See [docs/debugging_connectivity.md](../docs/debugging_connectivity.md) for connection issues.
+- **Troubleshooting**: See [docs/debugging/debugging_connectivity.md](../docs/debugging/debugging_connectivity.md) for connection issues.
 
 ## Getting Started
 
@@ -57,7 +57,7 @@ It is designed to be served by the unified SRE Agent server, but can also be run
 
 - **Framework**: Flutter (Material 3)
 - **Protocol**: [GenUI](https://github.com/flutter/genui) + [A2UI](https://a2ui.org)
-- **State Management**: Provider (`ChangeNotifier` pattern)
+- **State Management**: Hybrid transition -- Riverpod (feature-first modules) and legacy Provider/ChangeNotifier services.
 - **Entry Point**: `lib/main.dart`
 - **App Configuration**: `lib/app.dart`
 - **Catalog Registry**: `lib/catalog.dart` (maps A2UI component types to Flutter widgets)

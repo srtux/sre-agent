@@ -223,8 +223,8 @@ See [Deployment Guide](deployment.md) for detailed production instructions.
 ## Next Steps
 
 *   [Development Guide](development.md) -- Development workflow, coding standards, and PR checklist.
-*   [Linting Guide](linting.md) -- Linting tools, configuration, and enforcement rules.
-*   [Testing Guide](testing.md) -- Test conventions, coverage requirements, and how to run tests.
+*   [Linting Guide](../testing/linting.md) -- Linting tools, configuration, and enforcement rules.
+*   [Testing Guide](../testing/testing.md) -- Test conventions, coverage requirements, and how to run tests.
 *   [Deployment Guide](deployment.md) -- Production deployment instructions.
 
 ---

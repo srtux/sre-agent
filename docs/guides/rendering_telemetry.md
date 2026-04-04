@@ -502,7 +502,7 @@ If the component should also appear in the Observability Explorer:
 
 ## Debugging
 
-See [Debugging GenUI](debugging_genui.md) for detailed instructions on how to inspect the event stream and trace rendering issues.
+See [Debugging GenUI](../debugging/debugging_genui.md) for detailed instructions on how to inspect the event stream and trace rendering issues.
 
 Common debugging steps:
 1. Check the browser DevTools Network tab for SSE events.

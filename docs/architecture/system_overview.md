@@ -142,7 +142,7 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 - [Agent Orchestration](../concepts/agent_orchestration.md): Orchestration and reasoning logic.
 - [Tools Catalog](../reference/tools.md): Catalog of analysis capabilities.
 - [Frontend](frontend.md): Flutter UI, GenUI, and Dashboard implementation.
-- [Authentication](authentication.md): IAM and Session security.
+- [Authentication](../authentication/authentication.md): IAM and Session security.
 - [Telemetry](telemetry.md): Observability and tracing architecture.
 - [Technical Decisions](decisions.md): Records of dependency constraints and implementation rationale.
 - [Multi-Agent Observability](../agent_ops/observability_theory.md): Agent Graph, AgentOps Dashboard, and self-analysis tools.

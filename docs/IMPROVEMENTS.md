@@ -1,6 +1,6 @@
 # SRE Agent Improvements
 
-> **Note**: This content has been integrated into [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) under "Phase 2.5: SRE Reliability Suite". This file is kept for historical reference. For the living roadmap, see PROJECT_PLAN.md.
+> **Note**: This content has been integrated into [docs/PROJECT_PLAN.md](PROJECT_PLAN.md) under "Phase 2.5: SRE Reliability Suite". This file is kept for historical reference. For the living roadmap, see PROJECT_PLAN.md.
 
 This document details the improvements made to elevate the Auto SRE Agent toward world-class reliability engineering automation, following Google SRE best practices.
 
@@ -22,7 +22,7 @@ Total: **105 new tests**, all passing.
 
 ## Completed Optimizations (OPT-1 through OPT-10)
 
-In addition to the five features above, ten optimization passes were applied to the agent architecture. All are tracked in detail in [docs/architecture/AGENTS_AND_TOOLS.md](docs/architecture/AGENTS_AND_TOOLS.md).
+In addition to the five features above, ten optimization passes were applied to the agent architecture. All are tracked in detail in [docs/architecture/AGENTS_AND_TOOLS.md](architecture/AGENTS_AND_TOOLS.md).
 
 | ID | Optimization | Status |
 |----|-------------|--------|

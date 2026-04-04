@@ -7,7 +7,7 @@ This document is the **Single Source of Truth** for the project's evolution. It 
 ## Executive Summary
 Auto SRE is an autonomous reliability engine for Google Cloud. It has evolved from a monolithic, reactive tool into a modular, proactive, and memory-aware diagnostic expert with a Council of Experts architecture, self-healing capabilities, and an interactive Observability Explorer dashboard.
 
-**Current state**: 2312 backend tests across 196 test files, 129 Flutter tests across 22 test files. Phase 3 complete; Phase 4 in progress.
+**Current state**: 239 Python test files and 41 Flutter test files. Phase 3 complete; Phase 4 in progress.
 
 ---
 

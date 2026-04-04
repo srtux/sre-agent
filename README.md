@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B_<%2F3.13-blue" alt="Python">
   <img src="https://img.shields.io/badge/Frontend-Flutter_Web-02569B" alt="Frontend">
   <img src="https://img.shields.io/badge/GCP-Native-4285F4" alt="GCP">
-  <img src="https://img.shields.io/badge/Tests-2429_backend_|_129_flutter-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-239_py_files_|_41_flutter_files-brightgreen" alt="Tests">
 </div>
 
 ---
@@ -772,7 +772,7 @@ See [AGENTS.md](AGENTS.md) for the complete coding standard.
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) for details.
+Apache-2.0.
 
 ---
 

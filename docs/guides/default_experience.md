@@ -365,7 +365,7 @@ _onProjectChanged() [conversation_page.dart]
 
 ## Related Documentation
 
-- [Dashboard UI](dashboard_ui.md) -- Full Observability Explorer reference
+- [Dashboard UI](dashboard_query_language.md) -- Full Observability Explorer reference
 - [Project Selector](project_selector.md) -- Project selection implementation details
 - [Rendering Telemetry](rendering_telemetry.md) -- GenUI/A2UI widget schemas and data flow
-- [Debugging Telemetry & Auth](debugging_telemetry_and_auth.md) -- Troubleshooting missing data
+- [Debugging Telemetry & Auth](../debugging/debugging_telemetry_and_auth.md) -- Troubleshooting missing data
