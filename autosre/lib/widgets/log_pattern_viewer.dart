@@ -466,7 +466,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
   Widget _buildHeaderCell(String label, String? sortKey, double? width) {
     final isActive = sortKey != null && _sortBy == sortKey;
 
-    Widget content = sortKey != null
+    var content = sortKey != null
         ? InkWell(
             onTap: () {
               _invalidateCache();

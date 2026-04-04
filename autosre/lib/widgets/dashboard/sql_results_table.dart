@@ -193,10 +193,10 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: allColumns.fold(
+                  width: allColumns.fold<double>(
                     0.0,
                     (sum, col) =>
-                        (sum as double) + (_columnWidths[col] ?? 150.0),
+                        sum + (_columnWidths[col] ?? 150.0),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

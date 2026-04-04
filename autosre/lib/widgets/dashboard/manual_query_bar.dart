@@ -928,7 +928,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
         ? Icons.auto_awesome_rounded
         : Icons.code_rounded;
 
-    Widget badge = AnimatedContainer(
+    var badge = AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(left: 6, right: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
