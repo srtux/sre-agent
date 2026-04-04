@@ -323,8 +323,8 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`list_alert_policies`](../../sre_agent/tools/clients/monitoring.py) | `tools/clients/monitoring.py` | Root, Alert Analyst, Alerts Panel |
 | [`get_alert`](../../sre_agent/tools/clients/monitoring.py) | `tools/clients/monitoring.py` | Root, Alert Analyst, Alerts Panel |
 | [`list_slos`](../../sre_agent/tools/clients/monitoring.py) | `tools/clients/monitoring.py` | Root |
-| [`list_gcp_projects`](../../sre_agent/tools/clients/resource_manager.py) | `tools/clients/resource_manager.py` | Root |
-| [`list_error_events`](../../sre_agent/tools/clients/error_reporting.py) | `tools/clients/error_reporting.py` | Root |
+| [`list_gcp_projects`](../../sre_agent/tools/clients/gcp_projects.py) | `tools/clients/gcp_projects.py` | Root |
+| [`list_error_events`](../../sre_agent/tools/clients/logging.py) | `tools/clients/logging.py` | Root |
 
 ### Trace Analysis (13 tools)
 
@@ -511,7 +511,7 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`get_current_time`](../../sre_agent/tools/common/time.py) | `tools/common/time.py` | Root, Agent Debugger |
+| [`get_current_time`](../../sre_agent/tools/clients/trace.py) | `tools/clients/trace.py` | Root, Agent Debugger |
 | [`get_golden_signals`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
 | [`find_similar_past_incidents`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/suggestions.py` | Root |
 | [`perform_causal_analysis`](../../sre_agent/tools/analysis/trace/statistical_analysis.py) | `tools/analysis/trace/statistical_analysis.py` | Root, Root Cause |

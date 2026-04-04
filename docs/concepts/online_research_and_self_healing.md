@@ -151,7 +151,7 @@ The Auto SRE agent should be able to **observe its own behavior, diagnose issues
 
 ### The OODA Self-Healing Loop
 
-This architecture follows the [OODA loop](docs/concepts/autonomous_reliability.md) already established in the project, applied to the agent itself:
+This architecture follows the [OODA loop](autonomous_reliability.md) already established in the project, applied to the agent itself:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

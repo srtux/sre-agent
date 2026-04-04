@@ -20,7 +20,7 @@ Our philosophy is simple: **If it is not tested, it is broken.**
 
 ## Test Suite Overview
 
-As of 2026-02-15, the project has **196 Python test files** containing approximately **2,429+ test functions** and **21 Flutter test files** containing approximately **129 test functions**.
+As of 2026-04-04, the project has **239 Python test files** and **41 Flutter test files**.
 
 ---
 
@@ -54,7 +54,7 @@ We use `gemini-1.5-pro` to grade responses on:
 * **Root Cause Causality**: "Why" it happened vs just "What" happened.
 * **Actionability**: Clear, recommended shell commands or fixes.
 
-For implementation details, see **[docs/../EVALUATIONS.md](evaluation.md)**.
+For implementation details, see **[docs/EVALUATIONS.md](../EVALUATIONS.md)**.
 
 ---
 

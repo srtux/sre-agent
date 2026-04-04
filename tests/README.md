@@ -1,9 +1,9 @@
 # SRE Agent Test Suite
 
-This directory contains the Python test suite for the SRE Agent. As of 2026-02-15, the suite includes **196 test files** containing approximately **2,300+ test functions** with an 80% minimum coverage gate.
+This directory contains the Python test suite for the SRE Agent. As of 2026-04-04, the suite includes **239 Python test files** with an 80% minimum coverage gate.
 
 For the full testing strategy and style guide, see [docs/testing/testing.md](../docs/testing/testing.md).
-For Flutter frontend tests, see [docs/guides/frontend_testing.md](../docs/guides/frontend_testing.md).
+For Flutter frontend tests, see [docs/testing/frontend_testing.md](../docs/testing/frontend_testing.md).
 
 ## Directory Structure
 

@@ -234,8 +234,8 @@ The ID Token is preferred for identity verification because it can be validated 
 
 ## Related Documentation
 
-- [Autonomous Reliability](autonomous_reliability.md) -- Policy engine and safety layer
-- [GCP Enhancements](gcp_enhancements.md) -- Client factory pattern and EUC-aware clients
+- [Autonomous Reliability](../concepts/autonomous_reliability.md) -- Policy engine and safety layer
+- [GCP Enhancements](../concepts/gcp_enhancements.md) -- Client factory pattern and EUC-aware clients
 - [Configuration Reference](../reference/configuration.md) -- Full environment variable list
 
 ---

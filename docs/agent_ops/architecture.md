@@ -6,7 +6,7 @@ As AI agents evolve from single-prompt models into multi-agent orchestration sys
 
 This document describes the theory, strategy, and implementation of Auto SRE's Agent Graph — a property graph visualization built on BigQuery `GRAPH_TABLE` that aggregates multi-trace telemetry into an interactive, explorable topology of agent behavior. It covers the full data pipeline from OpenTelemetry span emission through BigQuery materialized views and pre-aggregated hourly tables, to two complementary visualization surfaces: a React Flow topology graph and a Nivo Sankey trajectory diagram. It details the SQL constructs — recursive CTEs, property graph path matching, model-specific cost estimation, and deduplication-safe scheduled queries — that make sub-second multi-trace aggregation possible. It describes the use cases that make this system indispensable for debugging, cost optimization, and architectural understanding of production reasoning systems.
 
-> **See also**: [Multi-Agent Observability](multi_agent_observability.md) for a high-level overview of how the Agent Graph fits within Auto SRE's broader observability strategy.
+> **See also**: [Multi-Agent Observability](observability_theory.md) for a high-level overview of how the Agent Graph fits within Auto SRE's broader observability strategy.
 
 ---
 

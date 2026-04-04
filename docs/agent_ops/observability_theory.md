@@ -29,7 +29,7 @@ Two complementary views are provided:
 
 **Best for**: Architecture understanding, cost optimization, error investigation, latency bottleneck identification, regression detection, loop detection.
 
-Full documentation: [Agent Graph](agent_graph.md)
+Full documentation: [Agent Graph](architecture.md)
 
 ### AgentOps Dashboard
 
@@ -66,7 +66,7 @@ These tools integrate with the **self-healing OODA loop** -- a closed-loop archi
 
 **Best for**: Automated self-improvement, anti-pattern detection, token waste identification, scheduled health analysis.
 
-Full documentation: [Online Research & Self-Healing](online_research_and_self_healing.md)
+Full documentation: [Online Research & Self-Healing](../concepts/online_research_and_self_healing.md)
 
 ---
 
@@ -156,7 +156,7 @@ Key capabilities:
 
 The Agent Graph React UI lives at `agent_ops_ui/` and communicates with FastAPI endpoints at `/api/v1/graph/*` (topology, trajectories, node detail, edge detail, timeseries).
 
-For the full data pipeline walkthrough, BigQuery schema details, SQL constructs, and use case catalog, see [Agent Graph](agent_graph.md).
+For the full data pipeline walkthrough, BigQuery schema details, SQL constructs, and use case catalog, see [Agent Graph](architecture.md).
 
 ---
 
@@ -217,7 +217,7 @@ Anti-patterns detected by the self-analysis tools include:
 
 Safety guardrails ensure human oversight: all agent-generated PRs are drafts by default, branch names must start with `auto-fix/`, PRs are labeled `agent-generated` and `auto-fix`, and the CI/CD pipeline validates changes before deployment.
 
-For the full OODA loop architecture, GitHub tool details, and safety guardrails, see [Online Research & Self-Healing](online_research_and_self_healing.md).
+For the full OODA loop architecture, GitHub tool details, and safety guardrails, see [Online Research & Self-Healing](../concepts/online_research_and_self_healing.md).
 
 ---
 
@@ -293,7 +293,7 @@ Run the one-time BigQuery setup script to create the materialized view, SQL view
 ./scripts/setup_agent_graph_bq.sh <project_id> <trace_dataset> [graph_dataset]
 ```
 
-Then configure a BigQuery Scheduled Query to run every hour for incremental updates. See [Agent Graph -- Setup and Deployment](agent_graph.md#10-setup-and-deployment) for detailed instructions.
+Then configure a BigQuery Scheduled Query to run every hour for incremental updates. See [Agent Graph -- Setup and Deployment](architecture.md#10-setup-and-deployment) for detailed instructions.
 
 ### Step 2: Start the AgentOps UI
 
@@ -318,7 +318,7 @@ The self-analysis tools require BigQuery access and are available as standard `@
 #   detect_agent_anti_patterns(trace_id=<each trace>)
 ```
 
-For the self-healing loop (GitHub integration), configure `GITHUB_TOKEN` and `GITHUB_REPO` environment variables. See [Online Research & Self-Healing -- Configuration](online_research_and_self_healing.md) for details.
+For the self-healing loop (GitHub integration), configure `GITHUB_TOKEN` and `GITHUB_REPO` environment variables. See [Online Research & Self-Healing -- Configuration](../concepts/online_research_and_self_healing.md) for details.
 
 ### Step 4: Explore
 
@@ -335,11 +335,11 @@ For the self-healing loop (GitHub integration), configure `GITHUB_TOKEN` and `GI
 
 ## Related Documentation
 
-- [Agent Graph](agent_graph.md) -- Full data pipeline, BigQuery schema, visualization architecture, and use cases
+- [Agent Graph](architecture.md) -- Full data pipeline, BigQuery schema, visualization architecture, and use cases
 - [AgentOps Dashboard Guide](../agent_ops/dashboard.md) -- Dashboard sections, data flow, and testing
-- [Online Research & Self-Healing](online_research_and_self_healing.md) -- OODA loop, GitHub tools, and safety guardrails
-- [Observability and OpenTelemetry Concepts](observability.md) -- Foundational OTel concepts (traces, logs, metrics, changes)
-- [Agent Orchestration](agent_orchestration.md) -- Council of Experts architecture
+- [Online Research & Self-Healing](../concepts/online_research_and_self_healing.md) -- OODA loop, GitHub tools, and safety guardrails
+- [Observability and OpenTelemetry Concepts](../concepts/observability.md) -- Foundational OTel concepts (traces, logs, metrics, changes)
+- [Agent Orchestration](../concepts/agent_orchestration.md) -- Council of Experts architecture
 - [Configuration Reference](../reference/configuration.md) -- Environment variables
 
 ---
