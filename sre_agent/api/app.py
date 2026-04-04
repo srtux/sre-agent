@@ -117,7 +117,7 @@ def create_app(
     from fastapi.responses import HTMLResponse
 
     @app.get("/", response_class=HTMLResponse)
-    async def serve_index():
+    async def serve_index() -> HTMLResponse:
         path = "web/index.html"
         if not os.path.exists(path):
             return HTMLResponse(
