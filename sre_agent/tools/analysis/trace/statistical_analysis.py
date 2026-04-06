@@ -2,7 +2,7 @@
 
 import concurrent.futures
 import logging
-import statistics
+import math
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, cast
@@ -15,6 +15,34 @@ from ...common import adk_tool
 logger = logging.getLogger(__name__)
 
 MAX_WORKERS = 10  # Max concurrent fetches
+
+
+def _mean(data: list[float]) -> float:
+    if not data:
+        return 0.0
+    return sum(data) / len(data)
+
+
+def _variance(data: list[float], mean: float) -> float:
+    if len(data) <= 1:
+        return 0.0
+    return sum((x - mean) ** 2 for x in data) / (len(data) - 1)
+
+
+def _stdev(data: list[float], variance: float | None = None) -> float:
+    if len(data) <= 1:
+        return 0.0
+    if variance is None:
+        variance = sum((x - _mean(data)) ** 2 for x in data) / (len(data) - 1)
+    return math.sqrt(variance)
+
+
+def _median_sorted(data: list[float]) -> float:
+    if not data:
+        return 0.0
+    n = len(data)
+    mid = n // 2
+    return data[mid] if n % 2 != 0 else (data[mid - 1] + data[mid]) / 2.0
 
 
 def _fetch_traces_parallel(
@@ -123,20 +151,22 @@ def _compute_latency_statistics_impl(
     latencies.sort()
     count = len(latencies)
 
+    mean_val = _mean(latencies)
     stats: dict[str, Any] = {
         "count": count,
         "min": latencies[0],
         "max": latencies[-1],
-        "mean": statistics.mean(latencies),
-        "median": statistics.median(latencies),
+        "mean": mean_val,
+        "median": _median_sorted(latencies),
         "p90": latencies[int(count * 0.9)] if count > 0 else latencies[0],
         "p95": latencies[int(count * 0.95)] if count > 0 else latencies[0],
         "p99": latencies[int(count * 0.99)] if count > 0 else latencies[0],
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(latencies)
-        stats["variance"] = statistics.variance(latencies)
+        var_val = _variance(latencies, mean_val)
+        stats["stdev"] = _stdev(latencies, var_val)
+        stats["variance"] = var_val
     else:
         stats["stdev"] = 0
         stats["variance"] = 0
@@ -148,7 +178,7 @@ def _compute_latency_statistics_impl(
             continue
         durs.sort()
         c = len(durs)
-        span_mean = statistics.mean(durs)
+        span_mean = _mean(durs)
         per_span_stats[name] = {
             "count": c,
             "mean": span_mean,
@@ -158,8 +188,9 @@ def _compute_latency_statistics_impl(
         }
         # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
         if c > 1:
-            per_span_stats[name]["stdev"] = statistics.stdev(durs)
-            per_span_stats[name]["variance"] = statistics.variance(durs)
+            span_var = _variance(durs, span_mean)
+            per_span_stats[name]["stdev"] = _stdev(durs, span_var)
+            per_span_stats[name]["variance"] = span_var
         else:
             per_span_stats[name]["stdev"] = 0
             per_span_stats[name]["variance"] = 0
@@ -583,7 +614,7 @@ def perform_causal_analysis(
 
         if not baseline_durations:
             continue
-        baseline_avg = statistics.mean(baseline_durations)
+        baseline_avg = _mean(baseline_durations)
         diff_ms = target_duration - baseline_avg
         diff_percent = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
 
@@ -701,8 +732,10 @@ def analyze_trace_patterns(
         if perf["occurrences"] < 2:
             continue
         durs = perf["durations"]
-        mean_dur = statistics.mean(durs)
-        stdev_dur: float = statistics.stdev(durs) if len(durs) > 1 else 0.0
+        mean_dur = _mean(durs)
+        stdev_dur: float = (
+            _stdev(durs, _variance(durs, mean_dur)) if len(durs) > 1 else 0.0
+        )
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
         if mean_dur > 100 and cv < 0.3:
@@ -737,8 +770,10 @@ def analyze_trace_patterns(
 
     trend = "stable"
     if len(trace_durations) >= 3:
-        first = statistics.mean(trace_durations[: len(trace_durations) // 2])
-        second = statistics.mean(trace_durations[len(trace_durations) // 2 :])
+        first_half = trace_durations[: len(trace_durations) // 2]
+        second_half = trace_durations[len(trace_durations) // 2 :]
+        first = _mean(first_half)
+        second = _mean(second_half)
         diff = ((second - first) / first * 100) if first > 0 else 0
         if diff > 15:
             trend = "degrading"
