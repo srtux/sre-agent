@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2026-04-08 - [Non-Blocking ID Token Validation]
+**Learning:** In async endpoints, synchronous authentication functions like `google.oauth2.id_token.verify_oauth2_token` can block the entire FastAPI event loop while fetching public keys over the network. Furthermore, `mypy` rejects `# type: ignore[no-untyped-call]` when wrapping this function with `run_in_threadpool`.
+**Action:** Always offload synchronous blocking calls in async flows using `fastapi.concurrency.run_in_threadpool`, and omit `# type: ignore[no-untyped-call]` on the wrapper call to satisfy the linter.
