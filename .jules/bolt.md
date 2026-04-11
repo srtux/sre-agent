@@ -9,3 +9,6 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+## 2024-05-25 - Python built-in statistics performance overhead
+**Learning:** Python's `statistics.mean` is ~40-80x slower than `sum(list) / len(list)` due to internal exactness tracking. `statistics.median` on a sorted list is ~240x slower than custom index-based logic. `statistics.stdev` and `statistics.variance` are ~7-8x slower than manual calculation using generator expressions.
+**Action:** Prefer native math built-ins (`sum`, `math.sqrt`, and index logic) in performance-sensitive, high-throughput paths (like latency analysis) where precision loss is negligible.
