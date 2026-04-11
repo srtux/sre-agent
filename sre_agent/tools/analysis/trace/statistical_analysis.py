@@ -2,6 +2,7 @@
 
 import concurrent.futures
 import logging
+import math
 import statistics
 from collections import defaultdict
 from datetime import datetime
@@ -123,20 +124,29 @@ def _compute_latency_statistics_impl(
     latencies.sort()
     count = len(latencies)
 
+    mean_val = sum(latencies) / count
+    mid = count // 2
+    median_val = (
+        latencies[mid]
+        if count % 2 != 0
+        else (latencies[mid - 1] + latencies[mid]) / 2.0
+    )
+
     stats: dict[str, Any] = {
         "count": count,
         "min": latencies[0],
         "max": latencies[-1],
-        "mean": statistics.mean(latencies),
-        "median": statistics.median(latencies),
+        "mean": mean_val,
+        "median": median_val,
         "p90": latencies[int(count * 0.9)] if count > 0 else latencies[0],
         "p95": latencies[int(count * 0.95)] if count > 0 else latencies[0],
         "p99": latencies[int(count * 0.99)] if count > 0 else latencies[0],
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(latencies)
-        stats["variance"] = statistics.variance(latencies)
+        var_val = sum((x - mean_val) ** 2 for x in latencies) / (count - 1)
+        stats["stdev"] = math.sqrt(var_val)
+        stats["variance"] = var_val
     else:
         stats["stdev"] = 0
         stats["variance"] = 0
@@ -148,7 +158,7 @@ def _compute_latency_statistics_impl(
             continue
         durs.sort()
         c = len(durs)
-        span_mean = statistics.mean(durs)
+        span_mean = sum(durs) / c
         per_span_stats[name] = {
             "count": c,
             "mean": span_mean,
@@ -158,8 +168,9 @@ def _compute_latency_statistics_impl(
         }
         # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
         if c > 1:
-            per_span_stats[name]["stdev"] = statistics.stdev(durs)
-            per_span_stats[name]["variance"] = statistics.variance(durs)
+            span_var = sum((x - span_mean) ** 2 for x in durs) / (c - 1)
+            per_span_stats[name]["stdev"] = math.sqrt(span_var)
+            per_span_stats[name]["variance"] = span_var
         else:
             per_span_stats[name]["stdev"] = 0
             per_span_stats[name]["variance"] = 0
