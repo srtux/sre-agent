@@ -710,9 +710,9 @@ def analyze_trace_patterns(
         mean_dur = sum(durs) / n_durs
         if n_durs > 1:
             var_dur = sum((x - mean_dur) ** 2 for x in durs) / (n_durs - 1)
-            stdev_dur: float = math.sqrt(var_dur)
+            stdev_dur = math.sqrt(var_dur)
         else:
-            stdev_dur: float = 0.0
+            stdev_dur = 0.0
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
         if mean_dur > 100 and cv < 0.3:
