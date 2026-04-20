@@ -2355,7 +2355,7 @@ class TestLogDatasetDiscovery:
     async def test_discovers_dataset_from_logging_api(
         self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: AsyncMock
     ) -> None:
-        from sre_agent.api.routers.agent_graph import get_linked_log_dataset
+        from sre_agent.api.helpers.bq_discovery import get_linked_log_dataset
 
         mock_auth.return_value = (MagicMock(token="fake-token"), "project")
 
