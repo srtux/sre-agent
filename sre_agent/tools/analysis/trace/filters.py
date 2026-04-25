@@ -1,10 +1,13 @@
 """Trace filter utilities for building Cloud Trace query strings."""
 
 import logging
-import statistics
 from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common.math_utils import (
+    fast_mean,
+    fast_stdev,
+)
 
 from ...common import adk_tool
 
@@ -24,8 +27,8 @@ class TraceSelector:
             return []
 
         latencies = [trace.get("latency", 0) for trace in traces]
-        mean_latency = statistics.mean(latencies)
-        std_dev_latency = statistics.stdev(latencies) if len(latencies) > 1 else 0
+        mean_latency = fast_mean(latencies)
+        std_dev_latency = fast_stdev(latencies) if len(latencies) > 1 else 0
 
         threshold = mean_latency + 2 * std_dev_latency
 
