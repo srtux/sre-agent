@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - Replacing `statistics` with Native Builtins for Speed
+**Learning:** Python's standard `statistics` module computes values (like mean, variance, etc.) internally with exact fractional tracking, which avoids floating-point drift but introduces severe performance overhead. In one metric tool (`sre_agent/tools/analysis/metrics/statistics.py`), calculations on larger datasets were taking upwards of 1.5s vs 0.19s with math equivalents (an 8x difference).
+**Action:** When precise infinite exactness is unneeded—which is true for almost all APM/telemetry monitoring applications—avoid `import statistics`. Instead, manually calculate mathematical formulas using native Python builtins (`sum()`, `math.sqrt()`) directly to drastically improve metrics analysis throughput speed.
