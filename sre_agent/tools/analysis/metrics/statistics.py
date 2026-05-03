@@ -1,6 +1,6 @@
 """Statistical analysis for time series data."""
 
-import statistics
+import math
 from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
@@ -27,17 +27,22 @@ def calculate_series_stats(
     points_sorted = sorted(points)
     count = len(points_sorted)
 
+    # Optimized: replaced statistics.mean/median with native calculations for faster metric evaluation
     stats = {
         "count": float(count),
         "min": points_sorted[0],
         "max": points_sorted[-1],
-        "mean": statistics.mean(points_sorted),
-        "median": statistics.median(points_sorted),
+        "mean": sum(points_sorted) / count,
+        "median": points_sorted[int(count) // 2]
+        if int(count) % 2 != 0
+        else (points_sorted[int(count) // 2 - 1] + points_sorted[int(count) // 2]) / 2,
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(points_sorted)
-        stats["variance"] = statistics.variance(points_sorted)
+        m = stats["mean"]
+        # Optimized: native math.sqrt and sum for variance/stdev for speed
+        stats["variance"] = sum((x - m) ** 2 for x in points_sorted) / (count - 1)
+        stats["stdev"] = math.sqrt(stats["variance"])
         stats["p90"] = points_sorted[int(count * 0.9)]
         stats["p95"] = points_sorted[int(count * 0.95)]
         stats["p99"] = points_sorted[int(count * 0.99)]
