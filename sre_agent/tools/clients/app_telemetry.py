@@ -12,6 +12,7 @@ It enables the SRE agent to:
 Reference: https://cloud.google.com/app-hub/docs/overview
 """
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -304,16 +305,24 @@ async def get_application_metrics(
         "components": [],
     }
 
+    tasks = []
+    filters_used = []
     for resource_filter in metric_filters:
         full_filter = f'metric.type="{metric_type}" AND {resource_filter}'
-        metric_data = await run_in_threadpool(
-            _list_time_series_sync,
-            project_id,
-            full_filter,
-            minutes_ago,
-            tool_context,
+        filters_used.append(resource_filter)
+        tasks.append(
+            run_in_threadpool(
+                _list_time_series_sync,
+                project_id,
+                full_filter,
+                minutes_ago,
+                tool_context,
+            )
         )
 
+    metrics_results = await asyncio.gather(*tasks)
+
+    for resource_filter, metric_data in zip(filters_used, metrics_results, strict=True):
         if isinstance(metric_data, list):
             results["components"].append(
                 {
@@ -517,6 +526,9 @@ async def get_application_health(
         "components": [],
     }
 
+    tasks = []
+    component_refs = []
+
     # Check each Cloud Run service
     for svc in resources.get("cloud_run_services", []):
         service_name = svc.get("service", "")
@@ -531,6 +543,8 @@ async def get_application_health(
             "status": "HEALTHY",
             "issues": [],
         }
+        health["components"].append(component_health)
+        component_refs.append(component_health)
 
         # Check for recent errors
         error_filter = (
@@ -538,25 +552,11 @@ async def get_application_health(
             f'resource.labels.service_name="{service_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+        tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync, project_id, error_filter, 10, None, tool_context
+            )
         )
-
-        if isinstance(errors, dict) and "entries" in errors:
-            error_count = len(errors.get("entries", []))
-            if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(
-                    f"Cloud Run {service_name}: {error_count} errors"
-                )
-
-        health["components"].append(component_health)
 
     # Check GKE clusters
     seen_clusters: set[str] = set()
@@ -572,6 +572,8 @@ async def get_application_health(
             "status": "HEALTHY",
             "issues": [],
         }
+        health["components"].append(component_health)
+        component_refs.append(component_health)
 
         # Check for pod errors
         error_filter = (
@@ -579,23 +581,28 @@ async def get_application_health(
             f'resource.labels.cluster_name="{cluster_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+        tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync, project_id, error_filter, 10, None, tool_context
+            )
         )
 
-        if isinstance(errors, dict) and "entries" in errors:
-            error_count = len(errors.get("entries", []))
-            if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
-
-        health["components"].append(component_health)
+    if tasks:
+        log_results = await asyncio.gather(*tasks)
+        for comp, errors in zip(component_refs, log_results, strict=True):
+            if isinstance(errors, dict) and "entries" in errors:
+                error_count = len(errors.get("entries", []))
+                if error_count > 0:
+                    comp["status"] = "DEGRADED"
+                    comp["issues"].append(f"{error_count} recent errors")
+                    if comp["type"] == "cloud_run":
+                        health["issues"].append(
+                            f"Cloud Run {comp['name']}: {error_count} errors"
+                        )
+                    else:
+                        health["issues"].append(
+                            f"GKE {comp['name']}: {error_count} errors"
+                        )
 
     # Check Cloud SQL instances
     for sql in resources.get("cloud_sql_instances", []):
