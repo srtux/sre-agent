@@ -2,7 +2,6 @@
 
 import concurrent.futures
 import logging
-import statistics
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, cast
@@ -11,6 +10,7 @@ from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
+from ...common.stats_utils import calculate_stats
 
 logger = logging.getLogger(__name__)
 
@@ -123,20 +123,21 @@ def _compute_latency_statistics_impl(
     latencies.sort()
     count = len(latencies)
 
+    mean, median, stdev, variance = calculate_stats(latencies)
     stats: dict[str, Any] = {
         "count": count,
         "min": latencies[0],
         "max": latencies[-1],
-        "mean": statistics.mean(latencies),
-        "median": statistics.median(latencies),
+        "mean": mean,
+        "median": median,
         "p90": latencies[int(count * 0.9)] if count > 0 else latencies[0],
         "p95": latencies[int(count * 0.95)] if count > 0 else latencies[0],
         "p99": latencies[int(count * 0.99)] if count > 0 else latencies[0],
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(latencies)
-        stats["variance"] = statistics.variance(latencies)
+        stats["stdev"] = stdev
+        stats["variance"] = variance
     else:
         stats["stdev"] = 0
         stats["variance"] = 0
@@ -148,7 +149,7 @@ def _compute_latency_statistics_impl(
             continue
         durs.sort()
         c = len(durs)
-        span_mean = statistics.mean(durs)
+        span_mean, _, span_stdev, span_variance = calculate_stats(durs)
         per_span_stats[name] = {
             "count": c,
             "mean": span_mean,
@@ -158,8 +159,8 @@ def _compute_latency_statistics_impl(
         }
         # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
         if c > 1:
-            per_span_stats[name]["stdev"] = statistics.stdev(durs)
-            per_span_stats[name]["variance"] = statistics.variance(durs)
+            per_span_stats[name]["stdev"] = span_stdev
+            per_span_stats[name]["variance"] = span_variance
         else:
             per_span_stats[name]["stdev"] = 0
             per_span_stats[name]["variance"] = 0
@@ -583,7 +584,7 @@ def perform_causal_analysis(
 
         if not baseline_durations:
             continue
-        baseline_avg = statistics.mean(baseline_durations)
+        baseline_avg = sum(baseline_durations) / len(baseline_durations)
         diff_ms = target_duration - baseline_avg
         diff_percent = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
 
@@ -701,8 +702,7 @@ def analyze_trace_patterns(
         if perf["occurrences"] < 2:
             continue
         durs = perf["durations"]
-        mean_dur = statistics.mean(durs)
-        stdev_dur: float = statistics.stdev(durs) if len(durs) > 1 else 0.0
+        mean_dur, _, stdev_dur, _ = calculate_stats(durs)
         cv = stdev_dur / mean_dur if mean_dur > 0 else 0.0
 
         if mean_dur > 100 and cv < 0.3:
@@ -737,8 +737,10 @@ def analyze_trace_patterns(
 
     trend = "stable"
     if len(trace_durations) >= 3:
-        first = statistics.mean(trace_durations[: len(trace_durations) // 2])
-        second = statistics.mean(trace_durations[len(trace_durations) // 2 :])
+        first_half = trace_durations[: len(trace_durations) // 2]
+        second_half = trace_durations[len(trace_durations) // 2 :]
+        first = sum(first_half) / len(first_half) if first_half else 0.0
+        second = sum(second_half) / len(second_half) if second_half else 0.0
         diff = ((second - first) / first * 100) if first > 0 else 0
         if diff > 15:
             trend = "degrading"

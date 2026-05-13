@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import re
-import statistics
 import time
 from collections.abc import Coroutine
 from datetime import datetime, timezone
@@ -36,6 +35,8 @@ from sre_agent.auth import (
 from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.common import adk_tool
 from sre_agent.tools.common.cache import get_data_cache
+
+from ..common.stats_utils import calculate_stats
 
 __all__ = [
     "_clear_thread_credentials",
@@ -727,9 +728,7 @@ async def find_example_traces(
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
-            p50 = statistics.median(latencies)
-            mean = statistics.mean(latencies)
-            stdev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+            mean, p50, stdev, _ = calculate_stats(latencies)
 
             for trace in valid_traces:
                 has_err = (
