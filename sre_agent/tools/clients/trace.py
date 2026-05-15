@@ -16,9 +16,9 @@ import asyncio
 import contextvars
 import json
 import logging
+import math
 import os
 import re
-import statistics
 import time
 from collections.abc import Coroutine
 from datetime import datetime, timezone
@@ -727,9 +727,19 @@ async def find_example_traces(
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
-            p50 = statistics.median(latencies)
-            mean = statistics.mean(latencies)
-            stdev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+            c = len(latencies)
+            mid = c // 2
+            p50 = (
+                latencies[mid]
+                if c % 2 != 0
+                else (latencies[mid - 1] + latencies[mid]) / 2.0
+            )
+            mean = sum(latencies) / c
+            stdev = (
+                math.sqrt(sum((x - mean) ** 2 for x in latencies) / (c - 1))
+                if c > 1
+                else 0
+            )
 
             for trace in valid_traces:
                 has_err = (
