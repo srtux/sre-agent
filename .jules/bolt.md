@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Parallelize Independent API Calls in AppHub Telemetry]
+**Learning:** Functions iterating through AppHub resources (like services in `cloud_run_services` or clusters in `gke_clusters`) and querying independent log/metric API calls synchronously within a loop (e.g., using `run_in_threadpool` repeatedly without gathering) can lead to severe latency issues due to N+1 sequential bottlenecks.
+**Action:** When querying independent resources from a topology map, instantiate the async calls (e.g., `run_in_threadpool`) to create a list of awaitable tasks, and then use `asyncio.gather` to execute them concurrently.
