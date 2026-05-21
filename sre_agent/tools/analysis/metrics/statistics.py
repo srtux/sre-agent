@@ -1,9 +1,9 @@
 """Statistical analysis for time series data."""
 
-import statistics
 from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common.math_utils import _mean, _median, _stdev, _variance
 
 from ...common.decorators import adk_tool
 
@@ -31,13 +31,13 @@ def calculate_series_stats(
         "count": float(count),
         "min": points_sorted[0],
         "max": points_sorted[-1],
-        "mean": statistics.mean(points_sorted),
-        "median": statistics.median(points_sorted),
+        "mean": _mean(points_sorted),
+        "median": _median(points_sorted),
     }
 
     if count > 1:
-        stats["stdev"] = statistics.stdev(points_sorted)
-        stats["variance"] = statistics.variance(points_sorted)
+        stats["stdev"] = _stdev(points_sorted)
+        stats["variance"] = _variance(points_sorted)
         stats["p90"] = points_sorted[int(count * 0.9)]
         stats["p95"] = points_sorted[int(count * 0.95)]
         stats["p99"] = points_sorted[int(count * 0.99)]
