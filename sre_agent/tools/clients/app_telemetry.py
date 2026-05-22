@@ -12,6 +12,7 @@ It enables the SRE agent to:
 Reference: https://cloud.google.com/app-hub/docs/overview
 """
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -304,16 +305,25 @@ async def get_application_metrics(
         "components": [],
     }
 
+    # ⚡ Bolt Optimization: Run metric queries concurrently to avoid N+1 latency bottleneck
+    tasks = []
     for resource_filter in metric_filters:
         full_filter = f'metric.type="{metric_type}" AND {resource_filter}'
-        metric_data = await run_in_threadpool(
-            _list_time_series_sync,
-            project_id,
-            full_filter,
-            minutes_ago,
-            tool_context,
+        tasks.append(
+            run_in_threadpool(
+                _list_time_series_sync,
+                project_id,
+                full_filter,
+                minutes_ago,
+                tool_context,
+            )
         )
 
+    metric_data_results = await asyncio.gather(*tasks)
+
+    for resource_filter, metric_data in zip(
+        metric_filters, metric_data_results, strict=True
+    ):
         if isinstance(metric_data, list):
             results["components"].append(
                 {
@@ -517,36 +527,56 @@ async def get_application_health(
         "components": [],
     }
 
-    # Check each Cloud Run service
-    for svc in resources.get("cloud_run_services", []):
-        service_name = svc.get("service", "")
-        location_name = svc.get("location", "")
-        if not service_name:
-            continue
+    # ⚡ Bolt Optimization: Check component health logs concurrently
+    cr_services = [
+        s for s in resources.get("cloud_run_services", []) if s.get("service")
+    ]
+    cr_tasks = []
+    for svc in cr_services:
+        error_filter = (
+            f'resource.type="cloud_run_revision" AND '
+            f'resource.labels.service_name="{svc.get("service")}" AND '
+            f"severity>=ERROR"
+        )
+        cr_tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync, project_id, error_filter, 10, None, tool_context
+            )
+        )
 
+    seen_clusters: set[str] = set()
+    gke_clusters = []
+    for c in resources.get("gke_clusters", []):
+        cname = c.get("cluster", "")
+        if cname and cname not in seen_clusters:
+            seen_clusters.add(cname)
+            gke_clusters.append(c)
+
+    gke_tasks = []
+    for cluster in gke_clusters:
+        error_filter = (
+            f'resource.type="k8s_container" AND '
+            f'resource.labels.cluster_name="{cluster.get("cluster")}" AND '
+            f"severity>=ERROR"
+        )
+        gke_tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync, project_id, error_filter, 10, None, tool_context
+            )
+        )
+
+    all_cr_errors = await asyncio.gather(*cr_tasks)
+    all_gke_errors = await asyncio.gather(*gke_tasks)
+
+    for svc, errors in zip(cr_services, all_cr_errors, strict=True):
+        service_name = svc.get("service")
         component_health: dict[str, Any] = {
             "type": "cloud_run",
             "name": service_name,
-            "location": location_name,
+            "location": svc.get("location", ""),
             "status": "HEALTHY",
             "issues": [],
         }
-
-        # Check for recent errors
-        error_filter = (
-            f'resource.type="cloud_run_revision" AND '
-            f'resource.labels.service_name="{service_name}" AND '
-            f"severity>=ERROR"
-        )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
-        )
-
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
@@ -555,46 +585,22 @@ async def get_application_health(
                 health["issues"].append(
                     f"Cloud Run {service_name}: {error_count} errors"
                 )
-
         health["components"].append(component_health)
 
-    # Check GKE clusters
-    seen_clusters: set[str] = set()
-    for cluster in resources.get("gke_clusters", []):
-        cluster_name = cluster.get("cluster", "")
-        if not cluster_name or cluster_name in seen_clusters:
-            continue
-        seen_clusters.add(cluster_name)
-
+    for cluster, errors in zip(gke_clusters, all_gke_errors, strict=True):
+        cluster_name = cluster.get("cluster")
         component_health = {
             "type": "gke_cluster",
             "name": cluster_name,
             "status": "HEALTHY",
             "issues": [],
         }
-
-        # Check for pod errors
-        error_filter = (
-            f'resource.type="k8s_container" AND '
-            f'resource.labels.cluster_name="{cluster_name}" AND '
-            f"severity>=ERROR"
-        )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
-        )
-
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
                 component_health["status"] = "DEGRADED"
                 component_health["issues"].append(f"{error_count} recent errors")
                 health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
-
         health["components"].append(component_health)
 
     # Check Cloud SQL instances
@@ -603,14 +609,14 @@ async def get_application_health(
         if not instance:
             continue
 
-        component_health = {
+        sql_component_health: dict[str, Any] = {
             "type": "cloud_sql",
             "name": instance,
             "status": "HEALTHY",
             "issues": [],
         }
 
-        health["components"].append(component_health)
+        health["components"].append(sql_component_health)
 
     # Determine overall health status
     degraded_count = sum(
