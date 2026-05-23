@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Native Math Operations over `statistics` module]
+**Learning:** Python's standard `statistics` module functions (e.g., `mean`, `variance`, `stdev`, `median`) are significantly slower than native math operations (e.g., `sum() / len()`, `math.sqrt()`) because they prioritize exactness over speed (using `Fraction` internally). In data-intensive parts of the codebase like statistical analysis and trace filtering, this was causing noticeable bottlenecks.
+**Action:** Replace `statistics` module usage with native math equivalents for performance-critical data processing where minor precision loss is negligible. Created `sre_agent/tools/common/math_utils.py` with `_mean`, `_median`, `_variance`, and `_stdev` functions that run ~4x faster, reducing critical path overhead.
