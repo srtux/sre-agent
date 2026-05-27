@@ -12,6 +12,7 @@ It enables the SRE agent to:
 Reference: https://cloud.google.com/app-hub/docs/overview
 """
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -304,7 +305,8 @@ async def get_application_metrics(
         "components": [],
     }
 
-    for resource_filter in metric_filters:
+    # Query metrics for each resource filter in parallel
+    async def fetch_metric(resource_filter: str) -> tuple[str, Any]:
         full_filter = f'metric.type="{metric_type}" AND {resource_filter}'
         metric_data = await run_in_threadpool(
             _list_time_series_sync,
@@ -313,7 +315,12 @@ async def get_application_metrics(
             minutes_ago,
             tool_context,
         )
+        return resource_filter, metric_data
 
+    tasks = [fetch_metric(resource_filter) for resource_filter in metric_filters]
+    metric_results = await asyncio.gather(*tasks)
+
+    for resource_filter, metric_data in metric_results:
         if isinstance(metric_data, list):
             results["components"].append(
                 {
@@ -517,12 +524,15 @@ async def get_application_health(
         "components": [],
     }
 
-    # Check each Cloud Run service
-    for svc in resources.get("cloud_run_services", []):
+    # Gather async tasks for health checks
+    tasks = []
+
+    # Prepare Cloud Run service tasks
+    async def check_cloud_run(svc: dict[str, Any]) -> dict[str, Any] | None:
         service_name = svc.get("service", "")
         location_name = svc.get("location", "")
         if not service_name:
-            continue
+            return None
 
         component_health: dict[str, Any] = {
             "type": "cloud_run",
@@ -532,7 +542,6 @@ async def get_application_health(
             "issues": [],
         }
 
-        # Check for recent errors
         error_filter = (
             f'resource.type="cloud_run_revision" AND '
             f'resource.labels.service_name="{service_name}" AND '
@@ -546,34 +555,22 @@ async def get_application_health(
             None,
             tool_context,
         )
+        return {"component": component_health, "errors": errors, "name": service_name}
 
-        if isinstance(errors, dict) and "entries" in errors:
-            error_count = len(errors.get("entries", []))
-            if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(
-                    f"Cloud Run {service_name}: {error_count} errors"
-                )
+    for svc in resources.get("cloud_run_services", []):
+        tasks.append(check_cloud_run(svc))
 
-        health["components"].append(component_health)
-
-    # Check GKE clusters
+    # Prepare GKE cluster tasks
     seen_clusters: set[str] = set()
-    for cluster in resources.get("gke_clusters", []):
-        cluster_name = cluster.get("cluster", "")
-        if not cluster_name or cluster_name in seen_clusters:
-            continue
-        seen_clusters.add(cluster_name)
 
-        component_health = {
+    async def check_gke_cluster(cluster_name: str) -> dict[str, Any] | None:
+        component_health: dict[str, Any] = {
             "type": "gke_cluster",
             "name": cluster_name,
             "status": "HEALTHY",
             "issues": [],
         }
 
-        # Check for pod errors
         error_filter = (
             f'resource.type="k8s_container" AND '
             f'resource.labels.cluster_name="{cluster_name}" AND '
@@ -587,13 +584,35 @@ async def get_application_health(
             None,
             tool_context,
         )
+        return {"component": component_health, "errors": errors, "name": cluster_name}
+
+    for cluster in resources.get("gke_clusters", []):
+        cluster_name = cluster.get("cluster", "")
+        if not cluster_name or cluster_name in seen_clusters:
+            continue
+        seen_clusters.add(cluster_name)
+        tasks.append(check_gke_cluster(cluster_name))
+
+    # Execute all health checks in parallel
+    results = await asyncio.gather(*tasks)
+
+    # Process results
+    for res in results:
+        if not res:
+            continue
+        component_health = res["component"]
+        errors = res["errors"]
+        name = res["name"]
 
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
                 component_health["status"] = "DEGRADED"
                 component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
+                if component_health["type"] == "cloud_run":
+                    health["issues"].append(f"Cloud Run {name}: {error_count} errors")
+                else:
+                    health["issues"].append(f"GKE {name}: {error_count} errors")
 
         health["components"].append(component_health)
 
