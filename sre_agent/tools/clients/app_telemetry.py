@@ -304,7 +304,9 @@ async def get_application_metrics(
         "components": [],
     }
 
-    for resource_filter in metric_filters:
+    import asyncio
+
+    async def fetch_metric_data(resource_filter: str) -> tuple[str, Any]:
         full_filter = f'metric.type="{metric_type}" AND {resource_filter}'
         metric_data = await run_in_threadpool(
             _list_time_series_sync,
@@ -313,7 +315,12 @@ async def get_application_metrics(
             minutes_ago,
             tool_context,
         )
+        return resource_filter, metric_data
 
+    metric_tasks = [fetch_metric_data(rf) for rf in metric_filters]
+    metric_results = await asyncio.gather(*metric_tasks)
+
+    for resource_filter, metric_data in metric_results:
         if isinstance(metric_data, list):
             results["components"].append(
                 {
@@ -517,12 +524,14 @@ async def get_application_health(
         "components": [],
     }
 
+    import asyncio
+
     # Check each Cloud Run service
-    for svc in resources.get("cloud_run_services", []):
+    async def check_cloud_run(svc: dict[str, Any]) -> dict[str, Any] | None:
         service_name = svc.get("service", "")
         location_name = svc.get("location", "")
         if not service_name:
-            continue
+            return None
 
         component_health: dict[str, Any] = {
             "type": "cloud_run",
@@ -530,6 +539,7 @@ async def get_application_health(
             "location": location_name,
             "status": "HEALTHY",
             "issues": [],
+            "_error_count": 0,
         }
 
         # Check for recent errors
@@ -552,25 +562,27 @@ async def get_application_health(
             if error_count > 0:
                 component_health["status"] = "DEGRADED"
                 component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(
-                    f"Cloud Run {service_name}: {error_count} errors"
-                )
+                component_health["_error_count"] = error_count
 
-        health["components"].append(component_health)
+        return component_health
 
     # Check GKE clusters
     seen_clusters: set[str] = set()
+    clusters_to_check = []
     for cluster in resources.get("gke_clusters", []):
         cluster_name = cluster.get("cluster", "")
         if not cluster_name or cluster_name in seen_clusters:
             continue
         seen_clusters.add(cluster_name)
+        clusters_to_check.append(cluster_name)
 
-        component_health = {
+    async def check_gke_cluster(cluster_name: str) -> dict[str, Any] | None:
+        component_health: dict[str, Any] = {
             "type": "gke_cluster",
             "name": cluster_name,
             "status": "HEALTHY",
             "issues": [],
+            "_error_count": 0,
         }
 
         # Check for pod errors
@@ -593,9 +605,30 @@ async def get_application_health(
             if error_count > 0:
                 component_health["status"] = "DEGRADED"
                 component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
+                component_health["_error_count"] = error_count
 
-        health["components"].append(component_health)
+        return component_health
+
+    cloud_run_tasks = [
+        check_cloud_run(svc) for svc in resources.get("cloud_run_services", [])
+    ]
+    gke_cluster_tasks = [check_gke_cluster(name) for name in clusters_to_check]
+
+    all_tasks = []
+    all_tasks.extend(cloud_run_tasks)
+    all_tasks.extend(gke_cluster_tasks)
+
+    if all_tasks:
+        results_health = await asyncio.gather(*all_tasks)
+        for ch in results_health:
+            if ch:
+                error_count = ch.pop("_error_count", 0)
+                if ch["status"] == "DEGRADED":
+                    prefix = "Cloud Run" if ch["type"] == "cloud_run" else "GKE"
+                    health["issues"].append(
+                        f"{prefix} {ch['name']}: {error_count} errors"
+                    )
+                health["components"].append(ch)
 
     # Check Cloud SQL instances
     for sql in resources.get("cloud_sql_instances", []):
