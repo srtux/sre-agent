@@ -9,3 +9,6 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+## 2024-06-11 - [Parallelize Independent API Calls in App Telemetry]
+**Learning:** Tools like `get_application_metrics` and `get_application_health` often loop through topology components, querying metrics or logs sequentially via `run_in_threadpool`. For applications with multiple services, this produces an N+1 latency bottleneck.
+**Action:** Always check loops that fire independent backend queries in async functions, gather these tasks into a list, and use `asyncio.gather` for parallelized execution to significantly reduce response latency.
