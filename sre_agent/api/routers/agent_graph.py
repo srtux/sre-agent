@@ -6,7 +6,6 @@ trajectory diagrams.
 """
 
 import asyncio
-import functools
 import logging
 import os
 import re
@@ -27,6 +26,13 @@ from sre_agent.auth import GLOBAL_CONTEXT_CREDENTIALS, is_guest_mode
 from sre_agent.tools.synthetic.demo_data_generator import DemoDataGenerator
 
 logger = logging.getLogger(__name__)
+
+# ⚡ Bolt Optimization: BigQuery Iterators offloaded to Threadpool.
+# Calling list() on a BigQuery RowIterator lazily fetches pages synchronously.
+# Previously, list(await anyio.to_thread.run_sync(query)) would fetch pages
+# on the main event loop, blocking it. Now, we use lambda: list(...) inside
+# the run_sync call to ensure all network I/O during pagination happens in a thread.
+
 router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
 
 # Allow only valid GCP identifier characters (alphanumeric, hyphens, underscores, dots)
@@ -360,8 +366,10 @@ async def get_topology(
             """
 
             node_results, edge_results = await asyncio.gather(
-                anyio.to_thread.run_sync(client.query_and_wait, query),
-                anyio.to_thread.run_sync(client.query_and_wait, edges_query),
+                anyio.to_thread.run_sync(lambda: list(client.query_and_wait(query))),
+                anyio.to_thread.run_sync(
+                    lambda: list(client.query_and_wait(edges_query))
+                ),
             )
             node_rows = list(node_results)
             edge_rows = list(edge_results)
@@ -417,8 +425,12 @@ async def get_topology(
             """
 
             node_results, edge_results = await asyncio.gather(
-                anyio.to_thread.run_sync(client.query_and_wait, nodes_query),
-                anyio.to_thread.run_sync(client.query_and_wait, edges_query),
+                anyio.to_thread.run_sync(
+                    lambda: list(client.query_and_wait(nodes_query))
+                ),
+                anyio.to_thread.run_sync(
+                    lambda: list(client.query_and_wait(edges_query))
+                ),
             )
             node_rows = list(node_results)
             edge_rows = list(edge_results)
@@ -615,8 +627,8 @@ async def get_trajectories(
         """
 
         results, loop_results_raw = await asyncio.gather(
-            anyio.to_thread.run_sync(client.query_and_wait, query),
-            anyio.to_thread.run_sync(client.query_and_wait, loop_query),
+            anyio.to_thread.run_sync(lambda: list(client.query_and_wait(query))),
+            anyio.to_thread.run_sync(lambda: list(client.query_and_wait(loop_query))),
         )
         rows = list(results)
         loop_rows = list(loop_results_raw)
@@ -812,16 +824,17 @@ async def get_node_detail(
 
         metrics_results, error_results, payload_results = await asyncio.gather(
             anyio.to_thread.run_sync(
-                functools.partial(client.query_and_wait, job_config=job_config),
-                metrics_query,
+                lambda: list(
+                    client.query_and_wait(metrics_query, job_config=job_config)
+                )
             ),
             anyio.to_thread.run_sync(
-                functools.partial(client.query_and_wait, job_config=job_config),
-                errors_query,
+                lambda: list(client.query_and_wait(errors_query, job_config=job_config))
             ),
             anyio.to_thread.run_sync(
-                functools.partial(client.query_and_wait, job_config=job_config),
-                payload_query,
+                lambda: list(
+                    client.query_and_wait(payload_query, job_config=job_config)
+                )
             ),
         )
 
@@ -1028,7 +1041,9 @@ async def get_edge_detail(
             ]
         )
 
-        rows = list(client.query_and_wait(query, job_config=job_config))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query, job_config=job_config))
+        )
 
         if not rows or rows[0].call_count is None or rows[0].call_count == 0:
             raise HTTPException(
@@ -1142,7 +1157,9 @@ async def get_timeseries(
             ORDER BY target_id, time_bucket ASC
         """
 
-        rows = list(client.query_and_wait(query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         series: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in rows:
@@ -1259,7 +1276,9 @@ async def get_span_details(
             ]
         )
 
-        rows = list(client.query_and_wait(query, job_config=job_config))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query, job_config=job_config))
+        )
 
         if not rows:
             raise HTTPException(status_code=404, detail="Span not found.")
@@ -1315,8 +1334,8 @@ async def get_span_details(
 
                 log_rows = list(
                     await anyio.to_thread.run_sync(
-                        functools.partial(
-                            client.query_and_wait, log_query, job_config=log_job
+                        lambda: list(
+                            client.query_and_wait(log_query, job_config=log_job)
                         )
                     )
                 )
@@ -1425,7 +1444,9 @@ async def get_agent_registry(
             ORDER BY total_sessions DESC
         """
 
-        rows = list(client.query_and_wait(query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         agents: list[dict[str, Any]] = []
         for row in rows:
@@ -1533,7 +1554,9 @@ async def get_tool_registry(
             ORDER BY execution_count DESC
         """
 
-        rows = list(client.query_and_wait(query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         tools: list[dict[str, Any]] = []
         for row in rows:
@@ -1662,7 +1685,9 @@ async def get_dashboard_kpis(
             FROM current_period c, previous_period p
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
         row = rows[0] if rows else None
 
         def _trend(current: float | None, previous: float | None) -> float:
@@ -1782,7 +1807,9 @@ async def get_dashboard_timeseries(
             ORDER BY time_bucket ASC
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         latency: list[dict[str, Any]] = []
         qps: list[dict[str, Any]] = []
@@ -1899,7 +1926,9 @@ async def get_dashboard_models(
             ORDER BY total_calls DESC
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         model_calls: list[dict[str, Any]] = []
         for row in rows:
@@ -1990,7 +2019,9 @@ async def get_dashboard_tools(
             ORDER BY total_calls DESC
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         tool_calls: list[dict[str, Any]] = []
         for row in rows:
@@ -2086,7 +2117,9 @@ async def get_dashboard_logs(
             LIMIT {limit}
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         agent_logs: list[dict[str, Any]] = []
         for row in rows:
@@ -2211,7 +2244,9 @@ async def get_dashboard_sessions(
             LIMIT {limit}
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         agent_sessions: list[dict[str, Any]] = []
         for row in rows:
@@ -2319,7 +2354,9 @@ async def get_dashboard_traces(
             LIMIT {limit}
         """
 
-        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        rows = await anyio.to_thread.run_sync(
+            lambda: list(client.query_and_wait(query))
+        )
 
         agent_traces: list[dict[str, Any]] = []
         for row in rows:
@@ -2426,7 +2463,7 @@ async def get_context_graph(
 
         rows = list(
             await anyio.to_thread.run_sync(
-                functools.partial(client.query_and_wait, query, job_config=job_config)
+                lambda: list(client.query_and_wait(query, job_config=job_config))
             )
         )
 
@@ -2599,7 +2636,7 @@ async def get_session_trajectory(
 
         span_rows = list(
             await anyio.to_thread.run_sync(
-                functools.partial(client.query_and_wait, query, job_config=job_config)
+                lambda: list(client.query_and_wait(query, job_config=job_config))
             )
         )
 
