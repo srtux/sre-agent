@@ -2349,14 +2349,20 @@ class TestLogDatasetDiscovery:
     """Tests for get_linked_log_dataset helper."""
 
     @patch("httpx.AsyncClient.get", new_callable=AsyncMock)
+    @patch("sre_agent.api.helpers.bq_discovery.GLOBAL_CONTEXT_CREDENTIALS")
     @patch("google.auth.default")
     @patch("google.auth.transport.requests.Request")
     @pytest.mark.anyio
     async def test_discovers_dataset_from_logging_api(
-        self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: AsyncMock
+        self,
+        mock_request: MagicMock,
+        mock_auth: MagicMock,
+        mock_creds: MagicMock,
+        mock_get: AsyncMock,
     ) -> None:
         from sre_agent.api.routers.agent_graph import get_linked_log_dataset
 
+        mock_creds.token = "fake-token"
         mock_auth.return_value = (MagicMock(token="fake-token"), "project")
 
         mock_resp = MagicMock()
