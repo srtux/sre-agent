@@ -2348,23 +2348,28 @@ class TestSpanDetailsEndpoint:
 class TestLogDatasetDiscovery:
     """Tests for get_linked_log_dataset helper."""
 
-    @patch("httpx.AsyncClient.get", new_callable=AsyncMock)
-    @patch("google.auth.default")
-    @patch("google.auth.transport.requests.Request")
+    @patch("sre_agent.api.helpers.bq_discovery.httpx.AsyncClient")
+    @patch("sre_agent.api.helpers.bq_discovery.default")
+    @patch("sre_agent.api.helpers.bq_discovery.Request")
     @pytest.mark.anyio
     async def test_discovers_dataset_from_logging_api(
-        self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: AsyncMock
+        self, mock_request: MagicMock, mock_auth: MagicMock, mock_client: MagicMock
     ) -> None:
-        from sre_agent.api.routers.agent_graph import get_linked_log_dataset
+        from sre_agent.api.helpers.bq_discovery import get_linked_log_dataset
 
-        mock_auth.return_value = (MagicMock(token="fake-token"), "project")
+        mock_creds = MagicMock()
+        mock_creds.token = "fake-token"
+        mock_auth.return_value = (mock_creds, "project")
+
+        mock_client_instance = AsyncMock()
+        mock_client.return_value.__aenter__.return_value = mock_client_instance
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "links": [{"bigqueryDataset": {"datasetId": "projects/p/datasets/my_logs"}}]
         }
-        mock_get.return_value = mock_resp
+        mock_client_instance.get.return_value = mock_resp
 
         # Cache is bypassed automatically in pytest
 
@@ -2372,7 +2377,7 @@ class TestLogDatasetDiscovery:
         assert dataset == "my_logs"
 
         # Verify the URL
-        url = mock_get.call_args[0][0]
+        url = mock_client_instance.get.call_args[0][0]
         assert "locations/global/buckets/_Default/links" in url
 
         # Verify the URL
