@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 import re
@@ -5,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 
 router = APIRouter(prefix="/api/help", tags=["help"])
@@ -21,16 +23,38 @@ DOCS_DIR = os.path.join(_ROOT_DIR, "docs", "help")
 _DOCS_RESOLVED = Path(DOCS_DIR).resolve()
 
 
+# ⚡ Bolt Optimization:
+# Caching the manifest (which is statically deployed) prevents repetitive disk I/O.
+# Using lru_cache for in-memory storage alongside run_in_threadpool later
+# prevents blocking the main async event loop on the initial load.
+@functools.lru_cache(maxsize=1)
+def _read_manifest() -> Any:
+    manifest_path = os.path.join(DOCS_DIR, "manifest.json")
+    if not os.path.exists(manifest_path):
+        raise FileNotFoundError("Help manifest not found")
+
+    with open(manifest_path) as f:
+        return json.load(f)
+
+
 @router.get("/manifest")
 async def get_help_manifest() -> Any:
     """Retrieve the manifest of available help topics."""
-    manifest_path = os.path.join(DOCS_DIR, "manifest.json")
-    if not os.path.exists(manifest_path):
-        raise HTTPException(status_code=404, detail="Help manifest not found")
+    try:
+        manifest = await run_in_threadpool(_read_manifest)
+        return manifest
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
-    with open(manifest_path) as f:
-        manifest = json.load(f)
-    return manifest
+
+# ⚡ Bolt Optimization:
+# Content files are static. Caching them reduces file system calls from O(N) to O(1).
+# We use maxsize=32 to safely cover all current help files without unbounded memory usage.
+@functools.lru_cache(maxsize=32)
+def _read_content(content_path: Path) -> str:
+    if not content_path.exists():
+        raise FileNotFoundError("Help topic file not found")
+    return content_path.read_text(encoding="utf-8")
 
 
 @router.get("/content/{content_id}")
@@ -66,8 +90,8 @@ async def get_help_content(content_id: str) -> PlainTextResponse:
             status_code=400, detail="Security violation: Invalid path access"
         )
 
-    if not content_path.exists():
-        raise HTTPException(status_code=404, detail="Help topic file not found")
-
-    content = content_path.read_text(encoding="utf-8")
-    return PlainTextResponse(content)
+    try:
+        content = await run_in_threadpool(_read_content, content_path)
+        return PlainTextResponse(content)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e

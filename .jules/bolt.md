@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [FastAPI Static File Caching]
+**Learning:** The help router (`sre_agent/api/routers/help.py`) was reading `manifest.json` and `content/*.md` files from disk synchronously on every request inside an async endpoint, which blocks the event loop and is slow.
+**Action:** When creating endpoints that serve static or infrequently updated files, combine `functools.lru_cache` to cache the file contents in memory with `fastapi.concurrency.run_in_threadpool` to avoid blocking the async event loop during the initial read. This reduces I/O latency to near zero for subsequent requests.
