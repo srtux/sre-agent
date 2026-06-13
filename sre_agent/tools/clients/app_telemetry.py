@@ -12,6 +12,7 @@ It enables the SRE agent to:
 Reference: https://cloud.google.com/app-hub/docs/overview
 """
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -304,16 +305,26 @@ async def get_application_metrics(
         "components": [],
     }
 
+    # ⚡ Bolt: Use asyncio.gather to concurrently fetch metrics,
+    # eliminating N+1 latency bottleneck for multiple resource filters.
+    tasks = []
     for resource_filter in metric_filters:
         full_filter = f'metric.type="{metric_type}" AND {resource_filter}'
-        metric_data = await run_in_threadpool(
-            _list_time_series_sync,
-            project_id,
-            full_filter,
-            minutes_ago,
-            tool_context,
+        tasks.append(
+            run_in_threadpool(
+                _list_time_series_sync,
+                project_id,
+                full_filter,
+                minutes_ago,
+                tool_context,
+            )
         )
 
+    gathered_results = await asyncio.gather(*tasks)
+
+    for resource_filter, metric_data in zip(
+        metric_filters, gathered_results, strict=True
+    ):
         if isinstance(metric_data, list):
             results["components"].append(
                 {
@@ -518,6 +529,10 @@ async def get_application_health(
     }
 
     # Check each Cloud Run service
+    # ⚡ Bolt: Use asyncio.gather to query multiple Cloud Run service logs concurrently
+    cloud_run_tasks = []
+    cloud_run_components = []
+
     for svc in resources.get("cloud_run_services", []):
         service_name = svc.get("service", "")
         location_name = svc.get("location", "")
@@ -531,6 +546,7 @@ async def get_application_health(
             "status": "HEALTHY",
             "issues": [],
         }
+        cloud_run_components.append((service_name, component_health))
 
         # Check for recent errors
         error_filter = (
@@ -538,15 +554,22 @@ async def get_application_health(
             f'resource.labels.service_name="{service_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+        cloud_run_tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync,
+                project_id,
+                error_filter,
+                10,
+                None,
+                tool_context,
+            )
         )
 
+    cloud_run_results = await asyncio.gather(*cloud_run_tasks)
+
+    for (service_name, component_health), errors in zip(
+        cloud_run_components, cloud_run_results, strict=True
+    ):
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
@@ -559,6 +582,9 @@ async def get_application_health(
         health["components"].append(component_health)
 
     # Check GKE clusters
+    # ⚡ Bolt: Use asyncio.gather to query multiple GKE cluster logs concurrently
+    gke_tasks = []
+    gke_components = []
     seen_clusters: set[str] = set()
     for cluster in resources.get("gke_clusters", []):
         cluster_name = cluster.get("cluster", "")
@@ -572,6 +598,7 @@ async def get_application_health(
             "status": "HEALTHY",
             "issues": [],
         }
+        gke_components.append((cluster_name, component_health))
 
         # Check for pod errors
         error_filter = (
@@ -579,15 +606,22 @@ async def get_application_health(
             f'resource.labels.cluster_name="{cluster_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+        gke_tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync,
+                project_id,
+                error_filter,
+                10,
+                None,
+                tool_context,
+            )
         )
 
+    gke_results = await asyncio.gather(*gke_tasks)
+
+    for (cluster_name, component_health), errors in zip(
+        gke_components, gke_results, strict=True
+    ):
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
