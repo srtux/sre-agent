@@ -474,6 +474,8 @@ async def get_application_health(
     Example:
         get_application_health("my-app")
     """
+    import asyncio
+
     from fastapi.concurrency import run_in_threadpool
 
     from .logging import _list_log_entries_sync
@@ -517,7 +519,11 @@ async def get_application_health(
         "components": [],
     }
 
-    # Check each Cloud Run service
+    # Parallelize log queries
+    tasks = []
+    task_metadata = []
+
+    # Prepare Cloud Run tasks
     for svc in resources.get("cloud_run_services", []):
         service_name = svc.get("service", "")
         location_name = svc.get("location", "")
@@ -532,33 +538,25 @@ async def get_application_health(
             "issues": [],
         }
 
-        # Check for recent errors
         error_filter = (
             f'resource.type="cloud_run_revision" AND '
             f'resource.labels.service_name="{service_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+
+        tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync,
+                project_id,
+                error_filter,
+                10,
+                None,
+                tool_context,
+            )
         )
+        task_metadata.append(component_health)
 
-        if isinstance(errors, dict) and "entries" in errors:
-            error_count = len(errors.get("entries", []))
-            if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(
-                    f"Cloud Run {service_name}: {error_count} errors"
-                )
-
-        health["components"].append(component_health)
-
-    # Check GKE clusters
+    # Prepare GKE tasks
     seen_clusters: set[str] = set()
     for cluster in resources.get("gke_clusters", []):
         cluster_name = cluster.get("cluster", "")
@@ -573,29 +571,47 @@ async def get_application_health(
             "issues": [],
         }
 
-        # Check for pod errors
         error_filter = (
             f'resource.type="k8s_container" AND '
             f'resource.labels.cluster_name="{cluster_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
-            _list_log_entries_sync,
-            project_id,
-            error_filter,
-            10,
-            None,
-            tool_context,
+
+        tasks.append(
+            run_in_threadpool(
+                _list_log_entries_sync,
+                project_id,
+                error_filter,
+                10,
+                None,
+                tool_context,
+            )
         )
+        task_metadata.append(component_health)
+
+    # Gather all results concurrently
+    results = []
+    if tasks:
+        results = await asyncio.gather(*tasks)
+
+    # Process results
+    for i, errors in enumerate(results):
+        comp_health = task_metadata[i]
 
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
+                comp_health["status"] = "DEGRADED"
+                comp_health["issues"].append(f"{error_count} recent errors")
 
-        health["components"].append(component_health)
+                name_prefix = (
+                    "Cloud Run" if comp_health["type"] == "cloud_run" else "GKE"
+                )
+                health["issues"].append(
+                    f"{name_prefix} {comp_health['name']}: {error_count} errors"
+                )
+
+        health["components"].append(comp_health)
 
     # Check Cloud SQL instances
     for sql in resources.get("cloud_sql_instances", []):

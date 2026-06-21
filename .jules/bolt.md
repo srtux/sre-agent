@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Parallelize N+1 Log Queries in AppHub Health]
+**Learning:** Functions like `get_application_health` often loop through topology components (like Cloud Run services and GKE clusters) and sequentially make `run_in_threadpool` external logging queries for each component. This results in an N+1 query bottleneck, causing overall latency to increase linearly with the number of components.
+**Action:** Always accumulate `run_in_threadpool` or direct async calls for independent resources into a list of tasks and use `asyncio.gather` to execute them concurrently, reducing total execution time to the duration of the slowest single request.
