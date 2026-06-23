@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Parallelize Health API Calls in Batch]
+**Learning:** Tools querying component statuses sequentially (like fetching error logs across N cloud run services) suffer from an N+1 API call bottleneck. Iterating over components and calling threadpool sequentially creates significant latency.
+**Action:** Instead of calling `await run_in_threadpool(...)` individually inside the loop, collect all the tasks into a list and execute them concurrently via `await asyncio.gather(*tasks)`. Pair a separate tracking list with `zip(metadata, results, strict=True)` to map the responses back robustly.
