@@ -9,3 +9,6 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+## 2025-05-23 - [Optimized Application Health Log Queries]
+**Learning:** Iterating over components and calling external blocking sync methods sequentially using `run_in_threadpool` in FastAPI can result in heavy N+1 query bottlenecks and wait-time.
+**Action:** When querying logs or external resources across multiple components in `async` functions, gather the individual `run_in_threadpool` tasks into a list and await them concurrently using `asyncio.gather` while maintaining a metadata zip mapping, to significantly reduce total network I/O latency.
