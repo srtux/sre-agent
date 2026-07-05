@@ -9,3 +9,8 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+## 2025-07-05 - [Backend Performance Optimization] App Telemetry Component Health Queries
+
+**Learning:** Sequential, synchronous API calls inside a loop (`await run_in_threadpool(...)`) severely bottleneck the `get_application_health` endpoint. This is due to N+1 API queries checking logs for each individual `cloud_run` and `gke_cluster` resource within the topology. It caused unnecessary wait times and degraded performance.
+
+**Action:** Parallelize N+1 API queries via `asyncio.gather(*tasks)` in `sre_agent/tools/clients/app_telemetry.py`. Store loop-specific metadata context in a parallel list, then pair results back together using `zip(metadata, results, strict=True)`.
