@@ -12,6 +12,7 @@ It enables the SRE agent to:
 Reference: https://cloud.google.com/app-hub/docs/overview
 """
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlparse
@@ -517,6 +518,9 @@ async def get_application_health(
         "components": [],
     }
 
+    log_tasks = []
+    log_metadata = []
+
     # Check each Cloud Run service
     for svc in resources.get("cloud_run_services", []):
         service_name = svc.get("service", "")
@@ -538,7 +542,7 @@ async def get_application_health(
             f'resource.labels.service_name="{service_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
+        task = run_in_threadpool(
             _list_log_entries_sync,
             project_id,
             error_filter,
@@ -546,17 +550,8 @@ async def get_application_health(
             None,
             tool_context,
         )
-
-        if isinstance(errors, dict) and "entries" in errors:
-            error_count = len(errors.get("entries", []))
-            if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(
-                    f"Cloud Run {service_name}: {error_count} errors"
-                )
-
-        health["components"].append(component_health)
+        log_tasks.append(task)
+        log_metadata.append((component_health, "Cloud Run"))
 
     # Check GKE clusters
     seen_clusters: set[str] = set()
@@ -566,7 +561,7 @@ async def get_application_health(
             continue
         seen_clusters.add(cluster_name)
 
-        component_health = {
+        gke_component_health: dict[str, Any] = {
             "type": "gke_cluster",
             "name": cluster_name,
             "status": "HEALTHY",
@@ -579,7 +574,7 @@ async def get_application_health(
             f'resource.labels.cluster_name="{cluster_name}" AND '
             f"severity>=ERROR"
         )
-        errors = await run_in_threadpool(
+        task = run_in_threadpool(
             _list_log_entries_sync,
             project_id,
             error_filter,
@@ -587,15 +582,23 @@ async def get_application_health(
             None,
             tool_context,
         )
+        log_tasks.append(task)
+        log_metadata.append((gke_component_health, "GKE"))
 
+    # Await all log tasks concurrently
+    log_results = await asyncio.gather(*log_tasks)
+
+    for metadata_tuple, errors in zip(log_metadata, log_results, strict=True):
+        metadata, platform_name = metadata_tuple
         if isinstance(errors, dict) and "entries" in errors:
             error_count = len(errors.get("entries", []))
             if error_count > 0:
-                component_health["status"] = "DEGRADED"
-                component_health["issues"].append(f"{error_count} recent errors")
-                health["issues"].append(f"GKE {cluster_name}: {error_count} errors")
-
-        health["components"].append(component_health)
+                metadata["status"] = "DEGRADED"
+                metadata["issues"].append(f"{error_count} recent errors")
+                health["issues"].append(
+                    f"{platform_name} {metadata['name']}: {error_count} errors"
+                )
+        health["components"].append(metadata)
 
     # Check Cloud SQL instances
     for sql in resources.get("cloud_sql_instances", []):
